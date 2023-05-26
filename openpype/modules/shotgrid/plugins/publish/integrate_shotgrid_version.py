@@ -53,7 +53,7 @@ class IntegrateShotgridVersion(pyblish.api.InstancePlugin):
         ### Starts Alkemy-X Override ###
         # Add a few extra fields from OP to SG version
         for op_field, sg_field in self.fields_to_add.items():
-            field_value = context.data.get(op_field) or instance.data.get(op_field)
+            field_value = instance.data.get(op_field) or context.data.get(op_field)
             if field_value:
                 self.log.info("Adding field '{}' to SG as '{}':'{}'".format(
                     op_field, sg_field, field_value)

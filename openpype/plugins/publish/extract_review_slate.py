@@ -43,7 +43,7 @@ class ExtractReviewSlate(publish.Extractor):
             # make it backward compatible and open for slates generator
             # premium plugin
             slates_data = {
-                "*": inst_data["slateFrame"]
+                "*": inst_data.get("slateFrame")
             }
 
         self.log.info("_ slates_data: {}".format(pformat(slates_data)))
