@@ -274,6 +274,8 @@ class ExtractBurnin(publish.Extractor):
                     first_output = False
                 elif "ftrackreview" in new_repre["tags"]:
                     new_repre["tags"].remove("ftrackreview")
+                elif "shotgridreview" in new_repre["tags"]:
+                    new_repre["tags"].remove("shotgridreview")
 
                 burnin_values = {}
                 for key in self.positions:

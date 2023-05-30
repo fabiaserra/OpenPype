@@ -2057,6 +2057,8 @@ class WorkfileSettings(object):
             # it will be dict in value
             if isinstance(value, dict):
                 continue
+            if not value:
+                continue
             if self._root_node[knob].value() not in value:
                 self._root_node[knob].setValue(str(value))
                 log.debug("nuke.root()['{}'] changed to: {}".format(

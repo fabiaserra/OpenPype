@@ -77,32 +77,30 @@ class IntegrateShotgridVersion(pyblish.api.InstancePlugin):
             local_path = get_publish_repre_path(
                 instance, representation, False
             )
-            ### Starts Alkemy-X Override ###
-            # Remove if condition that was only publishing SG versions if tag
-            # 'shotgridreview' is present. For now we have decided to publish
-            # everything getting to this plugin
-            # if "shotgridreview" in representation.get("tags", []):
-            ### Ends Alkemy-X Override ###
-            if "shotgridreview" in representation.get("tags", []) and representation["ext"] in ["mov", "avi"]:
-                self.log.info(
-                    "Upload review: {} for version shotgrid {}".format(
-                        local_path, version.get("id")
+            self.log.info(
+                "Checking whether to integrate representation '%s'.", representation
+            )
+            if "shotgridreview" in representation.get("tags", []):
+                if representation["ext"] in ["mov", "avi", "mp4"]:
+                    self.log.info(
+                        "Upload review: {} for version shotgrid {}".format(
+                            local_path, version.get("id")
+                        )
                     )
-                )
-                self.sg.upload(
-                    "Version",
-                    version.get("id"),
-                    local_path,
-                    field_name="sg_uploaded_movie",
-                )
+                    self.sg.upload(
+                        "Version",
+                        version.get("id"),
+                        local_path,
+                        field_name="sg_uploaded_movie",
+                    )
 
-                data_to_update["sg_path_to_movie"] = local_path
+                    data_to_update["sg_path_to_movie"] = local_path
 
-            elif representation["ext"] in ["jpg", "png", "exr", "tga"]:
-                path_to_frame = local_path.replace("0000", "#")
-                data_to_update["sg_path_to_frames"] = path_to_frame
+                elif representation["ext"] in ["jpg", "png", "exr", "tga"]:
+                    path_to_frame = local_path.replace("0000", "#")
+                    data_to_update["sg_path_to_frames"] = path_to_frame
 
-        self.log.info("Update Shotgrid version with {}".format(data_to_update))
+        self.log.info("Updating Shotgrid version with {}".format(data_to_update))
         self.sg.update("Version", version["id"], data_to_update)
 
         instance.data["shotgridVersion"] = version
