@@ -427,7 +427,6 @@ class ExtractSlateGlobal(publish.Extractor):
             if is_sequence:
                 filename, _frame, ext = check_file.split(".")
                 frame_start = int(repre["frameStart"]) - 1
-                # frame_end = len(repre["files"]) + frame_start
                 output_name = "{}.{}.{}".format(
                     filename,
                     str(frame_start).zfill(int(common_data["frame_padding"])),
@@ -444,7 +443,6 @@ class ExtractSlateGlobal(publish.Extractor):
 
             else:  # else find matching tags and transfer
                 frame_start = int(repre["frameStart"])
-                # frame_end = int(repre["frameEnd"])
                 thumbnail_path = repre_thumbnail_path
                 output_name = "{}_slate_temp.png".format(repre["name"])
                 for tag in repre["tags"]:
@@ -481,7 +479,6 @@ class ExtractSlateGlobal(publish.Extractor):
             slate_repre_data = {
                 "family_match": repre_match or "",
                 "frameStart": int(repre["frameStart"]),
-                # "frameEnd": frame_end,
                 "frameStartHandle": instance.data.get(
                     "frameStartHandle", None
                 ),
