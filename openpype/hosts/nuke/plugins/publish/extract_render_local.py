@@ -108,7 +108,13 @@ class NukeRenderLocal(publish.Extractor,
                     .format(first_frame)
                 ),
                 'files': filenames,
-                "stagingDir": out_dir
+                "stagingDir": out_dir,
+                ### Starts Alkemy-X Override ###
+                # Hard-code the tags as we want to extract a review out
+                # of the rendered frames and add that as part of the SG
+                # review
+                "tags": ["shotgridreview", "review"],
+                ### Ends Alkemy-X Override ###
             }
 
         # inject colorspace data

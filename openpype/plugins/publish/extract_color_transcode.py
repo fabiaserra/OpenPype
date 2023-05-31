@@ -160,6 +160,13 @@ class ExtractOIIOTranscode(publish.Extractor):
                         additional_command_args,
                         self.log
                     )
+                    self.log.info(
+                        "Converted '%s' from colorspace '%s' to colorspace '%s' and saved to '%s'",
+                        input_path,
+                        source_colorspace,
+                        target_colorspace,
+                        output_path,
+                    )
 
                 # cleanup temporary transcoded files
                 for file_name in new_repre["files"]:
@@ -177,6 +184,10 @@ class ExtractOIIOTranscode(publish.Extractor):
                 # Add additional tags from output definition to representation
                 if new_repre.get("tags") is None:
                     new_repre["tags"] = []
+
+                # Remove shotgridreview from tags of new representations
+                new_repre["tags"].remove("shotgridreview")
+
                 for tag in output_def["tags"]:
                     if tag not in new_repre["tags"]:
                         new_repre["tags"].append(tag)
@@ -364,5 +375,5 @@ class ExtractOIIOTranscode(publish.Extractor):
             if "delete" not in repre["tags"]:
                 repre["tags"].append("delete")
 
-        if added_review and "review" in repre["tags"]:
-            repre["tags"].remove("review")
+        # if added_review and "review" in repre["tags"]:
+            # repre["tags"].remove("review")

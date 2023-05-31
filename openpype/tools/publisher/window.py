@@ -62,8 +62,7 @@ class PublisherWindow(QtWidgets.QDialog):
             on_top_flag = QtCore.Qt.Dialog
 
         self.setWindowFlags(
-            self.windowFlags()
-            | QtCore.Qt.WindowTitleHint
+            QtCore.Qt.WindowTitleHint
             | QtCore.Qt.WindowMaximizeButtonHint
             | QtCore.Qt.WindowMinimizeButtonHint
             | QtCore.Qt.WindowCloseButtonHint

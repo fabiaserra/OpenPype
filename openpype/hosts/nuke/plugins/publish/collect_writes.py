@@ -89,7 +89,12 @@ class CollectNukeWrites(pyblish.api.InstancePlugin,
                 'name': ext,
                 'ext': ext,
                 "stagingDir": output_dir,
-                "tags": []
+                ### Starts Alkemy-X Override ###
+                # Hard-code the tags as we want to extract a review out
+                # of the rendered frames and add that as part of the SG
+                # review
+                "tags": ["shotgridreview", "review"]
+                ### Ends Alkemy-X Override ###
             }
 
             # get file path knob
