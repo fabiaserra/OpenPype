@@ -12,7 +12,7 @@ class IntegrateShotgridVersion(pyblish.api.InstancePlugin):
     fields_to_add = {
         "frameStart": "sg_first_frame",
         "frameEnd": "sg_last_frame",
-        "comment": "sg_submission_notes",
+        "comment": "description",
         "family": "sg_version_type",
     }
     ### Ends Alkemy-X Override ###
