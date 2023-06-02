@@ -54,7 +54,14 @@ class ExtractOIIOTranscode(publish.Extractor):
 
     label = "Transcode color spaces"
     order = pyblish.api.ExtractorOrder + 0.019
-
+    ### Starts Alkemy-X Override ###
+    # Filter plugin so it only gets executed for `client_review` family, which
+    # we are currently controlling with a Client Review toggle on the publisher
+    # In the future we might want to run the transcode for other cases but
+    # for now this simplifies our pipeline so we can have more control over
+    # when the transcoding happens.
+    families = ["client_review"]
+    ### Ends Alkemy-X Override ###
     optional = True
 
     # Supported extensions
