@@ -1,7 +1,7 @@
 import os
 import datetime
 import copy
-import pwd
+import platform
 from qtpy import QtCore, QtWidgets, QtGui
 
 from openpype.client import (
@@ -95,6 +95,18 @@ class SidePanelWidget(QtWidgets.QWidget):
         self._on_note_change()
         self.save_clicked.emit()
 
+    def get_user_name(self, file):
+        """Get user name from file path"""
+        # Only run on Unix because pwd module is not available on Windows.
+        # NOTE: we tried adding "win32security" module but it was not working
+        # on all hosts so we decided to just support Linux until migration
+        # to Ayon
+        if platform.system() != "Windows":
+            import pwd
+
+            filestat = os.stat(file)
+            return pwd.getpwuid(filestat.st_uid).pw_name
+
     def set_context(self, asset_id, task_name, filepath, workfile_doc):
         # Check if asset, task and file are selected
         # NOTE workfile document is not requirement
@@ -135,9 +147,7 @@ class SidePanelWidget(QtWidgets.QWidget):
             "<b>Created:</b>",
             creation_time.strftime(datetime_format),
             "<b>Modified:</b>",
-            modification_time.strftime(datetime_format),
-            "<b>User:</b>",
-            pwd.getpwuid(filestat.st_uid).pw_name
+            modification_time.strftime(datetime_format)
         )
         self._details_input.appendHtml("<br>".join(lines))
 
