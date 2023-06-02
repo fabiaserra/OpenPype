@@ -9,14 +9,14 @@ class CollectShotgridEntities(pyblish.api.InstancePlugin):
     """Collect shotgrid entities according to the current context"""
 
     order = pyblish.api.CollectorOrder + 0.499
-    label = "Shotgrid entities"
+    label = "Collect Shotgrid entities"
     ### Starts Alkemy-X Override ###
     def process(self, instance):
         context = instance.context
     ### Ends Alkemy-X Override ###
 
         avalon_project = context.data.get("projectEntity")
-        avalon_asset = context.data.get("assetEntity")
+        avalon_asset = context.data.get("assetEntity") or instance.data.get("assetEntity")
         avalon_task_name = os.getenv("AVALON_TASK")
 
         self.log.info(avalon_project)

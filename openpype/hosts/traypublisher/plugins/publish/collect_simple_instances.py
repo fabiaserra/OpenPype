@@ -122,6 +122,10 @@ class CollectSettingsSimpleInstances(pyblish.api.InstancePlugin):
             representation = self._create_representation_data(
                 filepath_item, repre_names_counter, repre_names
             )
+            frames_data = filepath_item.get("frames")
+            if frames_data:
+                representation["frameStart"] = frames_data[0]
+                representation["frameEnd"] = frames_data[-1]
             instance.data["representations"].append(representation)
             representation_files_mapping.append(
                 (filepaths, representation, source)
@@ -231,7 +235,7 @@ class CollectSettingsSimpleInstances(pyblish.api.InstancePlugin):
             "name": repre_name,
             "stagingDir": filepath_item["directory"],
             "files": filenames,
-            "tags": []
+            "tags": [],
         }
 
     def _calculate_source(self, filepaths):

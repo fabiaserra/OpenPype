@@ -46,6 +46,7 @@ class CollectSlateGlobal(pyblish.api.InstancePlugin):
             "intent": {"label": "", "value": ""},
             "comment": "",
             "scope": "",
+            "fps": context.data["projectEntity"]["data"].get("fps"),
         }
         slate_common_data.update(instance.data["anatomyData"])
         if "customData" in instance.data:
