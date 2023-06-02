@@ -92,9 +92,11 @@ class CollectShotgridSession(pyblish.api.ContextPlugin):
         self.log.info("Setting OPENPYPE_SG_USER to '%s'.", login)
         os.environ["OPENPYPE_SG_USER"] = login
 
+        proxy = os.environ.get('HTTPS_PROXY').lstrip('https://')
         session = shotgun_api3.Shotgun(
             base_url=shotgrid_url,
             script_name=shotgrid_script_name,
+            http_proxy=proxy,
             api_key=shotgrid_script_key,
             sudo_as_login=login,
         )
