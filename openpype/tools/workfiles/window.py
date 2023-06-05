@@ -101,11 +101,12 @@ class SidePanelWidget(QtWidgets.QWidget):
         # NOTE: we tried adding "win32security" module but it was not working
         # on all hosts so we decided to just support Linux until migration
         # to Ayon
-        if platform.system() != "Windows":
-            import pwd
+        if platform.system().lower() == "windows":
+            return None
+        import pwd
 
-            filestat = os.stat(file)
-            return pwd.getpwuid(filestat.st_uid).pw_name
+        filestat = os.stat(file)
+        return pwd.getpwuid(filestat.st_uid).pw_name
 
     def set_context(self, asset_id, task_name, filepath, workfile_doc):
         # Check if asset, task and file are selected
@@ -149,10 +150,11 @@ class SidePanelWidget(QtWidgets.QWidget):
             "<b>Modified:</b>",
             modification_time.strftime(datetime_format),
         )
-        if platform.system() != "Windows":
+        username = self.get_user_name(filepath)
+        if username:
             lines += (
                 "<b>User:</b>",
-                self.get_user_name(filepath),
+                username,
             )
         self._details_input.appendHtml("<br>".join(lines))
 
