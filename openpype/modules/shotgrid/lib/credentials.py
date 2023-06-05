@@ -1,4 +1,4 @@
-
+import os
 from urllib.parse import urlparse
 
 import shotgun_api3
@@ -113,7 +113,7 @@ def check_credentials(
     if not shotgrid_url or not login or not password:
         return False
     try:
-        proxy = os.environ.get('HTTPS_PROXY').lstrip('https://')
+        proxy = os.environ.get("HTTPS_PROXY", "").lstrip("https://")
         session = shotgun_api3.Shotgun(
             shotgrid_url,
             login=login,
