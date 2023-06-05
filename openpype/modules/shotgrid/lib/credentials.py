@@ -113,10 +113,12 @@ def check_credentials(
     if not shotgrid_url or not login or not password:
         return False
     try:
+        proxy = os.environ.get('HTTPS_PROXY').lstrip('https://')
         session = shotgun_api3.Shotgun(
             shotgrid_url,
             login=login,
             password=password,
+            http_proxy=proxy,
         )
         session.preferences_read()
         session.close()
