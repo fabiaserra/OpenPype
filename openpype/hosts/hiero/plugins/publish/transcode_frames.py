@@ -71,68 +71,65 @@ class TranscodeFrames(publish.Extractor):
         staging_dir = self.staging_dir(instance)
         output_template = os.path.join(staging_dir, instance.data["name"])
         output_dir = os.path.dirname(output_template)
+        output_path = f"{output_template}.%04d.{self.output_ext}"
 
         # Determine color transformation
         src_colorspace = track_item.sourceMediaColourTransform()
 
         frame_range = instance.data["frameRange"]
         len_frames = len(frame_range)
-        files = []
-        for index, (input_frame, output_frame) in enumerate(frame_range):
-            output_path = f"{output_template}.{output_frame:04d}.{self.output_ext}"
-            # If either source or output is a video format, transcode using Nuke
-            if (
-                self.output_ext.lower() in self.movie_extensions
-                or source_ext.lower() in self.movie_extensions
-            ):
-                # No need to raise error as Nuke raises an error exit value if something went wrong
-                nuke_transcode_template(
-                    self.output_ext,
-                    input_frame,
-                    output_frame,
-                    output_frame,
-                    input_path,
-                    output_path,
-                    src_colorspace,
-                    self.dst_colorspace,
-                )
+        first_input_frame, first_output_frame = frame_range[0]
+        last_input_frame, last_output_frame = frame_range[-1]
 
+        self.log.info(
+            f"Processing frames {first_output_frame} - {last_output_frame}")
+        # If either source or output is a video format, transcode using Nuke
+        if self.output_ext.lower() in self.movie_extensions or source_ext.lower() in self.movie_extensions:
+            # No need to raise error as Nuke raises an error exit value if something went wrong
+            nuke_transcode_template(
+                self.output_ext,
+                first_input_frame,
+                first_output_frame,
+                last_output_frame,
+                input_path,
+                output_path,
+                src_colorspace,
+                self.dst_colorspace,
+            )
+
+        else:
             # Else use OIIO instead of Nuke for faster transcoding
-            else:
-                args = [oiio_tool_path]
+            args = [oiio_tool_path]
 
-                # Input frame start
-                args.extend(["--frames", str(int(input_frame))])
+            # Input frame start
+            args.extend(["--frames", f"{int(first_input_frame)}-{int(last_input_frame)}"])
 
-                # Input path
-                args.append(input_path)
+            # Input path
+            args.append(input_path)
 
-                # Add colorspace conversion
-                args.extend(["--colorconvert", src_colorspace, self.dst_colorspace])
+            # Add colorspace conversion
+            args.extend(["--colorconvert", src_colorspace, self.dst_colorspace])
 
-                # Copy old metadata
-                args.append("--pastemeta")
+            # Copy old metadata
+            args.append("--pastemeta")
 
-                # Add metadata
-                # Ingest colorspace
-                args.extend(["--sattrib", "alkemy/ingest/colorspace", src_colorspace])
-                # Input Filename
-                args.extend(["--sattrib", "input/filename", input_path])
+            # Add metadata
+            # Ingest colorspace
+            args.extend(["--sattrib", "alkemy/ingest/colorspace", src_colorspace])
+            # Input Filename
+            args.extend(["--sattrib", "input/filename", input_path])
 
-                # Output path
-                args.extend(["-o", output_path])
+            # Output path
+            args.extend(["-o", output_path])
 
-                output = run_subprocess(args)
+            output = run_subprocess(args)
 
-                failed_output = "oiiotool produced no output."
-                if failed_output in output:
-                    raise ValueError("oiiotool processing failed. Args: {}".format(args))
+            failed_output = "oiiotool produced no output."
+            if failed_output in output:
+                raise ValueError("oiiotool processing failed. Args: {}".format(args))
 
-            files.append(output_path)
-
-            # Feedback to user because "oiiotool" can make the publishing
-            # appear unresponsive.
-            self.log.info("Processed {} of {} frames".format(index + 1, len_frames))
+        # If process comes through without error we can assume what files were made
+        files = [f"{output_template}.{frame[1]:04d}.{self.output_ext}" for frame in frame_range]
 
         ext_representations = [
             rep for rep in instance.data["representations"] if rep["ext"] == source_ext

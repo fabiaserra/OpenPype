@@ -263,6 +263,19 @@ def launch_workfiles_app(*args):
 
 def publish(parent):
     """Shorthand to publish from within host"""
+    from qtpy import QtWidgets
+
+    # Ensure that selection includes at least one OP Tag
+    # If No OP tag in selection that most likely Editor forgot to add tag
+    selected_track_items = lib.get_selected_track_items()
+    op_in_selection = any(
+        (lib.get_trackitem_openpype_tag(track_item) for track_item in
+         selected_track_items))
+    if not op_in_selection:
+        QtWidgets.QMessageBox.critical(hiero.ui.mainWindow(), "Info",
+                                       'No OpenPype tags in selection       ')
+        return
+
     return host_tools.show_publish(parent)
 
 
