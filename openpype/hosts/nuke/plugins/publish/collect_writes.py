@@ -36,6 +36,10 @@ class CollectNukeWrites(pyblish.api.InstancePlugin,
             instance.data["families"].append("review")
 
         ### Starts Alkemy-X Override ###
+        # only append 'client_review' family if client_review checkbox is enabled
+        if instance.data.get("client_review"):
+            instance.data["families"].append("client_review")
+
         if publish_node.Class() == "Group":
             child_nodes = napi.get_instance_group_node_childs(instance)
             instance.data["transientData"]["childNodes"] = child_nodes

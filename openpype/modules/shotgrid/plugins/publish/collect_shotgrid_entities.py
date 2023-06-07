@@ -3,20 +3,24 @@ import os
 import pyblish.api
 from openpype.lib.mongo import OpenPypeMongoConnection
 
+
 ### Starts Alkemy-X Override ###
 class CollectShotgridEntities(pyblish.api.InstancePlugin):
 ### Ends Alkemy-X Override ###
     """Collect shotgrid entities according to the current context"""
 
     order = pyblish.api.CollectorOrder + 0.499
-    label = "Shotgrid entities"
+    label = "Collect Shotgrid entities"
+
     ### Starts Alkemy-X Override ###
     def process(self, instance):
         context = instance.context
     ### Ends Alkemy-X Override ###
 
         avalon_project = context.data.get("projectEntity")
-        avalon_asset = context.data.get("assetEntity")
+        avalon_asset = context.data.get("assetEntity") or instance.data.get(
+            "assetEntity"
+        )
         avalon_task_name = os.getenv("AVALON_TASK")
 
         self.log.info(avalon_project)
@@ -53,7 +57,6 @@ class CollectShotgridEntities(pyblish.api.InstancePlugin):
             )
 
     def _find_existing_version(self, code, context):
-
         filters = [
             ["project", "is", context.data.get("shotgridProject")],
             ["sg_task", "is", context.data.get("shotgridTask")],
@@ -72,7 +75,8 @@ def _get_shotgrid_collection(project):
 
 def _get_shotgrid_project(context):
     shotgrid_project_id = context.data["project_settings"].get(
-        "shotgrid_project_id")
+        "shotgrid_project_id"
+    )
     ### Starts Alkemy-X Override ###
     if not shotgrid_project_id:
         shotgrid_data = context.data["project_settings"].get("shotgrid")
