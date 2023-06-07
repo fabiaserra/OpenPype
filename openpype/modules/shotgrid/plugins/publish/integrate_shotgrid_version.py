@@ -1,5 +1,5 @@
-import pyblish.api
 import re
+import pyblish.api
 
 from openpype.pipeline.publish import get_publish_repre_path
 
