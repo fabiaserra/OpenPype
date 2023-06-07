@@ -1,3 +1,4 @@
+import re
 import pyblish.api
 
 from openpype.pipeline.publish import get_publish_repre_path
@@ -97,7 +98,10 @@ class IntegrateShotgridVersion(pyblish.api.InstancePlugin):
                     data_to_update["sg_path_to_movie"] = local_path
 
                 elif representation["ext"] in ["jpg", "png", "exr", "tga"]:
-                    path_to_frame = local_path.replace("0000", "#")
+                    # Define the pattern to match the frame number
+                    padding_pattern = r"\.\d+\."
+                    # Replace the frame number with '%04d'
+                    path_to_frame = re.sub(padding_pattern, ".%04d.", local_path)
                     data_to_update["sg_path_to_frames"] = path_to_frame
 
         self.log.info("Updating Shotgrid version with {}".format(data_to_update))
