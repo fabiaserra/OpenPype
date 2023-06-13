@@ -51,6 +51,7 @@ class TranscodeFrames(publish.Extractor):
     families = ["plate"]
     movie_extensions = {"mov", "mp4", "mxf"}
     output_ext = "exr"
+    output_padding = "%04d"
     dst_colorspace = "scene_linear"
 
     def process(self, instance):
@@ -65,13 +66,15 @@ class TranscodeFrames(publish.Extractor):
 
         # Define source path along with extension
         input_path = media_source.fileinfos()[0].filename()
+        padding_length = media_source.filenamePadding()
+        # Input padding is needed
+        input_padding = f"%0{padding_length}d"
         source_ext = os.path.splitext(input_path)[1][1:]
 
         # Output variables
         staging_dir = self.staging_dir(instance)
         output_template = os.path.join(staging_dir, instance.data["name"])
         output_dir = os.path.dirname(output_template)
-        output_path = f"{output_template}.%04d.{self.output_ext}"
 
         # Determine color transformation
         src_colorspace = track_item.sourceMediaColourTransform()
@@ -86,6 +89,7 @@ class TranscodeFrames(publish.Extractor):
         # If either source or output is a video format, transcode using Nuke
         if self.output_ext.lower() in self.movie_extensions or source_ext.lower() in self.movie_extensions:
             # No need to raise error as Nuke raises an error exit value if something went wrong
+            output_path = f"{output_template}.{self.output_padding}.{self.output_ext}"
             nuke_transcode_template(
                 self.output_ext,
                 first_input_frame,
@@ -102,7 +106,7 @@ class TranscodeFrames(publish.Extractor):
             args = [oiio_tool_path]
 
             # Input frame start
-            args.extend(["--frames", f"{int(first_input_frame)}-{int(last_input_frame)}"])
+            args.extend(["--frames", f"{first_input_frame}-{last_input_frame}"])
 
             # Input path
             args.append(input_path)
@@ -120,6 +124,7 @@ class TranscodeFrames(publish.Extractor):
             args.extend(["--sattrib", "input/filename", input_path])
 
             # Output path
+            output_path = f"{output_template}.{input_padding}.{self.output_ext}"
             args.extend(["-o", output_path])
 
             output = run_subprocess(args)
@@ -127,6 +132,33 @@ class TranscodeFrames(publish.Extractor):
             failed_output = "oiiotool produced no output."
             if failed_output in output:
                 raise ValueError("oiiotool processing failed. Args: {}".format(args))
+
+            # Do a batch rename if there is a frame offset
+            frame_offset = first_output_frame - first_input_frame
+            reverse = frame_offset > 0
+            if frame_offset or input_padding != self.output_padding:
+                self.log.info("Batch renaming")
+                self.log.info(f"    Frame offset: {frame_offset}")
+                self.log.info(f"    Updating padding: {input_padding} -> {self.output_padding}")
+
+                # Reverse is used to make sure frames aren't overwritten
+                # If frame offset is positive rename last to first
+                if reverse:
+                    frames = range(last_input_frame, first_input_frame + 1)
+                # If frame offset is negative rename first to last
+                else:
+                    frames = range(first_input_frame, last_input_frame + 1)
+
+                for frame in frames:
+                    # Build frame path based on media source
+                    # Maintain old frame padding length
+                    old_frame_path = f"{output_path}".replace(input_padding, f"{str(frame).zfill(padding_length)}")
+                    # New padding is forced to 4
+                    new_frame_path = f"{output_path}".replace(input_padding, f"{str(frame + frame_offset).zfill(4)}")
+                    if not os.path.isfile(old_frame_path):
+                        raise OSError(f"Could not rename {old_frame_path}")
+
+                    os.rename(old_frame_path, new_frame_path)
 
         # If process comes through without error we can assume what files were made
         files = [f"{output_template}.{frame[1]:04d}.{self.output_ext}" for frame in frame_range]
@@ -148,10 +180,8 @@ class TranscodeFrames(publish.Extractor):
                 if len(files) == 1
                 else [os.path.basename(x) for x in files],
                 "stagingDir": output_dir,
-                ### Starts Alkemy-X Override ###
                 # After EXRs are processed - review needs be added to the new
                 # representation
-                "tags": ["review"],
-                ### Ends Alkemy-X Override ###
+                "tags": ["review", "shotgridreview"],
             }
         )

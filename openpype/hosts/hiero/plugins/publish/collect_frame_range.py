@@ -64,7 +64,7 @@ class CollectFrameRange(pyblish.api.InstancePlugin):
                 exception = True
                 continue
             else:
-                frame_range.append((input_frame, output_frame))
+                frame_range.append((int(input_frame), int(output_frame)))
 
         # In case of exception need to raise exception to stop publish
         if exception:
