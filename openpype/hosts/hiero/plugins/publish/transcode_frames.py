@@ -182,6 +182,6 @@ class TranscodeFrames(publish.Extractor):
                 "stagingDir": output_dir,
                 # After EXRs are processed - review needs be added to the new
                 # representation
-                "tags": ["review"],
+                "tags": ["review", "shotgridreview"],
             }
         )
