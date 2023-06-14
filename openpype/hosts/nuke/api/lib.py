@@ -30,6 +30,7 @@ from openpype.lib import (
     env_value_to_bool,
     Logger,
     get_version_from_path,
+    StringTemplate,
 )
 
 from openpype.settings import (
@@ -1300,13 +1301,8 @@ def create_write_node(
 
     # build file path to workfiles
     fdir = str(anatomy_filled["work"]["folder"]).replace("\\", "/")
-    fpath = data["fpath_template"].format(
-        work=fdir,
-        version=data["version"],
-        subset=data["subset"],
-        frame=data["frame"],
-        ext=ext
-    )
+    data["work"] = fdir
+    fpath = StringTemplate(data["fpath_template"]).format_strict(data)
 
     # create directory
     if not os.path.isdir(os.path.dirname(fpath)):
@@ -2064,6 +2060,7 @@ class WorkfileSettings(object):
             # it will be dict in value
             if isinstance(value_, dict):
                 continue
+            # skip empty values
             if not value_:
                 continue
             if self._root_node[knob].value() not in value_:
