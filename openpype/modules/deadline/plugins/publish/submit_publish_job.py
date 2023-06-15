@@ -884,6 +884,7 @@ class ProcessSubmittedJobOnFarm(
         # transfer specific families from original instance to new render
         for item in self.families_transfer:
             if item in instance.data.get("families", []):
+                self.log.info("Transfering '%s' family to instance.", item)
                 instance_skeleton_data["families"] += [item]
 
         # transfer specific properties from original instance based on
@@ -891,6 +892,7 @@ class ProcessSubmittedJobOnFarm(
         for key, values in self.instance_transfer.items():
             if key in instance.data.get("families", []):
                 for v in values:
+                    self.log.info("Transfering '%s' property to instance.", v)
                     instance_skeleton_data[v] = instance.data.get(v)
 
         # look into instance data if representations are not having any
@@ -913,7 +915,7 @@ class ProcessSubmittedJobOnFarm(
                     repre["stagingDir"] = staging_dir
 
             if "publish_on_farm" in repre.get("tags"):
-                # create representations attribute of not there
+                # create representations attribute if not there
                 if "representations" not in instance_skeleton_data.keys():
                     instance_skeleton_data["representations"] = []
 
@@ -1152,7 +1154,7 @@ class ProcessSubmittedJobOnFarm(
             json.dump(publish_job, f, indent=4, sort_keys=True)
 
     def _extend_frames(self, asset, subset, start, end):
-        """Get latest version of asset nad update frame range.
+        """Get latest version of asset and update frame range.
 
         Based on minimum and maximuma values.
 
