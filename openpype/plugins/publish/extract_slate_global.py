@@ -357,7 +357,7 @@ class ExtractSlateGlobal(publish.Extractor):
     _slate_data_name = "slateGlobal"
 
     def process(self, instance):
-
+        self.log("EXECUTING SLATE GLOBAL")
         if self._slate_data_name not in instance.data:
             self.log.warning(
                 "Slate Global workflow is not active, skipping slate "
