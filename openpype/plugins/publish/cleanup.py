@@ -37,12 +37,11 @@ class CleanUp(pyblish.api.InstancePlugin):
         "shell"
     ]
     exclude_families = ["clip"]
-    optional = True
     active = True
 
     # Presets
-    paterns = None  # list of regex paterns
-    remove_temp_renders = True
+    paterns = None  # list of regex patterns
+    remove_temp_renders = False
 
     def process(self, instance):
         """Plugin entry point."""
@@ -114,10 +113,10 @@ class CleanUp(pyblish.api.InstancePlugin):
             src = os.path.normpath(src)
             dest = os.path.normpath(dest)
 
-            # add src dir into clearing dir paths (regex paterns)
+            # add src dir into clearing dir paths (regex patterns)
             transfers_dirs.append(os.path.dirname(src))
 
-            # add dest dir into clearing dir paths (regex paterns)
+            # add dest dir into clearing dir paths (regex patterns)
             transfers_dirs.append(os.path.dirname(dest))
 
             if src in skip_cleanup_filepaths:
@@ -140,7 +139,7 @@ class CleanUp(pyblish.api.InstancePlugin):
                     # add dir for cleanup
                     dirnames.append(os.path.dirname(src))
 
-        # clean by regex paterns
+        # clean by regex patterns
         # make unique set
         transfers_dirs = set(transfers_dirs)
 
@@ -158,7 +157,7 @@ class CleanUp(pyblish.api.InstancePlugin):
 
             self.log.debug("__ files: `{}`".format(files))
 
-            # remove all files which match regex patern
+            # remove all files which match regex pattern
             for f in files:
                 if os.path.normpath(f) in skip_cleanup_filepaths:
                     continue

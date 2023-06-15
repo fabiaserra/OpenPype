@@ -433,10 +433,14 @@
             ]
         },
         "CleanUp": {
+            "enabled": true,
             "paterns": [],
             "remove_temp_renders": false
         },
         "CleanUpFarm": {
+            "enabled": false
+        },
+        "ExplicitCleanUp": {
             "enabled": false
         }
     },
