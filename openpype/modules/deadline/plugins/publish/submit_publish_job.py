@@ -634,19 +634,20 @@ class ProcessSubmittedJobOnFarm(
             #   should be review made.
             # - "review" tag is never added when is set to 'False'
             if instance["useSequenceForReview"]:
+                preview = True
                 # toggle preview on if multipart is on
-                if instance.get("multipartExr", False):
-                    self.log.debug(
-                        "Adding preview tag because its multipartExr"
-                    )
-                    preview = True
-                else:
-                    render_file_name = list(collection)[0]
-                    # if filtered aov name is found in filename, toggle it for
-                    # preview video rendering
-                    preview = match_aov_pattern(
-                        host_name, self.aov_filter, render_file_name
-                    )
+                # if instance.get("multipartExr", False):
+                #     self.log.debug(
+                #         "Adding preview tag because its multipartExr"
+                #     )
+                #     preview = True
+                # else:
+                #     render_file_name = list(collection)[0]
+                #     # if filtered aov name is found in filename, toggle it for
+                #     # preview video rendering
+                #     preview = match_aov_pattern(
+                #         host_name, self.aov_filter, render_file_name
+                #     )
 
             staging = os.path.dirname(list(collection)[0])
             success, rootless_staging_dir = (
