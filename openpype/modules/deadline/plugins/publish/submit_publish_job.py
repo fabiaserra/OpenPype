@@ -690,6 +690,11 @@ class ProcessSubmittedJobOnFarm(
                 self.log.info("Adding scanline conversion.")
                 rep["tags"].append("toScanline")
 
+            self.set_representation_colorspace(rep,
+                context=self.context,
+                colorspace=instance.get("colorspace", None)
+            )
+
             representations.append(rep)
 
             self._solve_families(instance, preview)
@@ -866,6 +871,7 @@ class ProcessSubmittedJobOnFarm(
             "multipartExr": data.get("multipartExr", False),
             "jobBatchName": data.get("jobBatchName", ""),
             "useSequenceForReview": data.get("useSequenceForReview", True),
+            "colorspace": data.get("colorspace"),
             # map inputVersions `ObjectId` -> `str` so json supports it
             "inputVersions": list(map(str, data.get("inputVersions", [])))
         }
