@@ -17,6 +17,7 @@ from openpype.client import (
 from openpype.pipeline import (
     get_representation_path,
     legacy_io,
+    publish,
 )
 from openpype.tests.lib import is_in_tests
 from openpype.pipeline.farm.patterning import match_aov_pattern
@@ -79,7 +80,9 @@ def get_resource_files(resources, frame_range=None):
     return list(res_collection)
 
 
-class ProcessSubmittedJobOnFarm(pyblish.api.InstancePlugin):
+class ProcessSubmittedJobOnFarm(
+    pyblish.api.InstancePlugin, publish.ColormanagedPyblishPluginMixin
+):
     """Process Job submitted on farm.
 
     These jobs are dependent on a deadline or muster job
@@ -173,7 +176,9 @@ class ProcessSubmittedJobOnFarm(pyblish.api.InstancePlugin):
     }
 
     # list of family names to transfer to new family if present
-    families_transfer = ["render3d", "render2d", "ftrack", "slate"]
+    families_transfer = [
+        "render3d", "render2d", "ftrack", "slate", "client_review"
+    ]
     plugin_pype_version = "3.0"
 
     # script path for publish_filesequence.py
