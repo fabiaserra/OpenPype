@@ -1202,11 +1202,6 @@
                     "label": "Enabled"
                 },
                 {
-                    "type": "boolean",
-                    "key": "optional",
-                    "label": "Optional"
-                },
-                {
                     "type": "list",
                     "key": "paterns",
                     "label": "Patterns (regex)",
@@ -1234,11 +1229,6 @@
                     "type": "boolean",
                     "key": "enabled",
                     "label": "Enabled"
-                },
-                {
-                    "type": "boolean",
-                    "key": "optional",
-                    "label": "Optional"
                 }
             ]
         },
@@ -1254,11 +1244,6 @@
                     "type": "boolean",
                     "key": "enabled",
                     "label": "Enabled"
-                },
-                {
-                    "type": "boolean",
-                    "key": "optional",
-                    "label": "Optional"
                 }
             ]
         }
