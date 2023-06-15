@@ -675,7 +675,7 @@ class ProcessSubmittedJobOnFarm(
                 # If expectedFile are absolute, we need only filenames
                 "stagingDir": staging,
                 "fps": instance.get("fps"),
-                "tags": ["review"] if preview else [],
+                "tags": ["review", "shotgridreview"] if preview else [],
             }
 
             # poor man exclusion
