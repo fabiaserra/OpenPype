@@ -164,7 +164,6 @@ class ValidateFrames(pyblish.api.InstancePlugin):
 
         frames = range(first_frame, end_frame + 1)
         missing_media_frames = []
-        print(frames, 'frames')
         for output_frame in frames:
             # Calculate input_frame for output by normalizing input media to first frame
             input_frame = source_start + clip_source_in - handle_start + output_frame - first_frame
@@ -201,7 +200,7 @@ class ValidateFrames(pyblish.api.InstancePlugin):
                 previous_frame = frame
                 continue
 
-            if not frame - previous_frame == 1:
+            if frame - previous_frame != 1:
                 fragmented_ranges.append((previous_frame, frame))
 
             previous_frame = frame
