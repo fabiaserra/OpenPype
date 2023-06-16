@@ -1,8 +1,8 @@
 import glob
 import os
-
 import pyblish.api
 
+import openpype
 
 class ValidateFrames(pyblish.api.InstancePlugin):
     """A Pyblish plugin for validating the frame range of a plate or reference instance.
@@ -50,9 +50,6 @@ class ValidateFrames(pyblish.api.InstancePlugin):
         self.frame_paths = sorted(glob.glob(
             f"{input_dir}/{self.frame_head}{'[0-9]' * padding_length}.{source_ext}"))
 
-        missing_media_frames = []
-        fragmented_ranges = []
-        empty_frames = []
         # If the clip extends beyond where media actually starts or ends
         missing_media_frames = self.get_missing_media_frames(instance)
         for missing_output_frame, missing_input_frame in missing_media_frames:
@@ -64,13 +61,15 @@ class ValidateFrames(pyblish.api.InstancePlugin):
 
         # Frame padding will be -1 if source is not an image sequence. In this
         # case we want to ignore anything other than frame sequence
+        fragmented_ranges = []
+        empty_frames = []
         if not padding_length == -1:
             # If the clip has missing frames inbetween media start and end
             fragmented_ranges = self.get_fragmented_ranges()
             for fragment_range_start, fragment_range_end in fragmented_ranges:
                 self.log.critical(
                     "Missing frames between %d-%d" % (
-                    fragment_range_start, fragment_range_start)
+                        fragment_range_start, fragment_range_end)
                 )
 
             # If the frames are empty on disk
@@ -82,19 +81,39 @@ class ValidateFrames(pyblish.api.InstancePlugin):
         if missing_media_frames or fragmented_ranges or empty_frames:
             raise Exception("Frame validation not passed!")
 
+        project_path = self.get_project_path()
+        if not project_path in input_dir:
+            exception_msg = (f"Clip media path is not in project path '{project_path}'\n"
+                 f"    Clip name: {self.track_item.name()}\n"
+                 f"    Media path: {input_path}")
+            raise Exception(exception_msg)
+
+    def get_project_path(self):
+        project_root = openpype.pipeline.context_tools.registered_root()[
+            "work"].__str__()
+
+        project_name = os.environ["AVALON_PROJECT"]
+        project_doc = openpype.client.get_project(project_name)
+        project_code = project_doc["data"]["code"]
+        project_path = os.path.join(project_root, project_code)
+
+        return project_path
+
     def openpype_publish_tag(self):
         """Find the tag that was used to publish the given track item.
 
-        This function iterates through all the tags associated with the given self.track_item and returns the metadata of the
-        tag that belongs to the 'plate' family.
+        This function iterates through all the tags associated with the given
+        self.track_item and returns the metadata of the tag that belongs to the
+        plate and reference family.
 
         Returns:
-            dict: The metadata of the tag belonging to the 'plate' family, or an empty dictionary if no such tag is found.
+            dict: The metadata of the tag belonging to the 'plate' family, or
+            an empty dictionary if no such tag is found.
         """
         for item_tag in self.track_item.tags():
             tag_metadata = item_tag.metadata().dict()
             tag_family = tag_metadata.get("tag.family")
-            if tag_family == "plate":
+            if tag_family in ["plate", "reference"]:
                 return tag_metadata
 
         return None
@@ -102,17 +121,21 @@ class ValidateFrames(pyblish.api.InstancePlugin):
     def get_tag_handles(self):
         """Get the handles of the tag used for publishing the given track item.
 
-        This function retrieves the 'handleStart' and 'handleEnd' values from the metadata of the tag associated with the
-        given self.track_item, and returns them as a tuple.
+        This function retrieves the 'handleStart' and 'handleEnd' values from
+        the metadata of the tag associated with the given self.track_item, and
+        returns them as a tuple.
 
         Args:
-            self.track_item (hiero.core.TrackItem): The track item for which to retrieve the handles.
+            self.track_item (hiero.core.TrackItem): The track item for which to
+            retrieve the handles.
 
         Raises:
-            Exception: If the 'handleStart' or 'handleEnd' field in the tag metadata contains non-numeric characters.
+            Exception: If the 'handleStart' or 'handleEnd' field in the tag
+            metadata contains non-numeric characters.
 
         Returns:
-            tuple: A tuple containing the handle start and handle end values as integers.
+            tuple: A tuple containing the handle start and handle end values as
+             integers.
         """
         tag = self.openpype_publish_tag()
         if tag is None:
@@ -139,8 +162,6 @@ class ValidateFrames(pyblish.api.InstancePlugin):
         source_start = self.track_item.source().sourceIn()
         source_end = self.track_item.source().sourceOut()
 
-        # check can be done based on first and last frame?
-        # Or should each frame be checked?
         frames = range(first_frame, end_frame + 1)
         missing_media_frames = []
         print(frames, 'frames')
