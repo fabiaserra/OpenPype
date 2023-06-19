@@ -51,24 +51,10 @@ class CollectFrameRange(pyblish.api.InstancePlugin):
         self.log.info("Transcoding frame range %d - %d" % (frames[0], frames[-1]))
 
         frame_range = []
-        exception = False
         for output_frame in frames:
             # Calculate input_frame for output by normalizing input media to first frame
             input_frame = source_start + clip_source_in - handle_start + output_frame - first_frame
-            if input_frame - source_start < 0 or input_frame > source_end:
-                self.log.critical(
-                    "Frame out of range of source - Skipping frame '%d' - Source frame '%d'" % (
-                        output_frame, input_frame
-                    )
-                )
-                exception = True
-                continue
-            else:
-                frame_range.append((int(input_frame), int(output_frame)))
-
-        # In case of exception need to raise exception to stop publish
-        if exception:
-            raise Exception("Output frame range out of source frame range of media")
+            frame_range.append((int(input_frame), int(output_frame)))
 
         instance.data["frameRange"] = frame_range
 
