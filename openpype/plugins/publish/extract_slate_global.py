@@ -331,6 +331,13 @@ class SlateCreator:
                 .format(input)
             )
 
+        if input_frame_rate:
+            items = input_frame_rate.split("/")
+            if len(items) == 1:
+                input_frame_rate = float(items[0])
+            elif len(items) == 2:
+                input_frame_rate = float(items[0]) / float(items[1])
+
         if not input_frame_rate:
             input_frame_rate = self.data["fps"]
 
