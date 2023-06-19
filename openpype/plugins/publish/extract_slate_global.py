@@ -279,6 +279,8 @@ class SlateCreator:
         """
         name = os.path.basename(input)
         cmd = [get_oiio_tools_path(tool="iinfo"), "-v", input]
+        self.log.info("COMMAND")
+        self.log.info(cmd)
         try:
             output = run_subprocess(cmd, logger=self.log)
         except TypeError as error:
