@@ -45,7 +45,7 @@ build-debian:
     - 'curl --header "JOB-TOKEN: $CI_JOB_TOKEN" --upload-file ./build/openpype-${openpype_version}-${BUILD_OS}.tar.gz "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/openpype/${openpype_version}/openpype-${openpype_version}-${BUILD_OS}.tar.gz"'
   when: manual
 
-build-ubuntu:
+build-focal:
   tags:
     - dind
   stage: build
@@ -55,7 +55,25 @@ build-ubuntu:
     - apk add --no-cache bash
     - apk add --no-cache curl
     - apk add --no-cache python3
+    # This build uses the unnamed Dockerfile, so we omit $BUILD_OS from the script call
     - ./tools/docker_build.sh
+    - version_command="import os;exec(open(os.path.join('./', 'openpype', 'version.py')).read());print('.'.join(__version__.split('.')[:2]));"
+    - openpype_version="$(python3 -c "${version_command}")"
+    - "tar -czvf ./build/openpype-${openpype_version}-${BUILD_OS}.tar.gz ./build"
+    - 'curl --header "JOB-TOKEN: $CI_JOB_TOKEN" --upload-file ./build/openpype-${openpype_version}-${BUILD_OS}.tar.gz "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/openpype/${openpype_version}/openpype-${openpype_version}-${BUILD_OS}.tar.gz"'
+  when: manual
+
+build-jammy:
+  tags:
+    - dind
+  stage: build
+  variables:
+    BUILD_OS: ubuntu22.04
+  script:
+    - apk add --no-cache bash
+    - apk add --no-cache curl
+    - apk add --no-cache python3
+    - ./tools/docker_build.sh $BUILD_OS
     - version_command="import os;exec(open(os.path.join('./', 'openpype', 'version.py')).read());print('.'.join(__version__.split('.')[:2]));"
     - openpype_version="$(python3 -c "${version_command}")"
     - "tar -czvf ./build/openpype-${openpype_version}-${BUILD_OS}.tar.gz ./build"
