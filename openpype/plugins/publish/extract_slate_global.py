@@ -247,7 +247,8 @@ class SlateCreator:
             self.staging_dir, resolution
         )
         hti = Html2Image(browser_executable=chrome_path,
-                         output_path=self.staging_dir)
+                         output_path=self.staging_dir,
+                         custom_flags=["--no-sandbox"])
         slate_rendered_paths = hti.screenshot(
             html_str=html_template,
             save_as=slate_name,
