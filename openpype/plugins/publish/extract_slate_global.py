@@ -557,6 +557,8 @@ class ExtractSlateGlobal(publish.Extractor):
                     )
                 )
             else:
+                self.log.debug("Trying to assign slateFrames")
+                self.log.debug(instance.data.get("slateFrames"))
                 if not instance.data.get("slateFrames"):
                     instance.data["slateFrames"] = {"*": slate_final_path}
                 else:
