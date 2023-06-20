@@ -27,13 +27,13 @@ class CollectSlateGlobal(pyblish.api.InstancePlugin):
             self.log.warning("ExtractSlateGlobal is not active. Skipping.")
             return
 
-        # if context.data.get("host") == "nuke" and \
-        #         "render.farm" in instance.data.get("families"):
-        #     self.log.warning(
-        #         "Skipping Slate Global Collect in Nuke context, defer to "
-        #         "Deadline."
-        #     )
-        #     return
+        if context.data.get("host") == "nuke" and \
+                "render.farm" in instance.data.get("families"):
+            self.log.warning(
+                "Skipping Slate Global Collect in Nuke context, defer to "
+                "Deadline."
+            )
+            return
 
         self.log.info("ExtractSlateGlobal is active.")
 
@@ -108,16 +108,9 @@ class CollectSlateGlobal(pyblish.api.InstancePlugin):
             instance.data["families"].append("slate")
             instance.data["versionData"]["families"].append("slate")
 
-            # self.log.debug(
-            #     "SlateGlobal Data: %s", json.dumps(
-            #         instance.data["slateGlobal"],
-            #         indent=4,
-            #         default=str
-            #     )
-            # )
             self.log.debug(
-                "Instance Data: %s", json.dumps(
-                    instance.data,
+                "SlateGlobal Data: %s", json.dumps(
+                    instance.data["slateGlobal"],
                     indent=4,
                     default=str
                 )

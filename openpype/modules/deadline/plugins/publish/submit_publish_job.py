@@ -662,8 +662,8 @@ class ProcessSubmittedJobOnFarm(
                 ).format(staging))
 
             frame_start = int(instance.get("frameStartHandle"))
-            # if instance.get("slate"):
-            #     frame_start -= 1
+            if instance.get("slate"):
+                frame_start -= 1
 
             preview = preview and not do_not_add_review
             rep = {

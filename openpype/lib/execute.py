@@ -132,8 +132,7 @@ def run_subprocess(*args, **kwargs):
     kwargs["stdin"] = kwargs.get("stdin", subprocess.PIPE)
     kwargs["env"] = filtered_env
 
-    # logger.info("Executing ({})".format(" ".join(*args)))
-    logger.info(*args)
+    logger.info("Executing ({})".format(" ".join(*args)))
     proc = subprocess.Popen(*args, **kwargs)
 
     full_output = ""
