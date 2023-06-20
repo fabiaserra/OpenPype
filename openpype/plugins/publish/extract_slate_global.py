@@ -557,7 +557,7 @@ class ExtractSlateGlobal(publish.Extractor):
                     )
                 )
             else:
-                if "slateFrames" not in instance.data:
+                if not instance.data.get("slateFrames"):
                     instance.data["slateFrames"] = {"*": slate_final_path}
                 else:
                     instance.data["slateFrames"].update(
