@@ -439,8 +439,8 @@ class NukeSubmitDeadline(pyblish.api.InstancePlugin,
             instance.data["expectedFiles"].append(path)
             return
 
-        # if instance.data.get("slate"):
-        #     start_frame -= 1
+        if instance.data.get("slate"):
+            start_frame -= 1
 
         for i in range(start_frame, (end_frame + 1)):
             instance.data["expectedFiles"].append(
