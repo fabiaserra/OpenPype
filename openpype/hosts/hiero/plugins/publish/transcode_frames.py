@@ -167,9 +167,12 @@ class TranscodeFrames(publish.Extractor):
             rep for rep in instance.data["representations"] if rep["ext"] == source_ext
         ]
         if ext_representations:
+            # Grab tags from original representation
+            tags = ext_representations[0].get("tags", [])
             self.log.info("Removing source representation and replacing with transcoded frames")
             instance.data["representations"].remove(ext_representations[0])
         else:
+            tags = []
             self.log.info("No source ext to remove from representation")
 
         instance.data["representations"].append(
@@ -182,6 +185,6 @@ class TranscodeFrames(publish.Extractor):
                 "stagingDir": output_dir,
                 # After EXRs are processed - review needs be added to the new
                 # representation
-                "tags": ["review", "shotgridreview"],
+                "tags": tags,
             }
         )

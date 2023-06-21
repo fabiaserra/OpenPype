@@ -141,6 +141,9 @@ class CollectOtioSubsetResources(pyblish.api.InstancePlugin):
         self.log.info(
             "frame_start-frame_end: {}-{}".format(frame_start, frame_end))
 
+        ### Starts Alkemy-X Override ###
+        self.family = instance.data["family"]
+        ### Ends Alkemy-X Override ###
         if is_sequence:
             # file sequence way
             if hasattr(media_ref, "target_url_base"):
@@ -234,8 +237,22 @@ class CollectOtioSubsetResources(pyblish.api.InstancePlugin):
                 "frameEnd": end,
             })
 
+        ### Starts Alkemy-X Override ###
+        if self.family in ["reference", "plate"]:
+            self.log.debug("Adding 'shotgridreview' to representation tags")
+            tags = ["shotgridreview"]
+            # If the representation is not video format then make a review of it
+            if not representation_data["ext"] in ["mov", "avi", "mp4"]:
+                self.log.debug("Adding 'review' to representation tags")
+                tags.append("review")
+
+            representation_data["tags"] = tags
+            self.log.debug("Updated representation -> %s" % representation_data)
+        ### Ends Alkemy-X Override ###
+
         if kwargs.get("trim") is True:
             representation_data["tags"] = ["trim"]
+
         return representation_data
 
     def get_template_name(self, instance):

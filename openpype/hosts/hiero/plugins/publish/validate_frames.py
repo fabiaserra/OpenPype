@@ -153,7 +153,12 @@ class ValidateFrames(pyblish.api.InstancePlugin):
         # Define frame output range
         # handleStart and handleEnd are overriden to reflect media range and not absolute handles
         # Solution is to take the handle values directly from the tag instead of instance data
-        handle_start, handle_end = self.get_tag_handles()
+        # Temp solution to references not have handles in tags that match clip
+        if instance.data["family"] == "reference":
+            handle_start, handle_end = 0, 0
+        else:
+            handle_start, handle_end = self.get_tag_handles()
+
         first_frame = instance.data["frameStart"] - handle_start
         end_frame = instance.data["frameEnd"] + handle_end
 
