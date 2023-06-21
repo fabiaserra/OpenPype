@@ -671,7 +671,12 @@ def priority_color_file(color_files, item_name, source_name):
 
 def get_color_file(source_path, item_name, source_name):
     """Find best guess color file for a given source path"""
-    package_path_end = re.split("/incoming/\d+/", source_path)[1]
+    incoming_split = re.split("/incoming/\d+/", source_path)
+    # There is no split which means no incoming directory found
+    if len(incoming_split) == 1:
+        return None, None, None
+
+    package_path_end = incoming_split[1]
     package_name = package_path_end.split("/")[0]
     dated_incoming = source_path.split(package_name)[0]
     package_path = "{0}{1}".format(
