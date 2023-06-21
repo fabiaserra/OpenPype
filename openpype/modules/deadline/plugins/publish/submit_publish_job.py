@@ -17,6 +17,7 @@ from openpype.client import (
 from openpype.pipeline import (
     get_representation_path,
     legacy_io,
+    publish,
 )
 from openpype.tests.lib import is_in_tests
 from openpype.pipeline.farm.patterning import match_aov_pattern
@@ -79,7 +80,9 @@ def get_resource_files(resources, frame_range=None):
     return list(res_collection)
 
 
-class ProcessSubmittedJobOnFarm(pyblish.api.InstancePlugin):
+class ProcessSubmittedJobOnFarm(
+    pyblish.api.InstancePlugin, publish.ColormanagedPyblishPluginMixin
+):
     """Process Job submitted on farm.
 
     These jobs are dependent on a deadline or muster job
@@ -173,7 +176,9 @@ class ProcessSubmittedJobOnFarm(pyblish.api.InstancePlugin):
     }
 
     # list of family names to transfer to new family if present
-    families_transfer = ["render3d", "render2d", "ftrack", "slate"]
+    families_transfer = [
+        "render3d", "render2d", "ftrack", "slate", "client_review"
+    ]
     plugin_pype_version = "3.0"
 
     # script path for publish_filesequence.py
@@ -629,19 +634,20 @@ class ProcessSubmittedJobOnFarm(pyblish.api.InstancePlugin):
             #   should be review made.
             # - "review" tag is never added when is set to 'False'
             if instance["useSequenceForReview"]:
+                preview = True
                 # toggle preview on if multipart is on
-                if instance.get("multipartExr", False):
-                    self.log.debug(
-                        "Adding preview tag because its multipartExr"
-                    )
-                    preview = True
-                else:
-                    render_file_name = list(collection)[0]
-                    # if filtered aov name is found in filename, toggle it for
-                    # preview video rendering
-                    preview = match_aov_pattern(
-                        host_name, self.aov_filter, render_file_name
-                    )
+                # if instance.get("multipartExr", False):
+                #     self.log.debug(
+                #         "Adding preview tag because its multipartExr"
+                #     )
+                #     preview = True
+                # else:
+                #     render_file_name = list(collection)[0]
+                #     # if filtered aov name is found in filename, toggle it for
+                #     # preview video rendering
+                #     preview = match_aov_pattern(
+                #         host_name, self.aov_filter, render_file_name
+                #     )
 
             staging = os.path.dirname(list(collection)[0])
             success, rootless_staging_dir = (
@@ -669,7 +675,7 @@ class ProcessSubmittedJobOnFarm(pyblish.api.InstancePlugin):
                 # If expectedFile are absolute, we need only filenames
                 "stagingDir": staging,
                 "fps": instance.get("fps"),
-                "tags": ["review"] if preview else [],
+                "tags": ["review", "shotgridreview"] if preview else [],
             }
 
             # poor man exclusion
@@ -683,6 +689,11 @@ class ProcessSubmittedJobOnFarm(pyblish.api.InstancePlugin):
             if instance.get("convertToScanline"):
                 self.log.info("Adding scanline conversion.")
                 rep["tags"].append("toScanline")
+
+            self.set_representation_colorspace(rep,
+                context=self.context,
+                colorspace=instance.get("colorspace", None)
+            )
 
             representations.append(rep)
 
@@ -860,6 +871,7 @@ class ProcessSubmittedJobOnFarm(pyblish.api.InstancePlugin):
             "multipartExr": data.get("multipartExr", False),
             "jobBatchName": data.get("jobBatchName", ""),
             "useSequenceForReview": data.get("useSequenceForReview", True),
+            "colorspace": data.get("colorspace"),
             # map inputVersions `ObjectId` -> `str` so json supports it
             "inputVersions": list(map(str, data.get("inputVersions", [])))
         }
@@ -872,6 +884,7 @@ class ProcessSubmittedJobOnFarm(pyblish.api.InstancePlugin):
         # transfer specific families from original instance to new render
         for item in self.families_transfer:
             if item in instance.data.get("families", []):
+                self.log.info("Transfering '%s' family to instance.", item)
                 instance_skeleton_data["families"] += [item]
 
         # transfer specific properties from original instance based on
@@ -879,6 +892,7 @@ class ProcessSubmittedJobOnFarm(pyblish.api.InstancePlugin):
         for key, values in self.instance_transfer.items():
             if key in instance.data.get("families", []):
                 for v in values:
+                    self.log.info("Transfering '%s' property to instance.", v)
                     instance_skeleton_data[v] = instance.data.get(v)
 
         # look into instance data if representations are not having any
@@ -901,7 +915,7 @@ class ProcessSubmittedJobOnFarm(pyblish.api.InstancePlugin):
                     repre["stagingDir"] = staging_dir
 
             if "publish_on_farm" in repre.get("tags"):
-                # create representations attribute of not there
+                # create representations attribute if not there
                 if "representations" not in instance_skeleton_data.keys():
                     instance_skeleton_data["representations"] = []
 
@@ -1140,7 +1154,7 @@ class ProcessSubmittedJobOnFarm(pyblish.api.InstancePlugin):
             json.dump(publish_job, f, indent=4, sort_keys=True)
 
     def _extend_frames(self, asset, subset, start, end):
-        """Get latest version of asset nad update frame range.
+        """Get latest version of asset and update frame range.
 
         Based on minimum and maximuma values.
 

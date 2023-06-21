@@ -247,7 +247,8 @@ class SlateCreator:
             self.staging_dir, resolution
         )
         hti = Html2Image(browser_executable=chrome_path,
-                         output_path=self.staging_dir)
+                         output_path=self.staging_dir,
+                         custom_flags=["--no-sandbox"])
         slate_rendered_paths = hti.screenshot(
             html_str=html_template,
             save_as=slate_name,
@@ -271,46 +272,43 @@ class SlateCreator:
                 "%s: Error creating '%s' due to: %s", name, output, error
             )
 
-    def get_timecode_oiio(self, input, timecode_frame=1001):
-        """Find timecode using OpenImageIO iinfo tool.
+    def _get_video_metadata(self, streams):
+        input_timecode = ""
+        input_width = None
+        input_height = None
+        input_frame_rate = None
+        for stream in streams:
+            if stream.get("codec_type") != "video":
+                continue
+            self.log.debug("FFprobe Video: {}".format(stream))
 
-        Only images with timecode supported, not videos.
+            if "width" not in stream or "height" not in stream:
+                continue
+            width = int(stream["width"])
+            height = int(stream["height"])
+            if not width or not height:
+                continue
 
-        """
-        name = os.path.basename(input)
-        cmd = [get_oiio_tools_path(tool="iinfo"), "-v", input]
-        try:
-            output = run_subprocess(cmd, logger=self.log)
-        except TypeError as error:
-            raise TypeError(
-                "%s: Error finding timecode of '%s' due to: %s",
-                name, input, error
-            )
+            # Make sure that width and height are captured even if frame rate
+            #    is not available
+            input_width = width
+            input_height = height
 
-        timecode = frames_to_timecode(int(timecode_frame), self.data["fps"])
-        self.log.debug("%s: Starting timecode at: %s", name, timecode)
+            tags = stream.get("tags") or {}
+            input_timecode = tags.get("timecode") or ""
 
-        lines = output.splitlines()
-        for line in lines:
-            lower_line = line.lower()
-            if "timecode" in lower_line:
-                timecode = lower_line.split("timecode:")[1].strip()
-                self.log.debug(
-                    "%s: Found timecode on iinfo output: %s", name, timecode
-                )
+            input_frame_rate = stream.get("r_frame_rate")
+            if input_frame_rate is not None:
                 break
+        return (
+            input_width,
+            input_height,
+            input_timecode,
+            input_frame_rate
+        )
 
-        timecode_frames = timecode_to_frames(timecode, self.data["fps"])
-        # Subtracts one frame to account for the slate frame
-        timecode_frames -= 1
-        timecode = frames_to_timecode(timecode_frames, self.data["fps"])
-        self.data["timecode"] = timecode
-        self.log.debug("%s: Timecode for slate set to: %s", name, timecode)
-
-        return timecode
-
-    def get_resolution_ffprobe(self, input):
-        """Find input resolution using ffprobe."""
+    def get_metadata_ffprobe(self, input):
+        """Find input resolution and timecode using ffprobe."""
         try:
             streams = get_ffprobe_streams(input, self.log)
         except Exception as exc:
@@ -319,23 +317,32 @@ class SlateCreator:
                 .format(input, str(exc))
             )
 
-        # Try to find first stream with defined 'width' and 'height'
-        width = None
-        height = None
-        for stream in streams:
-            if "width" in stream and "height" in stream:
-                width = int(stream["width"])
-                height = int(stream["height"])
-                break
+        # Get video metadata
+        (
+            input_width,
+            input_height,
+            input_timecode,
+            input_frame_rate
+        ) = self._get_video_metadata(streams)
 
         # Raise exception of any stream didn't define input resolution
-        if width is None:
+        if input_width is None:
             raise AssertionError(
                 "FFprobe couldn't read resolution from input file: '{}'."
                 .format(input)
             )
 
-        return (width, height)
+        if input_frame_rate:
+            items = input_frame_rate.split("/")
+            if len(items) == 1:
+                input_frame_rate = float(items[0])
+            elif len(items) == 2:
+                input_frame_rate = float(items[0]) / float(items[1])
+
+        if not input_frame_rate:
+            input_frame_rate = self.data["fps"]
+
+        return (input_width, input_height, input_timecode, input_frame_rate)
 
 
 class ExtractSlateGlobal(publish.Extractor):
@@ -450,10 +457,30 @@ class ExtractSlateGlobal(publish.Extractor):
                         if tag in profile["families"]:
                             repre_match = tag
 
-            # add timecode to oiio output args
-            timecode = slate_creator.get_timecode_oiio(
-                file_path, timecode_frame=int(repre["frameStart"])
+            # extract metadata from input
+            width, height, in_timecode, in_fps = slate_creator.get_metadata_ffprobe(
+                file_path
             )
+
+            # add timecode from source to the slate, substract one frame
+            offset_timecode = None
+            if in_timecode:
+                # Offset timecode to account for slate frame
+                timecode_frames = timecode_to_frames(
+                    in_timecode, in_fps
+                )
+                # Subtracts one frame to account for the slate frame
+                timecode_frames -= 1
+                timecode = frames_to_timecode(
+                    timecode_frames, in_fps
+                )
+                self.log.debug("%s: Timecode for slate set to: %s", input, timecode)
+                self.log.debug("Slate Timecode: `{}`".format(
+                    offset_timecode
+                ))
+            else:
+                offset_timecode = frames_to_timecode(int(repre["frameStart"]), in_fps)
+
             oiio_profile = {
                 "families": [],
                 "hosts": [],
@@ -465,17 +492,17 @@ class ExtractSlateGlobal(publish.Extractor):
                     oiio_profile = profile
                     break
 
+            # add timecode to oiio output args
             oiio_profile["oiio_args"]["output"].extend(
                 [
                     "--attrib:type=timecode",
                     "smpte:TimeCode",
-                    '"{}"'.format(timecode),
+                    '"{}"'.format(offset_timecode),
                 ]
             )
             slate_creator.data.update(oiio_profile)
 
             # data Layout and preparation in instance
-            width, height = slate_creator.get_resolution_ffprobe(file_path)
             slate_repre_data = {
                 "family_match": repre_match or "",
                 "frameStart": int(repre["frameStart"]),
@@ -489,7 +516,8 @@ class ExtractSlateGlobal(publish.Extractor):
                 "stagingDir": repre["stagingDir"],
                 "slate_file": output_name,
                 "thumbnail": thumbnail_path,
-                "timecode": timecode,
+                "timecode": offset_timecode,
+                "fps": in_fps,
             }
             slate_data["slate_repre_data"][repre["name"]] = slate_repre_data
             slate_creator.data.update(slate_repre_data)
@@ -530,7 +558,7 @@ class ExtractSlateGlobal(publish.Extractor):
                     )
                 )
             else:
-                if "slateFrames" not in instance.data:
+                if not instance.data.get("slateFrames"):
                     instance.data["slateFrames"] = {"*": slate_final_path}
                 else:
                     instance.data["slateFrames"].update(
