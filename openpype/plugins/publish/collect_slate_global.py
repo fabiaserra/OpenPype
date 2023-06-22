@@ -27,7 +27,7 @@ class CollectSlateGlobal(pyblish.api.InstancePlugin):
             self.log.warning("ExtractSlateGlobal is not active. Skipping.")
             return
 
-        if context.data.get("host") == "nuke" and \
+        if context.data.get("hostName") == "nuke" and \
                 "render.farm" in instance.data.get("families"):
             self.log.warning(
                 "Skipping Slate Global Collect in Nuke context, defer to "
@@ -41,6 +41,7 @@ class CollectSlateGlobal(pyblish.api.InstancePlugin):
         frame_padding = context.data["anatomy"]["templates"]["defaults"]\
             ["frame_padding"]
         slate_common_data = {
+            "version": instance.data["version"],
             "@version": str(instance.data["version"]).zfill(frame_padding),
             "frame_padding": frame_padding,
             "intent": {"label": "", "value": ""},

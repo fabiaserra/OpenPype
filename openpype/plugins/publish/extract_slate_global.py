@@ -431,12 +431,15 @@ class ExtractSlateGlobal(publish.Extractor):
 
             # if representation is a sequence render out a slate before first
             # frame
+            frame_start = int(repre.get("frameStart", instance.data.get("frameStart")))
+            slate_frame_start = frame_start
             if is_sequence:
                 filename, _frame, ext = check_file.split(".")
-                frame_start = int(repre["frameStart"]) - 1
+                slate_frame_start = frame_start - 1
+                frame_end = len(repre["files"]) + frame_start
                 output_name = "{}.{}.{}".format(
                     filename,
-                    str(frame_start).zfill(int(common_data["frame_padding"])),
+                    str(slate_frame_start).zfill(int(common_data["frame_padding"])),
                     ext,
                 )
                 thumbnail_path = os.path.join(
@@ -449,7 +452,7 @@ class ExtractSlateGlobal(publish.Extractor):
                 repre_match = instance.data["family"]
 
             else:  # else find matching tags and transfer
-                frame_start = int(repre["frameStart"])
+                frame_end = int(repre.get("frameEnd", instance.data.get("frameEnd")))
                 thumbnail_path = repre_thumbnail_path
                 output_name = "{}_slate_temp.png".format(repre["name"])
                 for tag in repre["tags"]:
@@ -479,7 +482,8 @@ class ExtractSlateGlobal(publish.Extractor):
                     offset_timecode
                 ))
             else:
-                offset_timecode = frames_to_timecode(int(repre["frameStart"]), in_fps)
+                self.log.warning("Input timecode not found at '%s'", file_path)
+                offset_timecode = frames_to_timecode(frame_start - 1, in_fps)
 
             oiio_profile = {
                 "families": [],
@@ -505,12 +509,13 @@ class ExtractSlateGlobal(publish.Extractor):
             # data Layout and preparation in instance
             slate_repre_data = {
                 "family_match": repre_match or "",
-                "frameStart": int(repre["frameStart"]),
+                "frameStart": frame_start,
+                "frameEnd": frame_end,
                 "frameStartHandle": instance.data.get(
                     "frameStartHandle", None
                 ),
                 "frameEndHandle": instance.data.get("frameEndHandle", None),
-                "real_frameStart": frame_start,
+                "real_frameStart": slate_frame_start,
                 "resolution_width": width,
                 "resolution_height": height,
                 "stagingDir": repre["stagingDir"],
@@ -528,6 +533,8 @@ class ExtractSlateGlobal(publish.Extractor):
                 slate_creator.data["resolution_height"]
             )
             slate_creator.set_staging_dir(slate_creator.data["stagingDir"])
+
+            self.log.info("Slate data: %s", slate_creator.data)
 
             # render slate
             temp_slate = slate_creator.render_slate(
@@ -551,12 +558,13 @@ class ExtractSlateGlobal(publish.Extractor):
             # update representations and instance
             if is_sequence:
                 repre["files"].insert(0, slate_creator.data["slate_file"])
-                repre["frameStart"] = slate_creator.data["real_frameStart"]
                 self.log.debug(
                     "Added '{}' to '{}' representation file list.".format(
                         slate_creator.data["slate_file"], repre["name"]
                     )
                 )
+                repre["frameStart"] = slate_creator.data["real_frameStart"]
+                self.log.debug("Updated 'frameStart' to '%s'.",  repre["frameStart"])
             else:
                 if not instance.data.get("slateFrames"):
                     instance.data["slateFrames"] = {"*": slate_final_path}
