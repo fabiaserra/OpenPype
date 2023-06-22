@@ -4,9 +4,12 @@ from pathlib import Path
 
 import clique
 import pyblish.api
+from openpype.pipeline import publish, legacy_io
 
 
-class CollectSettingsSimpleInstances(pyblish.api.InstancePlugin):
+class CollectSettingsSimpleInstances(
+    pyblish.api.InstancePlugin, publish.ColormanagedPyblishPluginMixin
+    ):
     """Collect data for instances created by settings creators.
 
     Plugin create representations for simple instances based
@@ -211,6 +214,7 @@ class CollectSettingsSimpleInstances(pyblish.api.InstancePlugin):
 
         if "review" not in instance.data["families"]:
             instance.data["families"].append("review")
+            instance.data["families"].append("client_review")
 
         if not instance.data.get("thumbnailSource"):
             instance.data["thumbnailSource"] = first_filepath
@@ -219,6 +223,12 @@ class CollectSettingsSimpleInstances(pyblish.api.InstancePlugin):
         self.log.debug("Representation {} was marked for review. {}".format(
             review_representation["name"], review_path
         ))
+
+        # inject colorspace data
+        input_colorspace = creator_attributes["input_colorspace"]
+        self.set_representation_colorspace(
+            review_representation, instance.context, colorspace=input_colorspace
+        )
 
     def _create_representation_data(
         self, filepath_item, repre_names_counter, repre_names

@@ -301,6 +301,12 @@ class SettingsCreator(TrayPublishCreator):
                 single_item=True,
                 label="Reviewable representations",
                 extensions_label="Single reviewable item"
+            ),
+            TextDef(
+                "input_colorspace",
+                label="Input Colorspace",
+                default="scene_linear",
+                placeholder="Colorspace of input media"
             )
         ]
 
