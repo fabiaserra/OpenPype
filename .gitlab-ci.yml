@@ -29,9 +29,9 @@ build-centos7:
   when: manual
   rules:
     - if: $CI_COMMIT_BRANCH == "release/alkemyx"
-      when: always
+      when: manual
     - if: $CI_COMMIT_BRANCH == "release/alkemyx-develop"
-      when: always
+      when: manual
 
 build-debian:
   tags:
@@ -51,9 +51,9 @@ build-debian:
   when: manual
   rules:
     - if: $CI_COMMIT_BRANCH == "release/alkemyx"
-      when: always
+      when: manual
     - if: $CI_COMMIT_BRANCH == "release/alkemyx-develop"
-      when: always
+      when: manual
 
 build-ubuntu20:
   tags:
@@ -74,9 +74,9 @@ build-ubuntu20:
   when: manual
   rules:
     - if: $CI_COMMIT_BRANCH == "release/alkemyx"
-      when: always
+      when: manual
     - if: $CI_COMMIT_BRANCH == "release/alkemyx-develop"
-      when: always
+      when: manual
 
 build-ubuntu22:
   tags:
@@ -96,9 +96,9 @@ build-ubuntu22:
   when: manual
   rules:
     - if: $CI_COMMIT_BRANCH == "release/alkemyx"
-      when: always
+      when: manual
     - if: $CI_COMMIT_BRANCH == "release/alkemyx-develop"
-      when: always
+      when: manual
 
 build-patch:
   tags:
@@ -117,9 +117,9 @@ build-patch:
   allow_failure: false
   rules:
     - if: $CI_COMMIT_BRANCH == "release/alkemyx"
-      when: always
+      when: manual
     - if: $CI_COMMIT_BRANCH == "release/alkemyx-develop"
-      when: always
+      when: manual
 
 deploy-patch:
   tags:
@@ -134,9 +134,9 @@ deploy-patch:
     - build-patch
   rules:
     - if: $CI_COMMIT_BRANCH == "release/alkemyx"
-      when: always
+      when: manual
     - if: $CI_COMMIT_BRANCH == "release/alkemyx-develop"
-      when: always
+      when: manual
 
 patch-release:
   tags:
@@ -152,9 +152,9 @@ patch-release:
     - deploy-patch
   rules:
     - if: $CI_COMMIT_BRANCH == "release/alkemyx"
-      when: always
+      when: manual
     - if: $CI_COMMIT_BRANCH == "release/alkemyx-develop"
-      when: always
+      when: manual
 
 deploy-to-deadline:
   tags:
