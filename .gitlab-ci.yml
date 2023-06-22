@@ -27,6 +27,11 @@ build-centos7:
     - "tar -czvf ./build/openpype-${openpype_version}-${BUILD_OS}.tar.gz ./build"
     - 'curl --header "JOB-TOKEN: $CI_JOB_TOKEN" --upload-file ./build/openpype-${openpype_version}-${BUILD_OS}.tar.gz "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/openpype/${openpype_version}/openpype-${openpype_version}-${BUILD_OS}.tar.gz"'
   when: manual
+  rules:
+    - if: $CI_COMMIT_BRANCH == "release/alkemyx"
+      when: always
+    - if: $CI_COMMIT_BRANCH == "release/alkemyx-develop"
+      when: always
 
 build-debian:
   tags:
@@ -44,8 +49,13 @@ build-debian:
     - "tar -czvf ./build/openpype-${openpype_version}-${BUILD_OS}.tar.gz ./build"
     - 'curl --header "JOB-TOKEN: $CI_JOB_TOKEN" --upload-file ./build/openpype-${openpype_version}-${BUILD_OS}.tar.gz "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/openpype/${openpype_version}/openpype-${openpype_version}-${BUILD_OS}.tar.gz"'
   when: manual
+  rules:
+    - if: $CI_COMMIT_BRANCH == "release/alkemyx"
+      when: always
+    - if: $CI_COMMIT_BRANCH == "release/alkemyx-develop"
+      when: always
 
-build-focal:
+build-ubuntu20:
   tags:
     - dind
   stage: build
@@ -62,8 +72,13 @@ build-focal:
     - "tar -czvf ./build/openpype-${openpype_version}-${BUILD_OS}.tar.gz ./build"
     - 'curl --header "JOB-TOKEN: $CI_JOB_TOKEN" --upload-file ./build/openpype-${openpype_version}-${BUILD_OS}.tar.gz "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/openpype/${openpype_version}/openpype-${openpype_version}-${BUILD_OS}.tar.gz"'
   when: manual
+  rules:
+    - if: $CI_COMMIT_BRANCH == "release/alkemyx"
+      when: always
+    - if: $CI_COMMIT_BRANCH == "release/alkemyx-develop"
+      when: always
 
-build-jammy:
+build-ubuntu22:
   tags:
     - dind
   stage: build
@@ -79,6 +94,11 @@ build-jammy:
     - "tar -czvf ./build/openpype-${openpype_version}-${BUILD_OS}.tar.gz ./build"
     - 'curl --header "JOB-TOKEN: $CI_JOB_TOKEN" --upload-file ./build/openpype-${openpype_version}-${BUILD_OS}.tar.gz "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/openpype/${openpype_version}/openpype-${openpype_version}-${BUILD_OS}.tar.gz"'
   when: manual
+  rules:
+    - if: $CI_COMMIT_BRANCH == "release/alkemyx"
+      when: always
+    - if: $CI_COMMIT_BRANCH == "release/alkemyx-develop"
+      when: always
 
 build-patch:
   tags:
@@ -95,6 +115,11 @@ build-patch:
       - artifact
   when: manual
   allow_failure: false
+  rules:
+    - if: $CI_COMMIT_BRANCH == "release/alkemyx"
+      when: always
+    - if: $CI_COMMIT_BRANCH == "release/alkemyx-develop"
+      when: always
 
 deploy-patch:
   tags:
@@ -107,17 +132,11 @@ deploy-patch:
     - build-patch
   needs:
     - build-patch
-
-deploy-to-deadline:
-  tags:
-    - cw-pvc
-  stage: deploy
-  script:
-    - rsync -avh --chmod=777 --chown=nobody:nogroup $CI_PROJECT_DIR/openpype/modules/deadline/repository/custom/plugins/* /deadline-repo/custom/plugins/
   rules:
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-      changes:
-        - openpype/modules/deadline/repository/custom/plugins/**/*
+    - if: $CI_COMMIT_BRANCH == "release/alkemyx"
+      when: always
+    - if: $CI_COMMIT_BRANCH == "release/alkemyx-develop"
+      when: always
 
 patch-release:
   tags:
@@ -131,3 +150,19 @@ patch-release:
     - release-cli create --description "Release ${openpype_version} using CI pipeline $CI_PIPELINE_ID" --tag-name "${openpype_version}"
   needs:
     - deploy-patch
+  rules:
+    - if: $CI_COMMIT_BRANCH == "release/alkemyx"
+      when: always
+    - if: $CI_COMMIT_BRANCH == "release/alkemyx-develop"
+      when: always
+
+deploy-to-deadline:
+  tags:
+    - cw-pvc
+  stage: deploy
+  script:
+    - rsync -avh --chmod=777 --chown=nobody:nogroup $CI_PROJECT_DIR/openpype/modules/deadline/repository/custom/plugins/* /deadline-repo/custom/plugins/
+  rules:
+    - if: $CI_COMMIT_BRANCH == "release/alkemyx"
+      changes:
+        - openpype/modules/deadline/repository/custom/plugins/**/*
