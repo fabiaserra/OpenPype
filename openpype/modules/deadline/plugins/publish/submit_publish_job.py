@@ -693,7 +693,7 @@ class ProcessSubmittedJobOnFarm(pyblish.api.InstancePlugin,
 
             self.set_representation_colorspace(rep,
                 context=self.context,
-                colorspace=instance.get("colorspace", None)
+                colorspace=instance_data.get("colorspace", None)
             )
 
             representations.append(rep)
