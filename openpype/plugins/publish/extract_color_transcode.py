@@ -193,7 +193,8 @@ class ExtractOIIOTranscode(publish.Extractor):
                     new_repre["tags"] = []
 
                 # Remove shotgridreview from tags of new representations
-                new_repre["tags"].remove("shotgridreview")
+                if "shotgridreview" in new_repre["tags"]:
+                    new_repre["tags"].remove("shotgridreview")
 
                 for tag in output_def["tags"]:
                     if tag not in new_repre["tags"]:
