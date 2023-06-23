@@ -27,8 +27,7 @@ class CollectSlateGlobal(pyblish.api.InstancePlugin):
             self.log.warning("ExtractSlateGlobal is not active. Skipping.")
             return
 
-        if context.data.get("hostName") == "nuke" and \
-                "render.farm" in instance.data.get("families"):
+        if instance.data.get("farm"):
             self.log.warning(
                 "Skipping Slate Global Collect in Nuke context, defer to "
                 "Deadline."
