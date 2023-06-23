@@ -8,6 +8,7 @@ from openpype.lib.attribute_definitions import (
     BoolDef,
     NumberDef,
     UISeparatorDef,
+    EnumDef,
     TextDef,
 )
 from openpype.lib.transcoding import IMAGE_EXTENSIONS, VIDEO_EXTENSIONS
@@ -308,7 +309,15 @@ class SettingsCreator(TrayPublishCreator):
                 label="Input Colorspace",
                 default="scene_linear",
                 placeholder="Colorspace of input media"
-            )
+            ),
+            EnumDef(
+                "render_target",
+                items={
+                    "local": "Local machine rendering",
+                    "farm": "Farm rendering"
+                },
+                label="Render target"
+            ),
         ]
 
     @classmethod
