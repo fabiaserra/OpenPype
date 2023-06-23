@@ -571,7 +571,7 @@ class ProcessSubmittedJobOnFarm(pyblish.api.InstancePlugin,
                 # If expectedFile are absolute, we need only filenames
                 "stagingDir": staging,
                 "fps": new_instance.get("fps"),
-                "tags": ["review"] if preview else [],
+                "tags": ["review", "shotgridreview"] if preview else [],
                 "colorspaceData": {
                     "colorspace": colorspace,
                     "config": {
@@ -692,10 +692,11 @@ class ProcessSubmittedJobOnFarm(pyblish.api.InstancePlugin,
                 self.log.info("Adding scanline conversion.")
                 rep["tags"].append("toScanline")
 
-            self.set_representation_colorspace(rep,
-                context=self.context,
-                colorspace=instance_data.get("colorspace", None)
-            )
+            if not rep.get("colorspaceData"):
+                self.set_representation_colorspace(rep,
+                    context=self.context,
+                    colorspace=instance_data.get("colorspace", None)
+                )
 
             representations.append(rep)
 
@@ -772,6 +773,11 @@ class ProcessSubmittedJobOnFarm(pyblish.api.InstancePlugin,
                     "Adding \"review\" to families because of preview tag."
                 )
                 families.append("review")
+            if "client_review" not in families:
+                self.log.debug(
+                    "Adding \"client_review\" to families because of preview tag."
+                )
+                families.append("client_review")
             instance["families"] = families
 
     def process(self, instance):

@@ -266,6 +266,7 @@ class CollectSettingsSimpleInstances(
 
         # inject colorspace data
         input_colorspace = creator_attributes["input_colorspace"]
+        instance.data["colorspace"] = input_colorspace
         self.set_representation_colorspace(
             review_representation, instance.context, colorspace=input_colorspace
         )
