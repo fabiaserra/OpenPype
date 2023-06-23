@@ -8,6 +8,7 @@ from openpype.lib.attribute_definitions import (
     BoolDef,
     NumberDef,
     UISeparatorDef,
+    TextDef,
 )
 from openpype.lib.transcoding import IMAGE_EXTENSIONS, VIDEO_EXTENSIONS
 from openpype.pipeline.create import (
