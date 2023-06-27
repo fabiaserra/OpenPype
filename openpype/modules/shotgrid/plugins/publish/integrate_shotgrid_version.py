@@ -30,7 +30,7 @@ class IntegrateShotgridVersion(pyblish.api.InstancePlugin):
         code = "{}_{}_{}".format(
             anatomy["asset"],
             instance.data["subset"],
-            "v{:03}".format(int(instance.data["version"]))
+            "v{:03}".format(int(anatomy["version"]))
         )
         self.log.info("Integrating Shotgrid version with code: {}".format(code))
         ### Ends Alkemy-X Override ###
