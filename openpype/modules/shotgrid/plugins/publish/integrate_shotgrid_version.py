@@ -30,8 +30,9 @@ class IntegrateShotgridVersion(pyblish.api.InstancePlugin):
         code = "{}_{}_{}".format(
             anatomy["asset"],
             instance.data["subset"],
-            "v{:03}".format(int(anatomy["version"]))
+            "v{:03}".format(int(instance.data["version"]))
         )
+        self.log.info("Integrating Shotgrid version with code: {}".format(code))
         ### Ends Alkemy-X Override ###
 
         ### Starts Alkemy-X Override ###
@@ -78,7 +79,7 @@ class IntegrateShotgridVersion(pyblish.api.InstancePlugin):
             local_path = get_publish_repre_path(
                 instance, representation, False
             )
-            self.log.info(
+            self.log.debug(
                 "Checking whether to integrate representation '%s'.", representation
             )
             if "shotgridreview" in representation.get("tags", []):

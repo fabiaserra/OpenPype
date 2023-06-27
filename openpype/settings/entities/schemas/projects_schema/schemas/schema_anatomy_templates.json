@@ -38,6 +38,16 @@
                     "type": "text",
                     "key": "frame",
                     "label": "Frame"
+                },
+                {
+                    "type": "text",
+                    "key": "delivery_version_padding",
+                    "label": "Delivery Version Padding"
+                },
+                {
+                    "type": "text",
+                    "key": "delivery_frame_padding",
+                    "label": "Delivery Frame Padding"
                 }
             ]
         },

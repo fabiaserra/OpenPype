@@ -3,7 +3,9 @@
         "version_padding": 3,
         "version": "v{version:0>{@version_padding}}",
         "frame_padding": 4,
-        "frame": "{frame:0>{@frame_padding}}"
+        "frame": "{frame:0>{@frame_padding}}",
+        "delivery_version_padding": "{@version_padding}",
+        "delivery_frame_padding": "{@frame_padding}"
     },
     "work": {
         "folder": "{root[work]}/{project[name]}/{hierarchy}/{asset}/work/{task[name]}",

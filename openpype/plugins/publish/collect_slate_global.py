@@ -1,7 +1,9 @@
 import os
 import json
 import pyblish.api
+
 from openpype import resources
+from openpype.pipeline import Anatomy
 
 
 class CollectSlateGlobal(pyblish.api.InstancePlugin):
@@ -37,12 +39,24 @@ class CollectSlateGlobal(pyblish.api.InstancePlugin):
         self.log.info("ExtractSlateGlobal is active.")
 
         # Create dictionary of common data across all slates
-        frame_padding = context.data["anatomy"]["templates"]["defaults"]\
-            ["frame_padding"]
+        project_name = instance.data["anatomyData"]["project"]["name"]
+        anatomy = Anatomy(project_name)
+        frame_padding = anatomy.templates["work"].get("frame_padding")
+        version_padding = anatomy.templates["work"].get("version_padding")
+        delivery_version_padding = anatomy.templates["work"].get("delivery_version_padding")
+        if delivery_version_padding:
+            version_padding = int(delivery_version_padding)
+
+        # Collect possible delivery overrides
+        delivery_names_dict = context.data["shotgridDeliveryNames"]
+
         slate_common_data = {
             "version": instance.data["version"],
-            "@version": str(instance.data["version"]).zfill(frame_padding),
+            "@version": str(instance.data["version"]).zfill(version_padding),
             "frame_padding": frame_padding,
+            "slate_version_padding": version_padding,
+            "slate_project": delivery_names_dict.get("delivery_project") or project_name,
+            "slate_asset": delivery_names_dict.get("delivery_asset") or instance.data["anatomyData"]["asset"],
             "intent": {"label": "", "value": ""},
             "comment": "",
             "scope": "",

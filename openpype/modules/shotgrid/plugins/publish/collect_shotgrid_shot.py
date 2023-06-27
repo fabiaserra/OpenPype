@@ -26,15 +26,24 @@ class CollectShotgridShot(pyblish.api.InstancePlugin):
                 "Overriding entity with corresponding shot for clip: {}".format(sg_shot)
             )
         else:
-            raise Exception("No Shotgrid shot found under clip name: {}".format(anatomy_data["asset"]))
+            raise Exception(
+                "No Shotgrid shot found under clip name: {}".format(
+                    anatomy_data["asset"]
+                )
+            )
 
 
 def _get_shotgrid_shot(sg, anatomy):
     shot_name = anatomy["asset"]
 
-    # OP project name/code isn't always sg_code. This approach gives a sure fire way to match to a SG project
+    # OP project name/code isn't always sg_code. This approach gives a sure fire way
+    # to match to a SG project
     filters = [
-        ["project.Project.sg_code", "in", [anatomy["project"]["name"], anatomy["project"]["code"]]],
+        [
+            "project.Project.sg_code",
+            "in",
+            [anatomy["project"]["name"], anatomy["project"]["code"]],
+        ],
         ["code", "is", shot_name],
     ]
     sg_shot = sg.find_one("Shot", filters, ["code"])
