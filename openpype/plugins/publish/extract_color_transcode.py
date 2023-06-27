@@ -193,7 +193,8 @@ class ExtractOIIOTranscode(publish.Extractor):
                     new_repre["tags"] = []
 
                 # Remove shotgridreview from tags of new representations
-                new_repre["tags"].remove("shotgridreview")
+                if "shotgridreview" in new_repre["tags"]:
+                    new_repre["tags"].remove("shotgridreview")
 
                 for tag in output_def["tags"]:
                     if tag not in new_repre["tags"]:
@@ -201,6 +202,11 @@ class ExtractOIIOTranscode(publish.Extractor):
 
                     if tag == "review":
                         added_review = True
+
+                # If there is only 1 file outputted then convert list to
+                # string, cause that'll indicate that its not a sequence.
+                if len(new_repre["files"]) == 1:
+                    new_repre["files"] = new_repre["files"][0]
 
                 new_representations.append(new_repre)
                 added_representations = True

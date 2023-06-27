@@ -37,7 +37,7 @@ class CollectShotgridEntities(pyblish.api.InstancePlugin):
         if sg_project:
             context.data["shotgridProject"] = sg_project
             self.log.info(
-                "Collected correspondig shotgrid project : {}".format(
+                "Collected corresponding shotgrid project : {}".format(
                     sg_project
                 )
             )
@@ -45,7 +45,7 @@ class CollectShotgridEntities(pyblish.api.InstancePlugin):
         if sg_task:
             context.data["shotgridTask"] = sg_task
             self.log.info(
-                "Collected correspondig shotgrid task : {}".format(sg_task)
+                "Collected corresponding shotgrid task : {}".format(sg_task)
             )
 
         if sg_entity:
@@ -53,7 +53,7 @@ class CollectShotgridEntities(pyblish.api.InstancePlugin):
             instance.data["shotgridEntity"] = sg_entity
             ### Ends Alkemy-X Override ###
             self.log.info(
-                "Collected correspondig shotgrid entity : {}".format(sg_entity)
+                "Collected corresponding shotgrid entity : {}".format(sg_entity)
             )
 
     def _find_existing_version(self, code, context):
