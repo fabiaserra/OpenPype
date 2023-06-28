@@ -269,12 +269,38 @@ def publish(parent):
     # If No OP tag in selection that most likely Editor forgot to add tag
     selected_track_items = lib.get_selected_track_items()
     op_in_selection = any(
-        (lib.get_trackitem_openpype_tag(track_item) for track_item in
-         selected_track_items))
+        lib.get_trackitem_openpype_tag(track_item) for track_item in
+        selected_track_items)
+
+    ignored_op_clips = []
+    for track_item in selected_track_items:
+        if lib.get_trackitem_openpype_tag(track_item) and (
+                track_item.parent().isLocked() or not
+                track_item.parent().isEnabled() or not
+                track_item.isEnabled()
+                ):
+            ignored_op_clips.append(track_item.name())
+
+
     if not op_in_selection:
         QtWidgets.QMessageBox.critical(hiero.ui.mainWindow(), "Info",
                                        'No OpenPype tags in selection       ')
         return
+
+    if ignored_op_clips:
+        answer = QtWidgets.QMessageBox.question(
+            hiero.ui.mainWindow(),
+            "Info",
+            "OpenPype clips in selection that:          \n" \
+            "    Track is locked\n" \
+            "    Track is disabled\n" \
+            "    Clip is disabled\n\n" \
+            "Skipped clips:\n{}\n\n" \
+            "Would you like to continue?".format(
+                "\n".join(ignored_op_clips))
+            )
+        if answer == QtWidgets.QMessageBox.StandardButton.No:
+            return
 
     return host_tools.show_publish(parent)
 
