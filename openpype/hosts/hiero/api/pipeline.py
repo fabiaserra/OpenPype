@@ -291,12 +291,12 @@ def publish(parent):
         answer = QtWidgets.QMessageBox.question(
             hiero.ui.mainWindow(),
             "Info",
-            'OpenPype clips in selection that:          \n' \
-            '    Track is locked\n' \
-            '    Track is disabled\n' \
-            '    Clip is disabled\n\n' \
-            'Skipped clips:\n{}\n\n' \
-            'Would you like to continue?'.format(
+            "OpenPype clips in selection that:          \n" \
+            "    Track is locked\n" \
+            "    Track is disabled\n" \
+            "    Clip is disabled\n\n" \
+            "Skipped clips:\n{}\n\n" \
+            "Would you like to continue?".format(
                 "\n".join(ignored_op_clips))
             )
         if answer == QtWidgets.QMessageBox.StandardButton.No:
