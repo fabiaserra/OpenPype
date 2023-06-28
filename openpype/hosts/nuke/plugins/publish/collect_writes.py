@@ -177,7 +177,7 @@ class CollectNukeWrites(pyblish.api.InstancePlugin,
                     collected_frames
                 )
                 if "expectedFiles" not in instance.data:
-                    instance.data["expectedFiles"] = list()
+                    instance.data["expectedFiles"] = []
                     for source_file in collected_frames:
                         instance.data["expectedFiles"].append(os.path.join(output_dir, source_file))
 
