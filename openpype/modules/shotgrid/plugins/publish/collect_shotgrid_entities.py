@@ -57,35 +57,39 @@ class CollectShotgridEntities(pyblish.api.InstancePlugin):
             )
 
         ### Starts Alkemy-X Override ###
-        # Collect whether project and current asset have any delivery
-        # name overrides
-        delivery_names = _find_delivery_names(context, instance)
-        context.data["shotgridDeliveryNames"] = delivery_names
+        # Collect the templates used for delivery
+        delivery_overrides = _find_delivery_overrides(context, instance)
+        context.data["shotgridDeliveryOverrides"] = delivery_overrides
         ### Ends Alkemy-X Override ###
 
 
-def _find_delivery_names(context, instance):
-    """Finds the delivery names for the given ShotGrid project and Shot.
+def _find_delivery_overrides(context, instance):
+    """Find the delivery overrides for the given SG project and Shot.
 
     Args:
         context (dict): The context dictionary.
         instance (pyblish.api.Instance): The instance to process.
 
     Returns:
-        dict: A dictionary containing the delivery names, if found. The keys are:
-            - "delivery_project": The delivery name for the ShotGrid project.
-            - "delivery_asset": The delivery name for the Shot.
+        dict: A dictionary containing the delivery overrides, if found. The keys are:
+            - "project": A dictionary with the keys "name" and "template", representing
+                the delivery name and template for the SG project.
+            - "asset": A dictionary with the keys "name" and "template", representing
+                the delivery name and template for the Shot.
 
     """
-    delivery_names = {}
+    delivery_overrides = {}
     sg = context.data.get("shotgridSession")
     sg_project = sg.find_one(
         "Project",
         [["id", "is", context.data["shotgridProject"]["id"]]],
-        fields=["sg_delivery_name"]
+        fields=["sg_delivery_name", "sg_delivery_template"],
     )
-    if sg_project and sg_project.get("sg_delivery_name"):
-        delivery_names["delivery_project"] = sg_project.get("sg_delivery_name")
+    if sg_project:
+        delivery_overrides["project"] = {
+            "name": sg_project.get("sg_delivery_name"),
+            "template": sg_project.get("sg_delivery_template"),
+        }
 
     sg_shot = sg.find_one(
         "Shot",
@@ -93,12 +97,15 @@ def _find_delivery_names(context, instance):
             ["project", "is", context.data["shotgridProject"]],
             ["id", "is", instance.data["shotgridEntity"]["id"]],
         ],
-        fields=["sg_delivery_name"]
+        fields=["sg_delivery_name", "sg_delivery_template"],
     )
-    if sg_shot and sg_shot.get("sg_delivery_name"):
-        delivery_names["delivery_asset"] = sg_shot.get("sg_delivery_name")
+    if sg_shot:
+        delivery_overrides["asset"] = {
+            "name": sg_shot.get("sg_delivery_name"),
+            "template": sg_shot.get("sg_delivery_template"),
+        }
 
-    return delivery_names
+    return delivery_overrides
 
 
 def _get_shotgrid_collection(project):
