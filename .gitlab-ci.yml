@@ -134,9 +134,9 @@ deploy-patch:
     - build-patch
   rules:
     - if: $CI_COMMIT_BRANCH == "release/alkemyx"
-      when: manual
+      when: always
     - if: $CI_COMMIT_BRANCH == "release/alkemyx-develop"
-      when: manual
+      when: always
 
 patch-release:
   tags:
@@ -152,9 +152,9 @@ patch-release:
     - deploy-patch
   rules:
     - if: $CI_COMMIT_BRANCH == "release/alkemyx"
-      when: manual
+      when: always
     - if: $CI_COMMIT_BRANCH == "release/alkemyx-develop"
-      when: manual
+      when: always
 
 deploy-to-deadline:
   tags:
