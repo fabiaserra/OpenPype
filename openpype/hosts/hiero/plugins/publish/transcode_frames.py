@@ -50,6 +50,7 @@ class TranscodeFrames(publish.Extractor):
     hosts = ["hiero"]
     families = ["plate"]
     movie_extensions = {"mov", "mp4", "mxf"}
+    nuke_specific_extensions = {"braw"}
     output_ext = "exr"
     output_padding = "%04d"
     dst_colorspace = "scene_linear"
@@ -87,7 +88,9 @@ class TranscodeFrames(publish.Extractor):
         self.log.info(
             f"Processing frames {first_output_frame} - {last_output_frame}")
         # If either source or output is a video format, transcode using Nuke
-        if self.output_ext.lower() in self.movie_extensions or source_ext.lower() in self.movie_extensions:
+        if (self.output_ext.lower() in self.movie_extensions or
+                source_ext.lower() in self.movie_extensions or
+                source_ext.lower() in self.nuke_specific_extensions):
             # No need to raise error as Nuke raises an error exit value if something went wrong
             output_path = f"{output_template}.{self.output_padding}.{self.output_ext}"
             nuke_transcode_template(
