@@ -1,7 +1,9 @@
 import os
 import json
 import pyblish.api
+
 from openpype import resources
+from openpype.pipeline import Anatomy
 
 
 class CollectSlateGlobal(pyblish.api.InstancePlugin):
@@ -37,12 +39,17 @@ class CollectSlateGlobal(pyblish.api.InstancePlugin):
         self.log.info("ExtractSlateGlobal is active.")
 
         # Create dictionary of common data across all slates
-        frame_padding = context.data["anatomy"]["templates"]["defaults"]\
-            ["frame_padding"]
+        project_name = instance.data["anatomyData"]["project"]["name"]
+        asset_name = instance.data["anatomyData"]["asset"]
+        anatomy = Anatomy(project_name)
+        frame_padding = anatomy.templates["work"].get("frame_padding")
+        version_padding = anatomy.templates["work"].get("version_padding")
+
         slate_common_data = {
             "version": instance.data["version"],
-            "@version": str(instance.data["version"]).zfill(frame_padding),
+            "@version": str(instance.data["version"]).zfill(version_padding),
             "frame_padding": frame_padding,
+            "slate_title": project_name,
             "intent": {"label": "", "value": ""},
             "comment": "",
             "scope": "",
@@ -51,6 +58,30 @@ class CollectSlateGlobal(pyblish.api.InstancePlugin):
         slate_common_data.update(instance.data["anatomyData"])
         if "customData" in instance.data:
             slate_common_data.update(instance.data["customData"])
+
+        # Collect possible delivery overrides
+        delivery_template = "{asset}_{task[short]}_v{@version}"
+        delivery_overrides_dict = context.data["shotgridDeliveryOverrides"]
+
+        project_overrides = delivery_overrides_dict.get("project")
+        if project_overrides:
+            project_name = project_overrides.get("name")
+            delivery_template = project_overrides.get("template") or delivery_template
+            if project_name:
+                slate_common_data["project"]["name"] = project_name
+                slate_common_data["slate_title"] = project_name
+
+        asset_overrides = delivery_overrides_dict.get("asset")
+        if asset_overrides:
+            asset_name = asset_overrides.get("name")
+            delivery_template = asset_overrides.get("template") or delivery_template
+            if asset_name:
+                slate_common_data["asset"] = asset_name
+
+        # Fill up slate subtitle field with all the data collected thus far
+        slate_common_data["slate_subtitle"] = delivery_template.format(
+            **slate_common_data
+        )
 
         template_path = slate_settings["slate_template_path"].format(
             **os.environ
