@@ -68,6 +68,12 @@ class CollectSettingsSimpleInstances(
             representation_files_mapping
         )
 
+        # Hack to set env vars required to run in the farm
+        os.environ["AVALON_ASSET"] = instance.data["asset"]
+        os.environ["AVALON_TASK"] =  instance.data.get("task")
+        legacy_io.Session["AVALON_ASSET"] = instance.data["asset"]
+        legacy_io.Session["AVALON_TASK"] =  instance.data.get("task")
+
         self._create_review_representation(
             instance,
             source_filepaths,
@@ -97,6 +103,40 @@ class CollectSettingsSimpleInstances(
                 ", ".join(repre_names)
             )
         )
+
+        # Add targeted family to families
+        family = instance.data["family"]
+        creator_attributes = instance.data["creator_attributes"]
+        render_target = creator_attributes["render_target"]
+        instance.data["families"].append(
+            "{}.{}".format(family, render_target)
+        )
+
+        # Add render target specific data
+        if render_target == "farm":
+            # Farm rendering
+            instance.data["toBeRenderedOn"] = "deadline"
+            instance.data["transfer"] = False
+            instance.data["farm"] = True # to skip integrate
+            if "review" in instance.data["families"]:
+                # to skip ExtractReview locally
+                instance.data["families"].remove("review")
+            if "client_review" in instance.data["families"]:
+                instance.data["families"].remove("client_review")
+
+            if "expectedFiles" not in instance.data:
+                instance.data["expectedFiles"] = list()
+                instance.data["files"] = list()
+                for source_file in source_filepaths:
+                    # expected_file = os.path.basename(source_file)
+                    instance.data["files"].append(source_file)
+                    instance.data["expectedFiles"].append(source_file)
+
+            context = instance.context
+            output_dir = os.path.dirname(source_filepaths[0])
+            instance.data["outputDir"] = output_dir
+            context.data["currentFile"] = output_dir
+            self.log.info("Farm rendering ON ...")
 
     def _fill_version(self, instance, instance_label):
         """Fill instance version under which will be instance integrated.
@@ -226,6 +266,7 @@ class CollectSettingsSimpleInstances(
 
         # inject colorspace data
         input_colorspace = creator_attributes["input_colorspace"]
+        instance.data["colorspace"] = input_colorspace
         self.set_representation_colorspace(
             review_representation, instance.context, colorspace=input_colorspace
         )

@@ -122,9 +122,10 @@ class ProcessSubmittedJobOnFarm(pyblish.api.InstancePlugin,
     targets = ["local"]
 
     hosts = ["fusion", "max", "maya", "nuke", "houdini",
-             "celaction", "aftereffects", "harmony"]
+             "celaction", "aftereffects", "harmony", "traypublisher"]
 
-    families = ["render.farm", "prerender.farm",
+    families = ["render.farm", "render.farm_frames",
+                "prerender.farm", "prerender.farm_frames",
                 "renderlayer", "imagesequence",
                 "vrayscene", "maxrender",
                 "arnold_rop", "mantra_rop",
@@ -337,7 +338,7 @@ class ProcessSubmittedJobOnFarm(pyblish.api.InstancePlugin,
             for assembly_id in instance.data["bakingSubmissionJobs"]:
                 payload["JobInfo"]["JobDependency{}".format(job_index)] = assembly_id  # noqa: E501
                 job_index += 1
-        else:
+        elif job.get("_id"):
             payload["JobInfo"]["JobDependency0"] = job["_id"]
 
         if instance.data.get("suspend_publish"):
@@ -570,7 +571,7 @@ class ProcessSubmittedJobOnFarm(pyblish.api.InstancePlugin,
                 # If expectedFile are absolute, we need only filenames
                 "stagingDir": staging,
                 "fps": new_instance.get("fps"),
-                "tags": ["review"] if preview else [],
+                "tags": ["review", "shotgridreview"] if preview else [],
                 "colorspaceData": {
                     "colorspace": colorspace,
                     "config": {
@@ -691,10 +692,11 @@ class ProcessSubmittedJobOnFarm(pyblish.api.InstancePlugin,
                 self.log.info("Adding scanline conversion.")
                 rep["tags"].append("toScanline")
 
-            self.set_representation_colorspace(rep,
-                context=self.context,
-                colorspace=instance_data.get("colorspace", None)
-            )
+            if not rep.get("colorspaceData"):
+                self.set_representation_colorspace(rep,
+                    context=self.context,
+                    colorspace=instance_data.get("colorspace", None)
+                )
 
             representations.append(rep)
 
@@ -771,6 +773,11 @@ class ProcessSubmittedJobOnFarm(pyblish.api.InstancePlugin,
                     "Adding \"review\" to families because of preview tag."
                 )
                 families.append("review")
+            if "client_review" not in families:
+                self.log.debug(
+                    "Adding \"client_review\" to families because of preview tag."
+                )
+                families.append("client_review")
             instance["families"] = families
 
     def process(self, instance):
@@ -1107,6 +1114,7 @@ class ProcessSubmittedJobOnFarm(pyblish.api.InstancePlugin,
                 "FTRACK_SERVER": os.environ.get("FTRACK_SERVER"),
             }
 
+        deadline_publish_job_id = None
         if submission_type == "deadline":
             # get default deadline webservice url from deadline module
             self.deadline_url = instance.context.data["defaultDeadline"]
@@ -1130,7 +1138,7 @@ class ProcessSubmittedJobOnFarm(pyblish.api.InstancePlugin,
             "fps": context.data.get("fps", None),
             "source": source,
             "user": context.data["user"],
-            "version": context.data["version"],  # this is workfile version
+            "version": context.data.get("version"),  # this is workfile version
             "intent": context.data.get("intent"),
             "comment": context.data.get("comment"),
             "job": render_job or None,
