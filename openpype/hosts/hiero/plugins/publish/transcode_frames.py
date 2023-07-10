@@ -17,6 +17,39 @@ from openpype.lib.applications import ApplicationManager
 from openpype.hosts.hiero.api import work_root
 
 
+def nuke_transcode_template(
+    output_ext,
+    input_frame,
+    first_frame,
+    last_frame,
+    read_path,
+    write_path,
+    src_colorspace,
+    dst_colorspace,
+):
+    python_template = "/pipe/hiero/templates/nuke_transcode.py"
+    nuke_template = "/pipe/hiero/templates/ingest_transcode.nk"
+    app_manager = ApplicationManager()
+    nuke_app_name = os.environ["AVALON_APP_NAME"].replace("hiero", "nuke")
+    nuke_app = app_manager.applications.get(nuke_app_name)
+    nuke_args = nuke_app.find_executable().as_args()
+    cmd = nuke_args + [
+        "-t",
+        python_template,
+        nuke_template,
+        "{0}_{1}_{2}".format(int(first_frame), int(last_frame), int(input_frame)),
+        output_ext,
+        read_path,
+        write_path,
+        src_colorspace,
+        dst_colorspace,
+    ]
+
+    # If non exist status is returned output will raise exception.
+    # No need to handle since run_subprocess already formats and handles error
+    run_subprocess(cmd)
+
+
 class TranscodeFrames(publish.Extractor):
     """Transcode frames"""
 
