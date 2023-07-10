@@ -11,10 +11,10 @@ class IntegrateShotgridVersion(pyblish.api.InstancePlugin):
     label = "Shotgrid Version"
     ### Starts Alkemy-X Override ###
     fields_to_add = {
-        "frameStart": "sg_first_frame",
-        "frameEnd": "sg_last_frame",
-        "comment": "description",
-        "family": "sg_version_type",
+        "frameStart": (int, "sg_first_frame"),
+        "frameEnd": (int, "sg_last_frame"),
+        "comment": (str, "description"),
+        "family": (str, "sg_version_type"),
     }
     ### Ends Alkemy-X Override ###
 
@@ -57,10 +57,12 @@ class IntegrateShotgridVersion(pyblish.api.InstancePlugin):
         for op_field, sg_field in self.fields_to_add.items():
             field_value = instance.data.get(op_field) or context.data.get(op_field)
             if field_value:
+                # Break sg_field tuple into whatever type of data it is and its name
+                type_, field_name = sg_field
                 self.log.info("Adding field '{}' to SG as '{}':'{}'".format(
-                    op_field, sg_field, field_value)
+                    op_field, field_name, field_value)
                 )
-                data_to_update[sg_field] = field_value
+                data_to_update[field_name] = type_(field_value)
 
         # Add version objectId to "sg_op_instance_id" so we can keep a link
         # between both
@@ -83,6 +85,7 @@ class IntegrateShotgridVersion(pyblish.api.InstancePlugin):
                 "Checking whether to integrate representation '%s'.", representation
             )
             if "shotgridreview" in representation.get("tags", []):
+                self.log.debug("Integrating representation")
                 if representation["ext"] in ["mov", "avi", "mp4"]:
                     self.log.info(
                         "Upload review: {} for version shotgrid {}".format(
