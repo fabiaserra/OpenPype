@@ -239,7 +239,7 @@ class ProcessSubmittedJobOnFarm(pyblish.api.InstancePlugin,
         if instance_version != 1:
             override_version = instance_version
         output_dir = self._get_publish_folder(
-            instance.context.data['anatomy'],
+            instance.context.data["anatomy"],
             deepcopy(instance.data["anatomyData"]),
             instance.data.get("asset"),
             instances[0]["subset"],
@@ -254,7 +254,7 @@ class ProcessSubmittedJobOnFarm(pyblish.api.InstancePlugin,
 
         environment = {
             "AVALON_PROJECT": legacy_io.Session["AVALON_PROJECT"],
-            "AVALON_ASSET": data["asset"],
+            "AVALON_ASSET": instance.data.get("asset"),
             "AVALON_TASK": legacy_io.Session["AVALON_TASK"],
             "OPENPYPE_USERNAME": instance.context.data["user"],
             "OPENPYPE_PUBLISH_JOB": "1",
