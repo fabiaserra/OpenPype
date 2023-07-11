@@ -6,7 +6,7 @@ import glob
 import clique
 import collections
 
-from openpype.lib import create_hard_link
+from openpype.lib import create_hard_link, StringTemplate
 
 
 def _copy_file(src_path, dst_path):
@@ -57,7 +57,8 @@ def check_destination_path(
     anatomy,
     anatomy_data,
     datetime_data,
-    template_name
+    template_name,
+    template_str=None,
 ):
     """ Try to create destination path based on 'template_name'.
 
@@ -71,6 +72,8 @@ def check_destination_path(
         datetime_data (dict): Values with actual date.
         template_name (str): Name of template which should be used from anatomy
             templates.
+        template_str (str): Use given token template instead of the template_name
+
     Returns:
         Dict[str, List[str]]: Report of happened errors. Key is message title
             value is detailed information.
@@ -79,6 +82,11 @@ def check_destination_path(
     anatomy_data.update(datetime_data)
     anatomy_filled = anatomy.format_all(anatomy_data)
     dest_path = anatomy_filled["delivery"][template_name]
+    if template_str:
+        dest_path = StringTemplate.format_strict_template(template_str, anatomy_data)
+    else:
+        dest_path = anatomy_filled["delivery"][template_name]
+
     report_items = collections.defaultdict(list)
 
     if not dest_path.solved:
@@ -120,7 +128,8 @@ def deliver_single_file(
     anatomy_data,
     format_dict,
     report_items,
-    log
+    log,
+    template_str=None,
 ):
     """Copy single file to calculated path based on template
 
@@ -134,6 +143,7 @@ def deliver_single_file(
         format_dict (dict): root dictionary with names and values
         report_items (collections.defaultdict): to return error messages
         log (logging.Logger): for log printing
+        template_str (str): Use given token template instead of the template_name
 
     Returns:
         (collections.defaultdict, int)
@@ -150,8 +160,12 @@ def deliver_single_file(
     if format_dict:
         anatomy_data = copy.deepcopy(anatomy_data)
         anatomy_data["root"] = format_dict["root"]
-    template_obj = anatomy.templates_obj["delivery"][template_name]
-    delivery_path = template_obj.format_strict(anatomy_data)
+
+    if template_str:
+        delivery_path = StringTemplate.format_strict_template(template_str, anatomy_data)
+    else:
+        template_obj = anatomy.templates_obj["delivery"][template_name]
+        delivery_path = template_obj.format_strict(anatomy_data)
 
     # Backwards compatibility when extension contained `.`
     delivery_path = delivery_path.replace("..", ".")
@@ -176,7 +190,8 @@ def deliver_sequence(
     anatomy_data,
     format_dict,
     report_items,
-    log
+    log,
+    template_str=None,
 ):
     """ For Pype2(mainly - works in 3 too) where representation might not
         contain files.
@@ -196,6 +211,7 @@ def deliver_sequence(
         format_dict (dict): root dictionary with names and values
         report_items (collections.defaultdict): to return error messages
         log (logging.Logger): for log printing
+        template_str (str): Use given token template instead of the template_name
 
     Returns:
         (collections.defaultdict, int)
@@ -273,8 +289,12 @@ def deliver_sequence(
     anatomy_data["frame"] = frame_indicator
     if format_dict:
         anatomy_data["root"] = format_dict["root"]
-    template_obj = anatomy.templates_obj["delivery"][template_name]
-    delivery_path = template_obj.format_strict(anatomy_data)
+
+    if template_str:
+        delivery_path = StringTemplate.format_strict_template(template_str, anatomy_data)
+    else:
+        template_obj = anatomy.templates_obj["delivery"][template_name]
+        delivery_path = template_obj.format_strict(anatomy_data)
 
     delivery_path = os.path.normpath(delivery_path.replace("\\", "/"))
     delivery_folder = os.path.dirname(delivery_path)
