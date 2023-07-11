@@ -201,7 +201,9 @@ class ProcessSubmittedJobOnFarm(pyblish.api.InstancePlugin,
             # directory is not available
             self.log.warning("Path is unreachable: `{}`".format(output_dir))
 
-        metadata_filename = "{}_metadata.json".format(ins_data["subset"])
+        metadata_filename = "{}_{}_metadata.json".format(
+            ins_data["asset"], ins_data["subset"]
+        )
 
         metadata_path = os.path.join(output_dir, metadata_filename)
 
