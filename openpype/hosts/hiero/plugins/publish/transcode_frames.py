@@ -129,7 +129,7 @@ class TranscodeFrames(publish.Extractor):
         # Create staging dir if it doesn't exist
         try:
             if not os.path.isdir(staging_dir):
-                os.makedirs(render_dir, exist_ok=True)
+                os.makedirs(staging_dir, exist_ok=True)
         except OSError:
             # directory is not available
             self.log.warning("Path is unreachable: `{}`".format(staging_dir))
