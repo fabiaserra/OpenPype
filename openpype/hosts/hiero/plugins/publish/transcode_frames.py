@@ -54,7 +54,7 @@ class TranscodeFrames(publish.Extractor):
     """Transcode frames"""
 
     order = pyblish.api.ExtractorOrder - 0.1
-    label = "Transcode Frames"
+    label = "Extract Transcode Frames"
     hosts = ["hiero"]
     families = ["plate"]
     movie_extensions = {"mov", "mp4", "mxf"}
@@ -71,6 +71,8 @@ class TranscodeFrames(publish.Extractor):
         "--frames",
         "<STARTFRAME>-<ENDFRAME>",
         "{input_path}",
+        "-v",
+        "--info",
         "--colorconvert",
         "{src_colorspace}",
         "{dst_colorspace}",
@@ -194,10 +196,12 @@ class TranscodeFrames(publish.Extractor):
                 dst_colorspace=self.dst_colorspace,
                 output_path=output_path
             )
+            # NOTE: We use src frame start/end because oiiotool doesn't support
+            # writing out a different frame range than input
             response = self.payload_submit(
                 instance,
                 output_path,
-                (out_frame_start, out_frame_end),
+                (src_frame_start, src_frame_end),
                 plugin="CommandLine",
                 args=oiio_args,
                 executable="/usr/openpype/3.15/vendor/bin/oiio/linux/bin/oiiotool",
@@ -423,7 +427,7 @@ class TranscodeFrames(publish.Extractor):
             instance.data["expectedFiles"].append(
                 os.path.join(dirname, (filename % i)).replace("\\", "/"))
 
-        out_instance.data["frameStartHandle"] = out_frame_start
+        instance.data["frameStartHandle"] = out_frame_start
         instance.data["frameEndHandle"] = out_frame_end
 
     def preview_fname(self, path):
