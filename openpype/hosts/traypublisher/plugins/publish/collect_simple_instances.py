@@ -303,7 +303,7 @@ class CollectSettingsSimpleInstances(pyblish.api.InstancePlugin):
             "name": repre_name,
             "stagingDir": filepath_item["directory"],
             "files": filenames,
-            "tags": []
+            "tags": ["shotgridreview"]
         }
 
     def _calculate_source(self, filepaths):
