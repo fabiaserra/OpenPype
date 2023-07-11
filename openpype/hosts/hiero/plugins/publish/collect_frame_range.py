@@ -60,8 +60,8 @@ class CollectFrameRange(pyblish.api.InstancePlugin):
         frame_offset = (
             source_start + clip_source_in - handle_start - frame_start
         )
-        media_frame_start = frame_offset + frame_start
-        media_frame_end = frame_offset + frame_end
+        media_frame_start = int(frame_offset + frame_start)
+        media_frame_end = int(frame_offset + frame_end)
         instance.data["srcFrameRange"] = (
             media_frame_start,
             media_frame_end,
@@ -70,10 +70,9 @@ class CollectFrameRange(pyblish.api.InstancePlugin):
             media_frame_start, media_frame_end
         )
 
-
         instance.data["outFrameRange"] = (
             frame_start,
-            frame_end
+            frame_end,
         )
         self.log.info("Collected output frame range: %d - %d",
             frame_start, frame_end
