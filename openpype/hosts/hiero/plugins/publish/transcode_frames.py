@@ -76,6 +76,17 @@ class TranscodeFrames(publish.Extractor):
         # Output variables
         # staging_dir = self.staging_dir(instance)
         staging_dir = os.path.join(work_root(legacy_io.Session), "temp_transcode")
+
+        # Create staging dir if it doesn't exist
+        try:
+            if not os.path.isdir(staging_dir):
+                os.makedirs(staging_dir, exist_ok=True)
+        except OSError:
+            # directory is not available
+            self.log.warning("Path is unreachable: `{}`".format(staging_dir))
+
+        instance.data["stagingDir"] = staging_dir
+
         output_template = os.path.join(staging_dir, instance.data["name"])
         output_dir = os.path.dirname(output_template)
 
