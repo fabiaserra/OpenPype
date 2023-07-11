@@ -7,47 +7,9 @@ import pyblish.api
 
 import hiero
 
-from openpype.lib import (
-    get_oiio_tools_path,
-    run_subprocess,
-    is_running_from_build,
-)
+from openpype.lib import is_running_from_build
 from openpype.pipeline import publish, legacy_io
-from openpype.lib.applications import ApplicationManager
 from openpype.hosts.hiero.api import work_root
-
-
-def nuke_transcode_template(
-    output_ext,
-    input_frame,
-    first_frame,
-    last_frame,
-    read_path,
-    write_path,
-    src_colorspace,
-    dst_colorspace,
-):
-    python_template = "/pipe/hiero/templates/nuke_transcode.py"
-    nuke_template = "/pipe/hiero/templates/ingest_transcode.nk"
-    app_manager = ApplicationManager()
-    nuke_app_name = os.environ["AVALON_APP_NAME"].replace("hiero", "nuke")
-    nuke_app = app_manager.applications.get(nuke_app_name)
-    nuke_args = nuke_app.find_executable().as_args()
-    cmd = nuke_args + [
-        "-t",
-        python_template,
-        nuke_template,
-        "{0}_{1}_{2}".format(int(first_frame), int(last_frame), int(input_frame)),
-        output_ext,
-        read_path,
-        write_path,
-        src_colorspace,
-        dst_colorspace,
-    ]
-
-    # If non exist status is returned output will raise exception.
-    # No need to handle since run_subprocess already formats and handles error
-    run_subprocess(cmd)
 
 
 class TranscodeFrames(publish.Extractor):
@@ -97,13 +59,13 @@ class TranscodeFrames(publish.Extractor):
     env_search_replace_values = {}
 
     def process(self, instance):
+
         instance.data["toBeRenderedOn"] = "deadline"
-        families = instance.data["families"]
 
         context = instance.context
 
         # get default deadline webservice url from deadline module
-        deadline_url = instance.context.data["defaultDeadline"]
+        deadline_url = context.data["defaultDeadline"]
         # if custom one is set in instance, use that
         if instance.data.get("deadlineUrl"):
             deadline_url = instance.data.get("deadlineUrl")
@@ -111,7 +73,9 @@ class TranscodeFrames(publish.Extractor):
 
         self.deadline_url = "{}/api/jobs".format(deadline_url)
         self._comment = context.data.get("comment", "")
-        self._ver = "{}.{}".format(hiero.core.env["VersionMajor"], hiero.core.env["VersionMinor"])
+        self._ver = "{}.{}".format(
+            hiero.core.env["VersionMajor"], hiero.core.env["VersionMinor"]
+        )
         self._deadline_user = context.data.get(
             "deadlineUser", getpass.getuser()
         )
