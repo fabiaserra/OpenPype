@@ -19,6 +19,8 @@ from openpype.pipeline import (
     legacy_io,
     publish,
 )
+from openpype.pipeline.publish import OpenPypePyblishPluginMixin
+from openpype.lib import EnumDef
 from openpype.tests.lib import is_in_tests
 from openpype.pipeline.farm.patterning import match_aov_pattern
 from openpype.lib import is_running_from_build
@@ -82,7 +84,7 @@ def get_resource_files(resources, frame_range=None):
 
 
 class ProcessSubmittedJobOnFarm(pyblish.api.InstancePlugin,
-                                publish.ColormanagedPyblishPluginMixin):
+                                OpenPypePyblishPluginMixin):
     """Process Job submitted on farm.
 
     These jobs are dependent on a deadline or muster job
@@ -148,7 +150,6 @@ class ProcessSubmittedJobOnFarm(pyblish.api.InstancePlugin,
         "FTRACK_SERVER",
         "AVALON_APP_NAME",
         "OPENPYPE_USERNAME",
-        "OPENPYPE_VERSION",
         "OPENPYPE_SG_USER"
     ]
 
@@ -283,6 +284,12 @@ class ProcessSubmittedJobOnFarm(pyblish.api.InstancePlugin,
 
         priority = self.deadline_priority or instance.data.get("priority", 50)
 
+        instance_settings = self.get_attr_values_from_data(instance.data)
+        initial_status = instance_settings.get("publishJobState", "Active")
+        # TODO: Remove this backwards compatibility of `suspend_publish`
+        if instance.data.get("suspend_publish"):
+            initial_status = "Suspended"
+
         args = [
             "--headless",
             'publish',
@@ -309,6 +316,7 @@ class ProcessSubmittedJobOnFarm(pyblish.api.InstancePlugin,
                 "Department": self.deadline_department,
                 "ChunkSize": self.deadline_chunk_size,
                 "Priority": priority,
+                "InitialStatus": initial_status,
 
                 "Group": self.deadline_group,
                 "Pool": self.deadline_pool or instance.data.get("primaryPool"),
@@ -340,9 +348,6 @@ class ProcessSubmittedJobOnFarm(pyblish.api.InstancePlugin,
                 job_index += 1
         elif job.get("_id"):
             payload["JobInfo"]["JobDependency0"] = job["_id"]
-
-        if instance.data.get("suspend_publish"):
-            payload["JobInfo"]["InitialStatus"] = "Suspended"
 
         for index, (key_, value_) in enumerate(environment.items()):
             payload["JobInfo"].update(
@@ -1272,3 +1277,12 @@ class ProcessSubmittedJobOnFarm(pyblish.api.InstancePlugin,
             publish_folder = os.path.dirname(file_path)
 
         return publish_folder
+
+    @classmethod
+    def get_attribute_defs(cls):
+        return [
+            EnumDef("publishJobState",
+                    label="Publish Job State",
+                    items=["Active", "Suspended"],
+                    default="Active")
+        ]

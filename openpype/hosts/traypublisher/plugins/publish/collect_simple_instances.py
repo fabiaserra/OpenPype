@@ -7,9 +7,7 @@ import pyblish.api
 from openpype.pipeline import publish, legacy_io
 
 
-class CollectSettingsSimpleInstances(
-    pyblish.api.InstancePlugin, publish.ColormanagedPyblishPluginMixin
-    ):
+class CollectSettingsSimpleInstances(pyblish.api.InstancePlugin):
     """Collect data for instances created by settings creators.
 
     Plugin create representations for simple instances based
@@ -135,7 +133,12 @@ class CollectSettingsSimpleInstances(
             context = instance.context
             output_dir = os.path.dirname(source_filepaths[0])
             instance.data["outputDir"] = output_dir
-            context.data["currentFile"] = output_dir
+            self.log.info("instance.data: %s", instance.data)
+            context.data["currentFile"] = "{}_{}_{}".format(
+                os.environ.get("AVALON_PROJECT"),
+                instance.data["asset"],
+                instance.data["task"],
+            )
             self.log.info("Farm rendering ON ...")
 
     def _fill_version(self, instance, instance_label):
@@ -264,12 +267,6 @@ class CollectSettingsSimpleInstances(
             review_representation["name"], review_path
         ))
 
-        # inject colorspace data
-        input_colorspace = creator_attributes["input_colorspace"]
-        instance.data["colorspace"] = input_colorspace
-        self.set_representation_colorspace(
-            review_representation, instance.context, colorspace=input_colorspace
-        )
 
     def _create_representation_data(
         self, filepath_item, repre_names_counter, repre_names
@@ -306,7 +303,7 @@ class CollectSettingsSimpleInstances(
             "name": repre_name,
             "stagingDir": filepath_item["directory"],
             "files": filenames,
-            "tags": []
+            "tags": ["shotgridreview"]
         }
 
     def _calculate_source(self, filepaths):

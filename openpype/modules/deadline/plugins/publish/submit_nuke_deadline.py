@@ -32,7 +32,7 @@ class NukeSubmitDeadline(pyblish.api.InstancePlugin,
     label = "Submit Nuke to Deadline"
     order = pyblish.api.IntegratorOrder + 0.1
     hosts = ["nuke"]
-    families = ["render.farm", "prerender.farm"]
+    families = ["render", "prerender"]
     optional = True
     targets = ["local"]
 
@@ -87,6 +87,12 @@ class NukeSubmitDeadline(pyblish.api.InstancePlugin,
     def process(self, instance):
         if not instance.data.get("farm"):
             self.log.debug("Skipping local instance.")
+            return
+
+        # If render target is set to farm_frames we skip the
+        # plugin
+        render_target = instance.data.get("render_target")
+        if render_target == "farm_frames":
             return
 
         instance.data["attributeValues"] = self.get_attr_values_from_data(
