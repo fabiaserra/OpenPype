@@ -13,7 +13,7 @@ from openpype.hosts.hiero.api import work_root
 
 
 class TranscodeFrames(publish.Extractor):
-    """Transcode frames"""
+    """Transcode Hiero media to the right colorspace using OIIO or Nuke"""
 
     order = pyblish.api.ExtractorOrder - 0.1
     label = "Extract Transcode Frames"
@@ -59,7 +59,7 @@ class TranscodeFrames(publish.Extractor):
     env_search_replace_values = {}
 
     def process(self, instance):
-
+        """Submit a job to the farm to transcode the video frames"""
         instance.data["toBeRenderedOn"] = "deadline"
 
         context = instance.context
@@ -183,14 +183,11 @@ class TranscodeFrames(publish.Extractor):
             if rep["ext"] == source_ext
         ]
         if ext_representations:
-            # Grab tags from original representation
-            # tags = ext_representations[0].get("tags", [])
             self.log.info(
                 "Removing source representation and replacing with transcoded frames"
             )
             instance.data["representations"].remove(ext_representations[0])
         else:
-            # tags = []
             self.log.info("No source ext to remove from representation")
 
     def payload_submit(
@@ -205,7 +202,6 @@ class TranscodeFrames(publish.Extractor):
         response_data=None,
     ):
         render_dir = os.path.normpath(os.path.dirname(render_path))
-        # batch_name = os.path.basename(script_path)
         jobname = "%s - %s" % (render_dir, instance.name)
 
         output_filename_0 = self.preview_fname(render_path)
@@ -370,8 +366,7 @@ class TranscodeFrames(publish.Extractor):
         out_frame_start,
         out_frame_end
     ):
-        """ Create expected files in instance data
-        """
+        """Create expected files in instance data"""
         if not instance.data.get("expectedFiles"):
             instance.data["expectedFiles"] = []
 
@@ -391,6 +386,8 @@ class TranscodeFrames(publish.Extractor):
             instance.data["expectedFiles"].append(
                 os.path.join(dirname, (filename % i)).replace("\\", "/"))
 
+        # Set frame start/end handles as it's used in integrate to map
+        # the frames to the correct frame range
         instance.data["frameStartHandle"] = out_frame_start
         instance.data["frameEndHandle"] = out_frame_end
 
@@ -409,11 +406,8 @@ class TranscodeFrames(publish.Extractor):
         """
         self.log.debug("_ path: `{}`".format(path))
         if "%" in path:
-            ### Starts Alkemy-X Override ###
             hashes_path = re.sub(r"%(\d*)d", lambda m: "#" * int(m.group(1)) if m.group(1) else "#", path)
-
             return hashes_path
-            ### Ends Alkemy-X Override ###
 
         if "#" in path:
             self.log.debug("_ path: `{}`".format(path))
