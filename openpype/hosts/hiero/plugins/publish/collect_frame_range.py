@@ -57,6 +57,7 @@ class CollectFrameRange(pyblish.api.InstancePlugin):
         source_start = self.track_item.source().sourceIn()
         source_end = self.track_item.source().sourceOut()
 
+        # Calculate frame offset between media and source frame range
         frame_offset = (
             source_start + clip_source_in - handle_start - frame_start
         )
