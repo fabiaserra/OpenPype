@@ -8,20 +8,14 @@ import tqdm
 import shotgun_api3
 
 from openpype.client import get_project, get_representations
-from openpype.lib import (
-    Logger,
-    collect_frames,
-    get_datetime_data
-)
+from openpype.lib import Logger, collect_frames, get_datetime_data
 from openpype.pipeline import Anatomy
 from openpype.pipeline.load import get_representation_path_with_anatomy
 from openpype.pipeline.delivery import (
     check_destination_path,
     deliver_single_file,
 )
-from openpype.modules.shotgrid.lib.settings import (
-    get_shotgrid_servers
-)
+from openpype.modules.shotgrid.lib.settings import get_shotgrid_servers
 
 logger = Logger.get_logger(__name__)
 
@@ -36,13 +30,19 @@ def get_shotgrid_session():
         A Shotgun API session object.
     """
     shotgrid_servers_settings = get_shotgrid_servers()
-    logger.info("shotgrid_servers_settings: {}".format(shotgrid_servers_settings))
+    logger.info(
+        "shotgrid_servers_settings: {}".format(shotgrid_servers_settings)
+    )
 
     shotgrid_server_setting = shotgrid_servers_settings.get("alkemyx", {})
     shotgrid_url = shotgrid_server_setting.get("shotgrid_url", "")
 
-    shotgrid_script_name = shotgrid_server_setting.get("shotgrid_script_name", "")
-    shotgrid_script_key = shotgrid_server_setting.get("shotgrid_script_key", "")
+    shotgrid_script_name = shotgrid_server_setting.get(
+        "shotgrid_script_name", ""
+    )
+    shotgrid_script_key = shotgrid_server_setting.get(
+        "shotgrid_script_key", ""
+    )
     if not shotgrid_script_name and not shotgrid_script_key:
         logger.error(
             "No Shotgrid API credential found, please enter "
@@ -78,11 +78,16 @@ def deliver_playlist_command(
         delivery_template_name (str): Name of the delivery template to use.
         representation_names (list): List of representation names to deliver.
     """
-    return deliver_playlist(playlist_id, delivery_template_name, representation_names)
+    return deliver_playlist(
+        playlist_id, delivery_template_name, representation_names
+    )
 
 
 def deliver_playlist(
-    playlist_id, delivery_template_name=None, representation_names=None
+    playlist_id,
+    delivery_template_name=None,
+    representation_names=None,
+    delivery_type=None,
 ):
     """Given a SG playlist id, deliver all the versions associated to it.
 
@@ -90,6 +95,7 @@ def deliver_playlist(
         playlist_id (int): Shotgrid playlist id to deliver.
         delivery_template_name (str): Name of the delivery template to use.
         representation_names (list): List of representation names to deliver.
+        delivery_type (str): What type of delivery it is (i.e., final, review)
     """
     sg = get_shotgrid_session()
 
@@ -108,17 +114,38 @@ def deliver_playlist(
     if not project_doc:
         return {
             "success": False,
-            "message": ('Didn\'t found project "{}" in avalon.').format(project_name),
+            "message": ('Didn\'t find project "{}" in avalon.').format(
+                project_name
+            ),
         }
 
     # Get whether the project entity contains any delivery overrides
     sg_project = sg.find_one(
         "Project",
         [["id", "is", sg_playlist["project"]["id"]]],
-        fields=["sg_delivery_name", "sg_delivery_template"],
+        fields=[
+            "sg_delivery_name",
+            "sg_delivery_template",
+            "sg_final_output",
+            "sg_review_output",
+        ],
     )
     delivery_project_name = sg_project.get("sg_delivery_name")
     delivery_template = sg_project.get("sg_delivery_template")
+
+    if not representation_names:
+        representation_names = []
+
+    out_data_types = sg_project.get(f"sg_{delivery_type}_output")
+    for out_data_type in out_data_types:
+        sg_out_data_type = sg.find_one(
+            "output_data_type",
+            [["id", "is", out_data_type]],
+            fields=["sg_op_representation_names"]
+        )
+        representation_names.extend(
+            sg_out_data_type.get("sg_op_representation_names") or []
+        )
 
     # Get all the SG versions associated to the playlist
     sg_versions = sg.find(
@@ -164,7 +191,9 @@ def deliver_sg_version(
     op_version_id = sg_version["sg_op_instance_id"]
     if not op_version_id or op_version_id == "-":
         sub_msg = f"{sg_version['code']}<br>"
-        report_items["Missing 'sg_op_instance_id' field on SG Versions"].append(sub_msg)
+        report_items[
+            "Missing 'sg_op_instance_id' field on SG Versions"
+        ].append(sub_msg)
         return report_items
 
     # Get the corresponding shot and whether it contains any overrides
@@ -178,9 +207,9 @@ def deliver_sg_version(
     delivery_shot_name = sg_shot.get("sg_delivery_name")
     # Override delivery_template only if the value is not None, otherwise fallback
     # to whatever existing value delivery_template had (could be None as well)
-    delivery_template = sg_shot.get("sg_delivery_template") or delivery_data.get(
-        "delivery_template"
-    )
+    delivery_template = sg_shot.get(
+        "sg_delivery_template"
+    ) or delivery_data.get("delivery_template")
 
     anatomy = Anatomy(project_name)
 
@@ -232,14 +261,15 @@ def deliver_sg_version(
             logger.info(
                 "Project name '%s' overridden by '%s'.",
                 anatomy_data["project"]["name"],
-                delivery_project_name
+                delivery_project_name,
             )
             anatomy_data["project"]["name"] = delivery_project_name
 
         if delivery_shot_name:
             logger.info(
                 "Shot '%s' name overridden by '%s'.",
-                anatomy_data["asset"], delivery_shot_name
+                anatomy_data["asset"],
+                delivery_shot_name,
             )
             anatomy_data["asset"] = delivery_shot_name
 

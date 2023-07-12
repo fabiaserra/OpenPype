@@ -10,6 +10,11 @@ class DeliveryDialog(QtWidgets.QDialog):
     SIZE_W = 550
     SIZE_H = 300
 
+    delivery_types = [
+        "final",
+        "review",
+    ]
+
     def __init__(self, module, parent=None):
         super(DeliveryDialog, self).__init__(parent)
 
@@ -40,9 +45,16 @@ class DeliveryDialog(QtWidgets.QDialog):
         input_layout.setContentsMargins(10, 15, 5, 5)
         input_layout.addRow(self.sg_playlist_id, self.sg_playlist_id_input)
 
-        self.deliver_button = QtWidgets.QPushButton("Deliver")
-        self.deliver_button.setToolTip("Deliver given SG playlist assets")
-        self.deliver_button.clicked.connect(self._on_delivery_clicked)
+        # Add combobox to choose which delivery type to do
+        self.delivery_type_cb = QtWidgets.QComboBox()
+        for delivery_type in self.delivery_types:
+            self.delivery_type_cb.addItem(delivery_type)
+
+        input_layout.addRow("Delivery", self.delivery_type_cb)
+
+        deliver_button = QtWidgets.QPushButton("Deliver")
+        deliver_button.setToolTip("Deliver given SG playlist assets")
+        deliver_button.clicked.connect(self._on_delivery_clicked)
 
         self.text_area = QtWidgets.QTextEdit()
         self.text_area.setReadOnly(True)
@@ -52,7 +64,7 @@ class DeliveryDialog(QtWidgets.QDialog):
         layout = QtWidgets.QVBoxLayout(self)
         layout.addWidget(input_widget)
         layout.addStretch(1)
-        layout.addWidget(self.deliver_button)
+        layout.addWidget(deliver_button)
         layout.addWidget(self.text_area)
 
     def _format_report(self, report_items):
@@ -71,7 +83,10 @@ class DeliveryDialog(QtWidgets.QDialog):
         return txt
 
     def _on_delivery_clicked(self):
-        report_items = sg_delivery.deliver_playlist(self.sg_playlist_id_input.text())
+        report_items = sg_delivery.deliver_playlist(
+            self.sg_playlist_id_input.text(),
+            delivery_type=self.delivery_type_cb.currentText(),
+        )
         self.text_area.setText(self._format_report(report_items))
         self.text_area.setVisible(True)
 
