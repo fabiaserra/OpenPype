@@ -82,9 +82,7 @@ class ExtractReview(pyblish.api.InstancePlugin):
     # Skeleton dictionary of what an ExtractReview profile looks like
     profile_skeleton = {
         "ext": None,
-        "tags": [
-            "shotgridreview",
-        ],
+        "tags": [],
         "burnins": [],
         "ffmpeg_args": {
             "video_filters": [],
@@ -93,13 +91,10 @@ class ExtractReview(pyblish.api.InstancePlugin):
             "output": [],
         },
         "filter": {
-            "families": [
-                "render",
-                "review",
-            ],
+            "families": [],
             "subsets": [],
             "custom_tags": [],
-            "single_frame_filter": "single_frame",
+            "single_frame_filter": "multi-frame",
         },
         "overscan_crop": "",
         "overscan_color": [0, 0, 0, 255],
@@ -158,20 +153,22 @@ class ExtractReview(pyblish.api.InstancePlugin):
         sg_outputs = self.get_sg_output_profiles(instance)
         if sg_outputs:
             filtered_outputs = sg_outputs
-        else:
-            self.log.debug("Matching profile: \"{}\"".format(json.dumps(profile)))
 
-            subset_name = instance.data.get("subset")
-            instance_families = self.families_from_instance(instance)
-            filtered_outputs = self.filter_output_defs(
-                profile, subset_name, instance_families
-            )
-            if not filtered_outputs:
-                self.log.info((
-                    "Skipped instance. All output definitions from selected"
-                    " profile do not match instance families \"{}\" or"
-                    " subset name \"{}\"."
-                ).format(str(instance_families), subset_name))
+        self.log.debug("Matching profile: \"{}\"".format(json.dumps(profile)))
+
+        subset_name = instance.data.get("subset")
+        instance_families = self.families_from_instance(instance)
+        filtered_outputs = self.filter_output_defs(
+            profile, subset_name, instance_families
+        )
+        if not filtered_outputs:
+            self.log.info((
+                "Skipped instance. All output definitions from selected"
+                " profile do not match instance families \"{}\" or"
+                " subset name \"{}\"."
+            ).format(str(instance_families), subset_name))
+
+        filtered_outputs.update(sg_outputs)
         ### Ends Alkemy-X Override ###
 
         # Store `filename_suffix` to save arguments

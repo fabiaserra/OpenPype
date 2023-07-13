@@ -9,14 +9,16 @@ from openpype.lib.mongo import OpenPypeMongoConnection
 SG_DELIVERY_FIELDS = [
     "sg_delivery_name",
     "sg_delivery_template",
-    "sg_review_output_type",
+    "sg_final_datatype",
+    "sg_final_fps",
+    "sg_final_output_type",
+    "sg_final_tags",
     "sg_review_fps",
     "sg_review_lut",
+    "sg_review_output_type",
     "sg_review_reformat",
     "sg_review_scale",
-    "sg_final_output_type",
-    "sg_final_fps",
-    "sg_final_datatype",
+    "sg_review_tags",
 ]
 
 # List of SG fields on the 'output_datatypes' entity that we care to query for
