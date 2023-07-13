@@ -264,7 +264,7 @@ class ProcessSubmittedJobOnFarm(pyblish.api.InstancePlugin,
             deepcopy(instance.data["anatomyData"]),
             instance.data.get("asset"),
             instances[0]["subset"],
-            'render',
+            instance.data.get("family"),
             override_version
         )
 
@@ -1272,7 +1272,7 @@ class ProcessSubmittedJobOnFarm(pyblish.api.InstancePlugin,
                 version = 1
 
         template_data["subset"] = subset
-        template_data["family"] = "render"
+        template_data["family"] = family
         template_data["version"] = version
 
         render_templates = anatomy.templates_obj["render"]

@@ -126,11 +126,7 @@ class TranscodeFrames(publish.Extractor):
         self.log.info("Source ext: %s", source_ext.lower())
 
         # If either source or output is a video format, transcode using Nuke
-        if (
-            self.output_ext in self.movie_extensions
-            or source_ext.lower() in self.movie_extensions
-            or source_ext.lower() in self.nuke_specific_extensions
-        ):
+        if True:
             self.log.info("Submitting Nuke transcode")
 
             # Add environment variables required to run Nuke script
