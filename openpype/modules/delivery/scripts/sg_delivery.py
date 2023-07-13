@@ -136,15 +136,20 @@ def deliver_playlist(
     if not representation_names:
         representation_names = []
 
+    # Generate a list of representation names from the output types set in SG
     out_data_types = sg_project.get(f"sg_{delivery_type}_output")
     for out_data_type in out_data_types:
         sg_out_data_type = sg.find_one(
             "output_data_type",
             [["id", "is", out_data_type]],
-            fields=["sg_op_representation_names"]
         )
-        representation_names.extend(
-            sg_out_data_type.get("sg_op_representation_names") or []
+        # Add the output data type name to the list of representations to
+        # deliver
+        representation_names.append(
+            "{}_{}".format(
+                sg_out_data_type["name"].replace(" ", "").lower(),
+                delivery_type,
+            )
         )
 
     # Get all the SG versions associated to the playlist
