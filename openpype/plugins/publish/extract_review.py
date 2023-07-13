@@ -78,6 +78,45 @@ class ExtractReview(pyblish.api.InstancePlugin):
     # Preset attributes
     profiles = None
 
+    ### Starts Alkemy-X Override ###
+    # Skeleton dictionary of what an ExtractReview profile looks like
+    profile_skeleton = {
+        "ext": None,
+        "tags": [
+            "shotgridreview",
+        ],
+        "burnins": [],
+        "ffmpeg_args": {
+            "video_filters": [],
+            "audio_filters": [],
+            "input": [],
+            "output": [],
+        },
+        "filter": {
+            "families": [
+                "render",
+                "review",
+            ],
+            "subsets": [],
+            "custom_tags": [],
+            "single_frame_filter": "single_frame",
+        },
+        "overscan_crop": "",
+        "overscan_color": [0, 0, 0, 255],
+        "width": 0,
+        "height": 0,
+        "scale_pixel_aspect": True,
+        "bg_color": [0, 0, 0, 0],
+        "letter_box": {
+            "enabled": False,
+            "ratio": 0.0,
+            "fill_color": [0, 0, 0, 255],
+            "line_thickness": 0,
+            "line_color": [255, 0, 0, 255],
+        },
+    }
+    ### Ends Alkemy-X Override ###
+
     def process(self, instance):
         self.log.debug(str(instance.data["representations"]))
         # Skip review when requested.
@@ -114,19 +153,26 @@ class ExtractReview(pyblish.api.InstancePlugin):
             ).format(host_name, family))
             return
 
-        self.log.debug("Matching profile: \"{}\"".format(json.dumps(profile)))
+        ### Starts Alkemy-X Override ###
+        # Adds support to define review profiles from SG instead of OP settings
+        sg_outputs = self.get_sg_output_profiles(instance)
+        if sg_outputs:
+            filtered_outputs = sg_outputs
+        else:
+            self.log.debug("Matching profile: \"{}\"".format(json.dumps(profile)))
 
-        subset_name = instance.data.get("subset")
-        instance_families = self.families_from_instance(instance)
-        filtered_outputs = self.filter_output_defs(
-            profile, subset_name, instance_families
-        )
-        if not filtered_outputs:
-            self.log.info((
-                "Skipped instance. All output definitions from selected"
-                " profile do not match instance families \"{}\" or"
-                " subset name \"{}\"."
-            ).format(str(instance_families), subset_name))
+            subset_name = instance.data.get("subset")
+            instance_families = self.families_from_instance(instance)
+            filtered_outputs = self.filter_output_defs(
+                profile, subset_name, instance_families
+            )
+            if not filtered_outputs:
+                self.log.info((
+                    "Skipped instance. All output definitions from selected"
+                    " profile do not match instance families \"{}\" or"
+                    " subset name \"{}\"."
+                ).format(str(instance_families), subset_name))
+        ### Ends Alkemy-X Override ###
 
         # Store `filename_suffix` to save arguments
         profile_outputs = []
@@ -136,6 +182,63 @@ class ExtractReview(pyblish.api.InstancePlugin):
 
         return profile_outputs
 
+    ### Starts Alkemy-X Override ###
+    def get_sg_output_profiles(self, instance):
+        """Returns a dictionary of profiles based on delivery overrides set on
+        the SG instance.
+
+        If there are delivery overrides set on the Shotgrid instance, this
+        method returns a dictionary of output profiles that matches what OP
+        profiles expect based on those overrides. Otherwise, it returns None.
+
+        Args:
+            instance (Instance): The instance to get Shotgrid output profiles
+                for.
+
+        Returns:
+            dict: A dictionary of Shotgrid output profiles, or None if there
+                are no delivery overrides.
+        """
+        # Check if there's any delivery overrides set on the SG instance
+        # and use that instead of the profile output definitions if that's
+        # the case
+        delivery_overrides_dict = instance.context.data.get("shotgridDeliveryOverrides")
+        if not delivery_overrides_dict:
+            return None
+
+        sg_profiles = {}
+        for override_entity in ["project", "shot"]:
+            for delivery_type in ["review", "final"]:
+                ent_overrides = delivery_overrides_dict[override_entity]
+                delivery_outputs = ent_overrides[f"sg_{delivery_type}_output"]
+                # If on the next run of the for loop there's still delivery
+                # outputs it means these should override the prior entity
+                # i.e., if there's different output types on the shot than
+                # the project
+                if delivery_outputs:
+                    sg_profiles.clear()
+
+                for out_name, out_fields in delivery_outputs.items():
+                    out_name = out_name.replace(" ", "").lower()
+                    sg_profiles[out_name] = self.profile_skeleton.copy()
+                    sg_profiles[out_name]["ext"] = out_fields["sg_extension"]
+                    sg_profiles[out_name]["ffmpeg_args"]["video_filters"] = out_fields[
+                        "sg_ffmpeg_video_filters"
+                    ].split()
+                    sg_profiles[out_name]["ffmpeg_args"]["audio_filters"] = out_fields[
+                        "sg_ffmpeg_audio_filters"
+                    ].split()
+                    sg_profiles[out_name]["ffmpeg_args"]["input"] = out_fields[
+                        "sg_ffmpeg_input_args"
+                    ].split()
+                    sg_profiles[out_name]["ffmpeg_args"]["output"] = out_fields[
+                        "sg_ffmpeg_output_args"
+                    ].split()
+                    sg_profiles[out_name]["fps"] = ent_overrides[f"sg_{delivery_type}_fps"]
+
+        return sg_profiles
+
+    ### Ends Alkemy-X Override ###
     def _get_outputs_per_representations(self, instance, profile_outputs):
         outputs_per_representations = []
         for repre in instance.data["representations"]:
@@ -401,7 +504,11 @@ class ExtractReview(pyblish.api.InstancePlugin):
                     os.unlink(f)
 
             new_repre.update({
-                "fps": temp_data["fps"],
+                ### Starts Alkemy-X Override ###
+                # Grab FPS from SG delivery (i.e., review or final) if it
+                # exists, otherwise default to the project FPS
+                "fps": output_def["fps"] or temp_data["fps"],
+                ### Ends Alkemy-X Override ###
                 "name": "{}_{}".format(output_name, output_ext),
                 "outputName": output_name,
                 "outputDef": output_def,

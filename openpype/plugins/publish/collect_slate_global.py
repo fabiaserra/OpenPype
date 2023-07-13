@@ -65,16 +65,18 @@ class CollectSlateGlobal(pyblish.api.InstancePlugin):
 
         project_overrides = delivery_overrides_dict.get("project")
         if project_overrides:
-            project_name = project_overrides.get("name")
-            delivery_template = project_overrides.get("template") or delivery_template
+            project_name = project_overrides.get("sg_delivery_name")
+            delivery_template = project_overrides.get("sg_delivery_template") \
+                or delivery_template
             if project_name:
-                slate_common_data["project"]["name"] = project_name
+                slate_common_data["project"]["sg_delivery_name"] = project_name
                 slate_common_data["slate_title"] = project_name
 
-        asset_overrides = delivery_overrides_dict.get("asset")
-        if asset_overrides:
-            asset_name = asset_overrides.get("name")
-            delivery_template = asset_overrides.get("template") or delivery_template
+        shot_overrides = delivery_overrides_dict.get("shot")
+        if shot_overrides:
+            asset_name = shot_overrides.get("sg_delivery_name")
+            delivery_template = shot_overrides.get("sg_delivery_template") or \
+                delivery_template
             if asset_name:
                 slate_common_data["asset"] = asset_name
 
