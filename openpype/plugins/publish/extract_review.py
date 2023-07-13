@@ -94,7 +94,7 @@ class ExtractReview(pyblish.api.InstancePlugin):
             "families": [],
             "subsets": [],
             "custom_tags": [],
-            "single_frame_filter": "multi-frame",
+            "single_frame_filter": "multi_frame",
         },
         "overscan_crop": "",
         "overscan_color": [0, 0, 0, 255],
@@ -218,6 +218,8 @@ class ExtractReview(pyblish.api.InstancePlugin):
                 for out_name, out_fields in delivery_outputs.items():
                     sg_profiles[out_name] = self.profile_skeleton.copy()
                     sg_profiles[out_name]["ext"] = out_fields["sg_extension"]
+                    sg_profiles[out_name]["tags"] = ent_overrides[f"sg_{delivery_type}_tags"]
+                    sg_profiles[out_name]["fps"] = ent_overrides[f"sg_{delivery_type}_fps"]
                     sg_profiles[out_name]["ffmpeg_args"]["video_filters"] = [out_fields[
                         "sg_ffmpeg_video_filters"
                     ]]
@@ -230,7 +232,7 @@ class ExtractReview(pyblish.api.InstancePlugin):
                     sg_profiles[out_name]["ffmpeg_args"]["output"] = [out_fields[
                         "sg_ffmpeg_output_args"
                     ]]
-                    sg_profiles[out_name]["fps"] = ent_overrides[f"sg_{delivery_type}_fps"]
+                    sg_profiles[out_name]["filter"]["custom_tags"] = [f"{delivery_type}_colorspace"]
 
         return sg_profiles
 
