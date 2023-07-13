@@ -90,7 +90,7 @@ class PrecollectInstances(pyblish.api.ContextPlugin):
             subset = tag_data["subset"]
 
             # insert family into families
-            family = tag_data["family"]
+            family = "{}.farm".format(tag_data["family"])
             families = [str(f) for f in tag_data["families"]]
             families.insert(0, str(family))
 

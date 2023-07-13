@@ -125,13 +125,32 @@ class ProcessSubmittedJobOnFarm(pyblish.api.InstancePlugin,
              "celaction", "aftereffects", "harmony", "traypublisher",
              "hiero"]
 
-    families = ["render.farm", "render.farm_frames",
-                "prerender.farm", "prerender.farm_frames",
-                "renderlayer", "imagesequence",
-                "vrayscene", "maxrender",
-                "arnold_rop", "mantra_rop",
-                "karma_rop", "vray_rop",
-                "redshift_rop", "plate"]
+    families = [
+        "arnold_rop",
+        "camera.farm",
+        "image.farm",
+        "imagesequence",
+        "karma_rop",
+        "mantra_rop",
+        "matchmove.farm"
+        "maxrender",
+        "model.farm"
+        "plate.farm"
+        "pointcache.farm"
+        "prerender.farm_frames",
+        "prerender.farm",
+        "redshift_rop",
+        "reference.farm",
+        "render.farm_frames",
+        "render.farm"
+        "renderlayer",
+        "rig.farm"
+        "simpleUnrealTexture.farm"
+        "vdb.farm"
+        "vray_rop",
+        "vrayscene",
+        "workfile.farm",
+    ]
 
     aov_filter = {"maya": [r".*([Bb]eauty).*"],
                   "aftereffects": [r".*"],  # for everything from AE
