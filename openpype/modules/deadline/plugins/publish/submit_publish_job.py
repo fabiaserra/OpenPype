@@ -124,7 +124,8 @@ class ProcessSubmittedJobOnFarm(pyblish.api.InstancePlugin,
     targets = ["local"]
 
     hosts = ["fusion", "max", "maya", "nuke", "houdini",
-             "celaction", "aftereffects", "harmony", "traypublisher"]
+             "celaction", "aftereffects", "harmony", "traypublisher",
+             "hiero"]
 
     families = ["render.farm", "render.farm_frames",
                 "prerender.farm", "prerender.farm_frames",
@@ -132,7 +133,7 @@ class ProcessSubmittedJobOnFarm(pyblish.api.InstancePlugin,
                 "vrayscene", "maxrender",
                 "arnold_rop", "mantra_rop",
                 "karma_rop", "vray_rop",
-                "redshift_rop"]
+                "redshift_rop", "plate"]
 
     aov_filter = {"maya": [r".*([Bb]eauty).*"],
                   "aftereffects": [r".*"],  # for everything from AE
@@ -202,7 +203,9 @@ class ProcessSubmittedJobOnFarm(pyblish.api.InstancePlugin,
             # directory is not available
             self.log.warning("Path is unreachable: `{}`".format(output_dir))
 
-        metadata_filename = "{}_metadata.json".format(ins_data["subset"])
+        metadata_filename = "{}_{}_metadata.json".format(
+            ins_data["asset"], ins_data["subset"]
+        )
 
         metadata_path = os.path.join(output_dir, metadata_filename)
 
@@ -240,11 +243,11 @@ class ProcessSubmittedJobOnFarm(pyblish.api.InstancePlugin,
         if instance_version != 1:
             override_version = instance_version
         output_dir = self._get_publish_folder(
-            instance.context.data['anatomy'],
+            instance.context.data["anatomy"],
             deepcopy(instance.data["anatomyData"]),
             instance.data.get("asset"),
             instances[0]["subset"],
-            'render',
+            instance.data.get("family"),
             override_version
         )
 
@@ -255,7 +258,7 @@ class ProcessSubmittedJobOnFarm(pyblish.api.InstancePlugin,
 
         environment = {
             "AVALON_PROJECT": legacy_io.Session["AVALON_PROJECT"],
-            "AVALON_ASSET": legacy_io.Session["AVALON_ASSET"],
+            "AVALON_ASSET": instance.data.get("asset"),
             "AVALON_TASK": legacy_io.Session["AVALON_TASK"],
             "OPENPYPE_USERNAME": instance.context.data["user"],
             "OPENPYPE_PUBLISH_JOB": "1",
@@ -935,7 +938,7 @@ class ProcessSubmittedJobOnFarm(pyblish.api.InstancePlugin,
                     ).format(staging_dir))
                     repre["stagingDir"] = staging_dir
 
-            if "publish_on_farm" in repre.get("tags"):
+            if "publish_on_farm" in repre.get("tags", []):
                 # create representations attribute if not there
                 if "representations" not in instance_skeleton_data.keys():
                     instance_skeleton_data["representations"] = []
@@ -1256,7 +1259,7 @@ class ProcessSubmittedJobOnFarm(pyblish.api.InstancePlugin,
                 version = 1
 
         template_data["subset"] = subset
-        template_data["family"] = "render"
+        template_data["family"] = family
         template_data["version"] = version
 
         render_templates = anatomy.templates_obj["render"]
