@@ -208,9 +208,9 @@ class ExtractReview(pyblish.api.InstancePlugin):
 
         sg_profiles = {}
         for override_entity in ["project", "shot"]:
+            ent_overrides = delivery_overrides_dict[override_entity]
             for delivery_type in ["review", "final"]:
-                ent_overrides = delivery_overrides_dict[override_entity]
-                delivery_outputs = ent_overrides[f"sg_{delivery_type}_output"]
+                delivery_outputs = ent_overrides[f"sg_{delivery_type}_output_type"]
                 # If on the next run of the for loop there's still delivery
                 # outputs it means these should override the prior entity
                 # i.e., if there's different output types on the shot than
@@ -219,21 +219,20 @@ class ExtractReview(pyblish.api.InstancePlugin):
                     sg_profiles.clear()
 
                 for out_name, out_fields in delivery_outputs.items():
-                    out_name = out_name.replace(" ", "").lower()
                     sg_profiles[out_name] = self.profile_skeleton.copy()
                     sg_profiles[out_name]["ext"] = out_fields["sg_extension"]
-                    sg_profiles[out_name]["ffmpeg_args"]["video_filters"] = out_fields[
+                    sg_profiles[out_name]["ffmpeg_args"]["video_filters"] = [out_fields[
                         "sg_ffmpeg_video_filters"
-                    ].split()
-                    sg_profiles[out_name]["ffmpeg_args"]["audio_filters"] = out_fields[
+                    ]]
+                    sg_profiles[out_name]["ffmpeg_args"]["audio_filters"] = [out_fields[
                         "sg_ffmpeg_audio_filters"
-                    ].split()
-                    sg_profiles[out_name]["ffmpeg_args"]["input"] = out_fields[
+                    ]]
+                    sg_profiles[out_name]["ffmpeg_args"]["input"] = [out_fields[
                         "sg_ffmpeg_input_args"
-                    ].split()
-                    sg_profiles[out_name]["ffmpeg_args"]["output"] = out_fields[
+                    ]]
+                    sg_profiles[out_name]["ffmpeg_args"]["output"] = [out_fields[
                         "sg_ffmpeg_output_args"
-                    ].split()
+                    ]]
                     sg_profiles[out_name]["fps"] = ent_overrides[f"sg_{delivery_type}_fps"]
 
         return sg_profiles
@@ -507,9 +506,9 @@ class ExtractReview(pyblish.api.InstancePlugin):
                 ### Starts Alkemy-X Override ###
                 # Grab FPS from SG delivery (i.e., review or final) if it
                 # exists, otherwise default to the project FPS
-                "fps": output_def["fps"] or temp_data["fps"],
+                "fps": output_def.get("fps") or temp_data["fps"],
+                "name": output_name,
                 ### Ends Alkemy-X Override ###
-                "name": "{}_{}".format(output_name, output_ext),
                 "outputName": output_name,
                 "outputDef": output_def,
                 "frameStartFtrack": temp_data["output_frame_start"],

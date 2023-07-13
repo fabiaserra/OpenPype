@@ -9,12 +9,12 @@ from openpype.lib.mongo import OpenPypeMongoConnection
 SG_DELIVERY_FIELDS = [
     "sg_delivery_name",
     "sg_delivery_template",
-    "sg_review_output",
+    "sg_review_output_type",
     "sg_review_fps",
     "sg_review_lut",
     "sg_review_reformat",
     "sg_review_scale",
-    "sg_final_output",
+    "sg_final_output_type",
     "sg_final_fps",
     "sg_final_datatype",
 ]
@@ -82,6 +82,9 @@ class CollectShotgridEntities(pyblish.api.InstancePlugin):
         ### Starts Alkemy-X Override ###
         # Collect relevant data for review/delivery purposes
         delivery_overrides = _find_delivery_overrides(context, instance)
+        self.log.info(
+            "Collected delivery overrides : {}".format(delivery_overrides)
+        )
         context.data["shotgridDeliveryOverrides"] = delivery_overrides
 
 
@@ -111,20 +114,25 @@ def _get_shotgrid_entity_overrides(sg, sg_entity):
     # a dictionary of the ffmpeg args required to create each output
     # type
     for delivery_type in ["review", "final"]:
-        delivery_overrides[f"sg_{delivery_type}_output"] = {}
-        out_data_types = sg_entity.get(f"sg_{delivery_type}_output") or []
+        delivery_overrides[f"sg_{delivery_type}_output_type"] = {}
+        out_data_types = sg_entity.get(f"sg_{delivery_type}_output_type") or []
         for out_data_type in out_data_types:
             sg_out_data_type = sg.find_one(
-                "output_data_type",
-                [["id", "is", out_data_type]],
+                "CustomNonProjectEntity03",
+                [["id", "is", out_data_type["id"]]],
                 fields=SG_OUTPUT_DATATYPE_FIELDS,
             )
-            delivery_overrides[f"sg_{delivery_type}_output"]\
-                    [out_data_type] = {}
+            out_name = "{}_{}".format(
+                out_data_type["name"].replace(" ", "").lower(),
+                delivery_type
+            )
+            delivery_overrides[f"sg_{delivery_type}_output_type"]\
+                    [out_name] = {}
             for field in SG_OUTPUT_DATATYPE_FIELDS:
-                delivery_overrides[f"sg_{delivery_type}_output"]\
-                    [out_data_type][field] = sg_out_data_type.get(field)
+                delivery_overrides[f"sg_{delivery_type}_output_type"]\
+                    [out_name][field] = sg_out_data_type.get(field)
 
+    return delivery_overrides
 
 def _find_delivery_overrides(context, instance):
     """Find the delivery overrides for the given SG project and Shot.
