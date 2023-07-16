@@ -84,6 +84,7 @@ def get_resource_files(resources, frame_range=None):
 
 
 class ProcessSubmittedJobOnFarm(pyblish.api.InstancePlugin,
+                                publish.ColormanagedPyblishPluginMixin,
                                 OpenPypePyblishPluginMixin):
     """Process Job submitted on farm.
 
@@ -699,12 +700,6 @@ class ProcessSubmittedJobOnFarm(pyblish.api.InstancePlugin,
             if instance_data.get("convertToScanline"):
                 self.log.info("Adding scanline conversion.")
                 rep["tags"].append("toScanline")
-
-            if not rep.get("colorspaceData"):
-                self.set_representation_colorspace(rep,
-                    context=self.context,
-                    colorspace=instance_data.get("colorspace", None)
-                )
 
             representations.append(rep)
 
