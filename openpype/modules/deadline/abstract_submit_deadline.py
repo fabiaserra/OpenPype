@@ -399,12 +399,12 @@ class DeadlineJobInfo(object):
 
     def add_render_job_env_var(self):
         """Check if in OP or AYON mode and use appropriate env var."""
-        render_job = (
-            "AYON_RENDER_JOB" if os.environ.get("USE_AYON_SERVER") == '1'
-            else "OPENPYPE_RENDER_JOB")
-
-        self.EnvironmentKeyValue[render_job] = "1"
-
+        if os.environ.get("USE_AYON_SERVER") == '1':
+            self.EnvironmentKeyValue["AYON_RENDER_JOB"] = "1"
+            self.EnvironmentKeyValue["AYON_BUNDLE_NAME"] = (
+                os.environ["AYON_BUNDLE_NAME"])
+        else:
+            self.EnvironmentKeyValue["OPENPYPE_RENDER_JOB"] = "1"
 
 
 @six.add_metaclass(AbstractMetaInstancePlugin)
