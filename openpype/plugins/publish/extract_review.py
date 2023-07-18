@@ -148,13 +148,15 @@ class ExtractReview(pyblish.api.InstancePlugin):
             ).format(host_name, family))
             return
 
+        self.log.debug("Matching profile: \"{}\"".format(json.dumps(profile)))
+
         ### Starts Alkemy-X Override ###
         # Adds support to define review profiles from SG instead of OP settings
         sg_outputs = self.get_sg_output_profiles(instance)
         if sg_outputs:
-            filtered_outputs = sg_outputs
-
-        self.log.debug("Matching profile: \"{}\"".format(json.dumps(profile)))
+            self.log.info(
+                "Found some profiles on the Shotgrid instance: %s", sg_outputs
+            )
 
         subset_name = instance.data.get("subset")
         instance_families = self.families_from_instance(instance)
@@ -169,6 +171,9 @@ class ExtractReview(pyblish.api.InstancePlugin):
             ).format(str(instance_families), subset_name))
 
         filtered_outputs.update(sg_outputs)
+        self.log.info(
+            "Added Shotgrid profiles to filtered outputs."
+        )
         ### Ends Alkemy-X Override ###
 
         # Store `filename_suffix` to save arguments
@@ -213,26 +218,32 @@ class ExtractReview(pyblish.api.InstancePlugin):
                 # i.e., if there's different output types on the shot than
                 # the project
                 if delivery_outputs:
+                    self.log.info(
+                        "There's delivery overrides on the SG entity %s, clearing " \
+                        "overrides from parent entity.",
+                        override_entity
+                    )
                     sg_profiles.clear()
 
                 for out_name, out_fields in delivery_outputs.items():
                     sg_profiles[out_name] = self.profile_skeleton.copy()
                     sg_profiles[out_name]["ext"] = out_fields["sg_extension"]
-                    sg_profiles[out_name]["tags"] = ent_overrides[f"sg_{delivery_type}_tags"]
+                    sg_profiles[out_name]["tags"] = [
+                        tag["name"] for tag in ent_overrides[f"sg_{delivery_type}_tags"]
+                    ]
                     sg_profiles[out_name]["fps"] = ent_overrides[f"sg_{delivery_type}_fps"]
-                    sg_profiles[out_name]["ffmpeg_args"]["video_filters"] = [out_fields[
-                        "sg_ffmpeg_video_filters"
-                    ]]
-                    sg_profiles[out_name]["ffmpeg_args"]["audio_filters"] = [out_fields[
-                        "sg_ffmpeg_audio_filters"
-                    ]]
-                    sg_profiles[out_name]["ffmpeg_args"]["input"] = [out_fields[
-                        "sg_ffmpeg_input_args"
-                    ]]
-                    sg_profiles[out_name]["ffmpeg_args"]["output"] = [out_fields[
-                        "sg_ffmpeg_output_args"
-                    ]]
-                    sg_profiles[out_name]["filter"]["custom_tags"] = [f"{delivery_type}_colorspace"]
+                    # Set final/review_colorspace tag so it uses the transcoded
+                    # representations that have that tag
+                    sg_profiles[out_name]["filter"]["custom_tags"] = [
+                        f"{delivery_type}_colorspace"
+                    ]
+
+                    # Iterate over the different keys of the ffmpeg_args dictionary of
+                    # the profile and fill them up with the SG entity fields (if set)
+                    for ffmpeg_arg in sg_profiles[out_name]["ffmpeg_args"].keys():
+                        ffmpeg_val = out_fields.get(f"sg_ffmpeg_{ffmpeg_arg}")
+                        if ffmpeg_val:
+                            sg_profiles[out_name]["ffmpeg_args"][ffmpeg_arg] = [ffmpeg_val]
 
         return sg_profiles
 
