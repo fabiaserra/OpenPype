@@ -60,7 +60,7 @@ class CollectSlateGlobal(pyblish.api.InstancePlugin):
             slate_common_data.update(instance.data["customData"])
 
         # Collect possible delivery overrides
-        delivery_template = "{asset}_{task[short]}_v{@version}"
+        delivery_template = "{asset}_{task[name]}_v{@version}"
         delivery_overrides_dict = context.data["shotgridDeliveryOverrides"]
 
         project_overrides = delivery_overrides_dict.get("project")
