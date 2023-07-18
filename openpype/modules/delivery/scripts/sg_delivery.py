@@ -19,6 +19,15 @@ from openpype.modules.shotgrid.lib.settings import get_shotgrid_servers
 
 logger = Logger.get_logger(__name__)
 
+# List of SG fields from context entities (i.e., Project, Shot) that we care to
+# query for delivery purposes
+SG_DELIVERY_FIELDS = [
+    "sg_delivery_name",
+    "sg_delivery_template",
+    "sg_final_output_type",
+    "sg_review_output_type",
+]
+
 
 def get_shotgrid_session():
     """Return a Shotgun API session object for the configured ShotGrid server.
@@ -30,19 +39,13 @@ def get_shotgrid_session():
         A Shotgun API session object.
     """
     shotgrid_servers_settings = get_shotgrid_servers()
-    logger.info(
-        "shotgrid_servers_settings: {}".format(shotgrid_servers_settings)
-    )
+    logger.info("shotgrid_servers_settings: {}".format(shotgrid_servers_settings))
 
     shotgrid_server_setting = shotgrid_servers_settings.get("alkemyx", {})
     shotgrid_url = shotgrid_server_setting.get("shotgrid_url", "")
 
-    shotgrid_script_name = shotgrid_server_setting.get(
-        "shotgrid_script_name", ""
-    )
-    shotgrid_script_key = shotgrid_server_setting.get(
-        "shotgrid_script_key", ""
-    )
+    shotgrid_script_name = shotgrid_server_setting.get("shotgrid_script_name", "")
+    shotgrid_script_key = shotgrid_server_setting.get("shotgrid_script_key", "")
     if not shotgrid_script_name and not shotgrid_script_key:
         logger.error(
             "No Shotgrid API credential found, please enter "
@@ -68,8 +71,14 @@ def get_shotgrid_session():
 )
 @click.option("--delivery_template_name", "-t", required=False)
 @click.option("--representation_names", "-r", multiple=True, required=False)
+@click.option(
+    "--delivery_type", "-type", type=click.Choice(["final", "review"]), required=False
+)
 def deliver_playlist_command(
-    playlist_id, delivery_template_name=None, representation_names=None
+    playlist_id,
+    delivery_template_name=None,
+    representation_names=None,
+    delivery_type=None,
 ):
     """Given a SG playlist id, deliver all the versions associated to it.
 
@@ -79,7 +88,7 @@ def deliver_playlist_command(
         representation_names (list): List of representation names to deliver.
     """
     return deliver_playlist(
-        playlist_id, delivery_template_name, representation_names
+        playlist_id, delivery_template_name, representation_names, delivery_type
     )
 
 
@@ -114,21 +123,14 @@ def deliver_playlist(
     if not project_doc:
         return {
             "success": False,
-            "message": ('Didn\'t find project "{}" in avalon.').format(
-                project_name
-            ),
+            "message": ('Didn\'t find project "{}" in avalon.').format(project_name),
         }
 
     # Get whether the project entity contains any delivery overrides
     sg_project = sg.find_one(
         "Project",
         [["id", "is", sg_playlist["project"]["id"]]],
-        fields=[
-            "sg_delivery_name",
-            "sg_delivery_template",
-            "sg_final_output",
-            "sg_review_output",
-        ],
+        fields=SG_DELIVERY_FIELDS,
     )
     delivery_project_name = sg_project.get("sg_delivery_name")
     delivery_template = sg_project.get("sg_delivery_template")
@@ -137,13 +139,19 @@ def deliver_playlist(
         representation_names = []
 
     # Generate a list of representation names from the output types set in SG
-    out_data_types = sg_project.get(f"sg_{delivery_type}_output")
+    out_data_types = sg_project.get(f"sg_{delivery_type}_output_type")
     for out_data_type in out_data_types:
-        representation_names.append(
-            "{}_{}".format(
-                out_data_type["name"].replace(" ", "").lower(),
-                delivery_type,
-            )
+        representation_name = "{}_{}".format(
+            out_data_type["name"].replace(" ", "").lower(),
+            delivery_type,
+        )
+        representation_names.append(representation_name)
+
+    if representation_names:
+        logger.info("Delivering representation names: %s", representation_names)
+    else:
+        logger.info(
+            "No representation names so we will deliver all existing representations."
         )
 
     # Get all the SG versions associated to the playlist
@@ -167,8 +175,8 @@ def deliver_playlist(
             sg_version,
             project_name,
             delivery_data,
-            representation_names,
             delivery_template_name,
+            representation_names,
         )
         if new_report_items:
             report_items.update(new_report_items)
@@ -190,27 +198,28 @@ def deliver_sg_version(
     op_version_id = sg_version["sg_op_instance_id"]
     if not op_version_id or op_version_id == "-":
         sub_msg = f"{sg_version['code']}<br>"
-        report_items[
-            "Missing 'sg_op_instance_id' field on SG Versions"
-        ].append(sub_msg)
+        report_items["Missing 'sg_op_instance_id' field on SG Versions"].append(sub_msg)
         return report_items
+
+    anatomy = Anatomy(project_name)
 
     # Get the corresponding shot and whether it contains any overrides
     sg = get_shotgrid_session()
     sg_shot = sg.find_one(
         "Shot",
         [["id", "is", sg_version["entity"]["id"]]],
-        fields=["sg_delivery_name", "sg_delivery_template"],
+        fields=SG_DELIVERY_FIELDS,
     )
 
     delivery_shot_name = sg_shot.get("sg_delivery_name")
     # Override delivery_template only if the value is not None, otherwise fallback
     # to whatever existing value delivery_template had (could be None as well)
-    delivery_template = sg_shot.get(
-        "sg_delivery_template"
-    ) or delivery_data.get("delivery_template")
-
-    anatomy = Anatomy(project_name)
+    delivery_template = sg_shot.get("sg_delivery_template") or delivery_data.get(
+        "delivery_template"
+    )
+    # Make sure we prefix the template with the io folder for the project
+    if delivery_template:
+        delivery_template = f"/proj/{anatomy.project_code}/io/out/{delivery_template}"
 
     # Find the OP representations we want to deliver
     repres_to_deliver = list(
@@ -243,16 +252,6 @@ def deliver_sg_version(
             _delivery_template_name = "single_file"
 
         anatomy_data = copy.deepcopy(repre["context"])
-        repre_report_items = check_destination_path(
-            repre["_id"],
-            anatomy,
-            anatomy_data,
-            delivery_data.get("date"),
-            _delivery_template_name,
-        )
-
-        if repre_report_items:
-            return repre_report_items
 
         # Set overrides if passed
         delivery_project_name = delivery_data.get("delivery_project_name")
@@ -274,6 +273,18 @@ def deliver_sg_version(
 
         logger.debug(anatomy_data)
 
+        repre_report_items = check_destination_path(
+            repre["_id"],
+            anatomy,
+            anatomy_data,
+            delivery_data.get("date"),
+            _delivery_template_name,
+            delivery_template,
+        )
+
+        if repre_report_items:
+            return repre_report_items
+
         repre_path = get_representation_path_with_anatomy(repre, anatomy)
 
         args = [
@@ -285,7 +296,7 @@ def deliver_sg_version(
             None,
             report_items,
             logger,
-            # delivery_template,
+            delivery_template,
         ]
         src_paths = []
         for repre_file in repre["files"]:
@@ -298,6 +309,10 @@ def deliver_sg_version(
             if frame:
                 anatomy_data["frame"] = frame
             new_report_items, _ = deliver_single_file(*args)
+            # If not new report items it means the delivery was successful
+            # so we append it to the list of successful delivers
+            if not new_report_items:
+                report_items["Successfully delivered representations"].append(repre_path)
             report_items.update(new_report_items)
 
     return report_items
