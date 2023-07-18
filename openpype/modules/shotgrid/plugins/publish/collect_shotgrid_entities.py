@@ -9,6 +9,7 @@ from openpype.lib.mongo import OpenPypeMongoConnection
 SG_DELIVERY_FIELDS = [
     "sg_delivery_name",
     "sg_delivery_template",
+    "sg_slate_subtitle",
     "sg_final_datatype",
     "sg_final_fps",
     "sg_final_output_type",
