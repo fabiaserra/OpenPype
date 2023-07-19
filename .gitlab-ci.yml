@@ -115,11 +115,6 @@ build-patch:
       - artifact
   when: manual
   allow_failure: false
-  rules:
-    - if: $CI_COMMIT_BRANCH == "release/alkemyx"
-      when: manual
-    - if: $CI_COMMIT_BRANCH == "release/alkemyx-develop"
-      when: manual
 
 deploy-patch:
   tags:
@@ -132,11 +127,6 @@ deploy-patch:
     - build-patch
   needs:
     - build-patch
-  rules:
-    - if: $CI_COMMIT_BRANCH == "release/alkemyx"
-      when: always
-    - if: $CI_COMMIT_BRANCH == "release/alkemyx-develop"
-      when: always
 
 patch-release:
   tags:
@@ -150,11 +140,6 @@ patch-release:
     - release-cli create --description "Release ${openpype_version} using CI pipeline $CI_PIPELINE_ID" --tag-name "${openpype_version}"
   needs:
     - deploy-patch
-  rules:
-    - if: $CI_COMMIT_BRANCH == "release/alkemyx"
-      when: always
-    - if: $CI_COMMIT_BRANCH == "release/alkemyx-develop"
-      when: always
 
 deploy-to-deadline:
   tags:
