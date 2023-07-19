@@ -59,7 +59,7 @@ class DeliveryDialog(QtWidgets.QDialog):
         self.text_area = QtWidgets.QTextEdit()
         self.text_area.setReadOnly(True)
         self.text_area.setVisible(False)
-        self.text_area.setMinimumHeight(100)
+        self.text_area.setMinimumHeight(250)
 
         layout = QtWidgets.QVBoxLayout(self)
         layout.addWidget(input_widget)

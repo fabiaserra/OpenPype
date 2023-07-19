@@ -80,11 +80,14 @@ def check_destination_path(
     """
 
     anatomy_data.update(datetime_data)
+    ### Starts Alkemy-X Override ###
+    # Expose a new arg so we can override the template path used for delivery
     if template_str:
         dest_path = StringTemplate.format_template(template_str, anatomy_data)
     else:
         anatomy_filled = anatomy.format_all(anatomy_data)
         dest_path = anatomy_filled["delivery"][template_name]
+    ### Ends Alkemy-X Override ###
 
     report_items = collections.defaultdict(list)
 
@@ -160,11 +163,14 @@ def deliver_single_file(
         anatomy_data = copy.deepcopy(anatomy_data)
         anatomy_data["root"] = format_dict["root"]
 
+    ### Starts Alkemy-X Override ###
+    # Expose a new arg so we can override the template path used for delivery
     if template_str:
         delivery_path = StringTemplate.format_template(template_str, anatomy_data)
     else:
         template_obj = anatomy.templates_obj["delivery"][template_name]
         delivery_path = template_obj.format_strict(anatomy_data)
+    ### Ends Alkemy-X Override ###
 
     # Backwards compatibility when extension contained `.`
     delivery_path = delivery_path.replace("..", ".")
@@ -291,11 +297,14 @@ def deliver_sequence(
     if format_dict:
         anatomy_data["root"] = format_dict["root"]
 
+    ### Starts Alkemy-X Override ###
+    # Expose a new arg so we can override the template path used for delivery
     if template_str:
         delivery_path = StringTemplate.format_template(template_str, anatomy_data)
     else:
         template_obj = anatomy.templates_obj["delivery"][template_name]
         delivery_path = template_obj.format_strict(anatomy_data)
+    ### Endss Alkemy-X Override ###
 
     delivery_path = os.path.normpath(delivery_path.replace("\\", "/"))
     delivery_folder = os.path.dirname(delivery_path)
