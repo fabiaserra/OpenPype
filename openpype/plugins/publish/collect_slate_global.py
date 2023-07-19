@@ -60,14 +60,14 @@ class CollectSlateGlobal(pyblish.api.InstancePlugin):
             slate_common_data.update(instance.data["customData"])
 
         # Collect possible delivery overrides
-        delivery_template = "{asset}_{task[name]}_v{@version}"
+        slate_subtitle_template = "{asset}_{task[name]}_v{@version}"
         delivery_overrides_dict = context.data["shotgridDeliveryOverrides"]
 
         project_overrides = delivery_overrides_dict.get("project")
         if project_overrides:
             project_name = project_overrides.get("sg_delivery_name")
-            delivery_template = project_overrides.get("sg_delivery_template") \
-                or delivery_template
+            slate_subtitle_template = project_overrides.get("sg_slate_subtitle") \
+                or slate_subtitle_template
             if project_name:
                 slate_common_data["project"]["sg_delivery_name"] = project_name
                 slate_common_data["slate_title"] = project_name
@@ -75,13 +75,13 @@ class CollectSlateGlobal(pyblish.api.InstancePlugin):
         shot_overrides = delivery_overrides_dict.get("shot")
         if shot_overrides:
             asset_name = shot_overrides.get("sg_delivery_name")
-            delivery_template = shot_overrides.get("sg_delivery_template") or \
-                delivery_template
+            slate_subtitle_template = shot_overrides.get("sg_slate_subtitle") or \
+                slate_subtitle_template
             if asset_name:
                 slate_common_data["asset"] = asset_name
 
         # Fill up slate subtitle field with all the data collected thus far
-        slate_common_data["slate_subtitle"] = delivery_template.format(
+        slate_common_data["slate_subtitle"] = slate_subtitle_template.format(
             **slate_common_data
         )
 

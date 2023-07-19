@@ -80,11 +80,10 @@ def check_destination_path(
     """
 
     anatomy_data.update(datetime_data)
-    anatomy_filled = anatomy.format_all(anatomy_data)
-    dest_path = anatomy_filled["delivery"][template_name]
     if template_str:
-        dest_path = StringTemplate.format_strict_template(template_str, anatomy_data)
+        dest_path = StringTemplate.format_template(template_str, anatomy_data)
     else:
+        anatomy_filled = anatomy.format_all(anatomy_data)
         dest_path = anatomy_filled["delivery"][template_name]
 
     report_items = collections.defaultdict(list)
@@ -162,7 +161,7 @@ def deliver_single_file(
         anatomy_data["root"] = format_dict["root"]
 
     if template_str:
-        delivery_path = StringTemplate.format_strict_template(template_str, anatomy_data)
+        delivery_path = StringTemplate.format_template(template_str, anatomy_data)
     else:
         template_obj = anatomy.templates_obj["delivery"][template_name]
         delivery_path = template_obj.format_strict(anatomy_data)
@@ -293,7 +292,7 @@ def deliver_sequence(
         anatomy_data["root"] = format_dict["root"]
 
     if template_str:
-        delivery_path = StringTemplate.format_strict_template(template_str, anatomy_data)
+        delivery_path = StringTemplate.format_template(template_str, anatomy_data)
     else:
         template_obj = anatomy.templates_obj["delivery"][template_name]
         delivery_path = template_obj.format_strict(anatomy_data)
