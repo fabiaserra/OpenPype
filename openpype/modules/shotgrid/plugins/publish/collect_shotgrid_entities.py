@@ -49,8 +49,8 @@ class CollectShotgridEntities(pyblish.api.InstancePlugin):
         )
         avalon_task_name = os.getenv("AVALON_TASK")
 
-        self.log.info(avalon_project)
-        self.log.info(avalon_asset)
+        self.log.debug(avalon_project)
+        self.log.debug(avalon_asset)
 
         sg_project = _get_shotgrid_project(context)
         sg_task = _get_shotgrid_task(
@@ -85,7 +85,7 @@ class CollectShotgridEntities(pyblish.api.InstancePlugin):
         ### Starts Alkemy-X Override ###
         # Collect relevant data for review/delivery purposes
         delivery_overrides = _find_delivery_overrides(context, instance)
-        self.log.info(
+        self.log.debug(
             "Collected delivery overrides : {}".format(delivery_overrides)
         )
         context.data["shotgridDeliveryOverrides"] = delivery_overrides
