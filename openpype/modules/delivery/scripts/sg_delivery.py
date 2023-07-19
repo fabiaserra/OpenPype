@@ -7,6 +7,7 @@ import tqdm
 import clique
 import getpass
 import json
+import requests
 
 import shotgun_api3
 
@@ -17,14 +18,14 @@ from openpype.client import (
     get_representation_by_name,
 )
 from openpype.lib import Logger, collect_frames, get_datetime_data
-from openpype.pipeline import Anatomy
+from openpype.pipeline import Anatomy, legacy_io
 from openpype.pipeline.load import get_representation_path_with_anatomy
 from openpype.pipeline.delivery import (
     check_destination_path,
     deliver_single_file,
 )
 from openpype.modules.shotgrid.lib.settings import get_shotgrid_servers
-from openpype.settings import get_project_settings
+from openpype.settings import get_system_settings
 
 logger = Logger.get_logger(__name__)
 
@@ -327,6 +328,37 @@ def deliver_sg_version(
     return report_items
 
 
+
+@click.command("republish_version")
+@click.option(
+    "--version_id",
+    "-v",
+    required=True,
+    type=int,
+    help="Shotgrid version id to republish.",
+)
+def republish_version_command(
+    version_id,
+):
+    """Given a SG version id, republish it so it triggers the OP publish pipeline again.
+
+    Args:
+        version (int): Shotgrid version id to republish.
+    """
+    sg = get_shotgrid_session()
+
+    sg_version = sg.find_one(
+        "Version",
+        [
+            ["id", "is", int(version_id)],
+        ],
+        ["project", "sg_op_instance_id", "code"],
+    )
+    return republish_version(
+        sg_version, sg_version["project"]["name"]
+    )
+
+
 def republish_version(sg_version, project_name, review=True, final=True):
 
     report_items = collections.defaultdict(list)
@@ -366,7 +398,8 @@ def republish_version(sg_version, project_name, review=True, final=True):
     exr_path = exr_repre_doc["data"]["path"]
     render_path = os.path.dirname(exr_path)
 
-    families = version_doc["families"] + "review"
+    families = version_doc["data"]["families"]
+    families.append("review")
 
     if review:
         families.append("client_review")
@@ -374,35 +407,40 @@ def republish_version(sg_version, project_name, review=True, final=True):
     if final:
         families.append("client_final")
 
+    work_directory = os.path.dirname(version_doc["data"]["source"])
+
     instance_data = {
-        "family": exr_repre_doc.context["family"],
-        "subset": exr_repre_doc.context["subset"],
+        "project": project_name,
+        "family": exr_repre_doc["context"]["family"],
+        "subset": exr_repre_doc["context"]["subset"],
         "families": families,
-        "asset": exr_repre_doc.context["asset"],
-        "frameStart": version_doc.data["frameStart"],
-        "frameEnd": version_doc.data["frameEnd"],
-        "handleStart": version_doc.data["handleStart"],
-        "handleEnd": version_doc.data["handleEnd"],
-        "frameStartHandle": version_doc.data["frameStart"] - version_doc.data["handleStart"],
-        "frameEndHandle": version_doc.data["frameEnd"] + version_doc.data["handleEnd"],
-        "comment": version_doc.data["comment"],
-        "fps": version_doc.data["fps"],
-        "source": version_doc.data["source"],
+        "asset": exr_repre_doc["context"]["asset"],
+        "task": exr_repre_doc["context"]["task"]["name"],
+        "frameStart": version_doc["data"]["frameStart"],
+        "frameEnd": version_doc["data"]["frameEnd"],
+        "handleStart": version_doc["data"]["handleStart"],
+        "handleEnd": version_doc["data"]["handleEnd"],
+        "frameStartHandle": version_doc["data"]["frameStart"] - version_doc["data"]["handleStart"],
+        "frameEndHandle": version_doc["data"]["frameEnd"] + version_doc["data"]["handleEnd"],
+        "comment": version_doc["data"]["comment"],
+        "fps": version_doc["data"]["fps"],
+        "source": version_doc["data"]["source"],
         "overrideExistingFrame": False,
         "jobBatchName": "Republish - {}_{}".format(
             sg_version["code"], version_doc["name"]
         ),
         "useSequenceForReview": True,
-        "colorspace": version_doc.data.get("colorspace"),
+        "colorspace": version_doc["data"].get("colorspace"),
         "version": version_doc["name"],
+        "outputDir": work_directory,
     }
 
     # TODO: account for slate
     expected_files(
         instance_data,
         render_path,
-        version_doc.data["frameStart"],
-        version_doc.data["frameEnd"]
+        version_doc["data"]["frameStart"],
+        version_doc["data"]["frameEnd"]
     )
     logger.debug(
         "__ expectedFiles: `{}`".format(instance_data["expectedFiles"])
@@ -412,7 +450,6 @@ def republish_version(sg_version, project_name, review=True, final=True):
         instance_data,
         instance_data.get("expectedFiles"),
         False,
-        exr_repre_doc.context
     )
 
     if "representations" not in instance_data.keys():
@@ -435,11 +472,18 @@ def republish_version(sg_version, project_name, review=True, final=True):
     render_job["Props"]["User"] = getpass.getuser()
 
     # get default deadline webservice url from deadline module
-    deadline_url = get_project_settings(project_name)["deadline"]["deadline_urls"]["default"]
+    deadline_url = get_system_settings()["modules"]["deadline"]["deadline_urls"]["default"]
+
+    metadata_path = _create_metadata_path(instance_data)
+    logger.info("Metadata path: %s", metadata_path)
 
     deadline_publish_job_id = _submit_deadline_post_job(
-        instance_data, render_job, instances, render_path
+        instance_data, render_job, instances, render_path, deadline_url, metadata_path
     )
+
+    legacy_io.Session["AVALON_ASSET"] = instance_data["asset"]
+    legacy_io.Session["AVALON_TASK"] = instance_data.get("task")
+    legacy_io.Session["AVALON_WORKDIR"] = work_directory
 
     # Inject deadline url to instances.
     for inst in instances:
@@ -457,14 +501,12 @@ def republish_version(sg_version, project_name, review=True, final=True):
         "intent": None,
         "comment": instance_data["comment"],
         "job": render_job or None,
-        # "session": legacy_io.Session.copy(),
+        "session": legacy_io.Session.copy(),
         "instances": instances
     }
 
     if deadline_publish_job_id:
         publish_job["deadline_publish_job_id"] = deadline_publish_job_id
-
-    metadata_path = _create_metadata_path(instance_data)
 
     logger.info("Writing json file: {}".format(metadata_path))
     with open(metadata_path, "w") as f:
@@ -490,7 +532,7 @@ def _create_metadata_path(instance_data):
     return os.path.join(output_dir, metadata_filename)
 
 
-def _get_representations(instance_data, exp_files, do_not_add_review, context):
+def _get_representations(instance_data, exp_files, do_not_add_review):
     """Create representations for file sequences.
 
     This will return representations of expected files if they are not
@@ -498,7 +540,7 @@ def _get_representations(instance_data, exp_files, do_not_add_review, context):
     most cases, but if not - we create representation from each of them.
 
     Arguments:
-        instance_data (dict): instance.data for which we are
+        instance_data (dict): instance["data"] for which we are
                             setting representations
         exp_files (list): list of expected files
         do_not_add_review (bool): explicitly skip review
@@ -510,7 +552,7 @@ def _get_representations(instance_data, exp_files, do_not_add_review, context):
     representations = []
     collections, _ = clique.assemble(exp_files)
 
-    anatomy = context.data["anatomy"]
+    anatomy = Anatomy(instance_data["project"])
 
     # create representation for every collected sequence
     for collection in collections:
@@ -615,7 +657,7 @@ def expected_files(
 
 
 
-def _submit_deadline_post_job(instance_data, job, instances, output_dir):
+def _submit_deadline_post_job(instance_data, job, instances, output_dir, deadline_url, metadata_path):
     """Submit publish job to Deadline.
 
     Deadline specific code separated from :meth:`process` for sake of
@@ -637,66 +679,56 @@ def _submit_deadline_post_job(instance_data, job, instances, output_dir):
 
     # Transfer the environment from the original job to this dependent
     # job so they use the same environment
-    metadata_path, rootless_metadata_path = \
-        _create_metadata_path(instance)
+    # metadata_path = _create_metadata_path(instance_data)
+    # logger.info("Metadata path: %s", metadata_path)
+    username = getpass.getuser()
 
     environment = {
-        "AVALON_PROJECT": legacy_io.Session["AVALON_PROJECT"],
+        "AVALON_PROJECT": instance_data.get("project"),
         "AVALON_ASSET": instance_data.get("asset"),
-        "AVALON_TASK": legacy_io.Session["AVALON_TASK"],
-        "OPENPYPE_USERNAME": instance.context.data["user"],
+        "AVALON_TASK": instance_data.get("task"),
+        "OPENPYPE_USERNAME": username,
         "OPENPYPE_PUBLISH_JOB": "1",
         "OPENPYPE_RENDER_JOB": "0",
         "OPENPYPE_REMOTE_JOB": "0",
         "OPENPYPE_LOG_NO_COLORS": "1",
-        "IS_TEST": str(int(is_in_tests()))
+        "OPENPYPE_SG_USER": username
     }
 
-    # add environments from self.environ_keys
-    for env_key in self.environ_keys:
-        if os.getenv(env_key):
-            environment[env_key] = os.environ[env_key]
-
     # pass environment keys from self.environ_job_filter
-    job_environ = job["Props"].get("Env", {})
-    for env_j_key in self.environ_job_filter:
-        if job_environ.get(env_j_key):
-            environment[env_j_key] = job_environ[env_j_key]
-
-    priority = self.deadline_priority or instance_data.get("priority", 50)
+    # job_environ = job["Props"].get("Env", {})
+    # for env_j_key in self.environ_job_filter:
+    #     if job_environ.get(env_j_key):
+    #         environment[env_j_key] = job_environ[env_j_key]
 
     args = [
         "--headless",
         'publish',
-        '"{}"'.format(rootless_metadata_path),
+        '"{}"'.format(metadata_path),
         "--targets", "deadline",
         "--targets", "farm"
     ]
 
     # Generate the payload for Deadline submission
-    secondary_pool = (
-        self.deadline_pool_secondary or instance_data.get("secondaryPool")
-    )
     payload = {
         "JobInfo": {
-            "Plugin": self.deadline_plugin,
+            "Plugin": "OpenPype",
             "BatchName": job["Props"]["Batch"],
             "Name": job_name,
             "UserName": job["Props"]["User"],
-            "Comment": instance.context.data.get("comment", ""),
+            "Comment": instance_data.get("comment", ""),
 
-            "Department": self.deadline_department,
-            "ChunkSize": self.deadline_chunk_size,
-            "Priority": priority,
-
-            "Group": self.deadline_group,
-            "Pool": self.deadline_pool or instance_data.get("primaryPool"),
-            "SecondaryPool": secondary_pool,
+            "Department": "",
+            "ChunkSize": 1,
+            "Priority": 50,
+            "Group": "nuke-cpu-epyc",
+            "Pool": "",
+            "SecondaryPool": "",
             # ensure the outputdirectory with correct slashes
             "OutputDirectory0": output_dir.replace("\\", "/")
         },
         "PluginInfo": {
-            "Version": self.plugin_pype_version,
+            "Version": os.getenv("OPENPYPE_VERSION"),
             "Arguments": " ".join(args),
             "SingleFrameOnly": "True",
         },
@@ -705,20 +737,14 @@ def _submit_deadline_post_job(instance_data, job, instances, output_dir):
     }
 
     # add assembly jobs as dependencies
-    if instance_data.get("tileRendering"):
-        logger.info("Adding tile assembly jobs as dependencies...")
-        job_index = 0
-        for assembly_id in instance_data.get("assemblySubmissionJobs"):
-            payload["JobInfo"]["JobDependency{}".format(job_index)] = assembly_id  # noqa: E501
-            job_index += 1
-    elif instance_data.get("bakingSubmissionJobs"):
-        logger.info("Adding baking submission jobs as dependencies...")
-        job_index = 0
-        for assembly_id in instance_data["bakingSubmissionJobs"]:
-            payload["JobInfo"]["JobDependency{}".format(job_index)] = assembly_id  # noqa: E501
-            job_index += 1
-    elif job.get("_id"):
-        payload["JobInfo"]["JobDependency0"] = job["_id"]
+    # if instance_data.get("bakingSubmissionJobs"):
+    #     logger.info("Adding baking submission jobs as dependencies...")
+    #     job_index = 0
+    #     for assembly_id in instance_data["bakingSubmissionJobs"]:
+    #         payload["JobInfo"]["JobDependency{}".format(job_index)] = assembly_id  # noqa: E501
+    #         job_index += 1
+    # elif job.get("_id"):
+    #     payload["JobInfo"]["JobDependency0"] = job["_id"]
 
     if instance_data.get("suspend_publish"):
         payload["JobInfo"]["InitialStatus"] = "Suspended"
@@ -736,16 +762,18 @@ def _submit_deadline_post_job(instance_data, job, instances, output_dir):
     payload["JobInfo"].pop("SecondaryPool", None)
 
     logger.info("Submitting Deadline job ...")
+    logger.debug("Payload: %s", payload)
 
-    url = "{}/api/jobs".format(self.deadline_url)
+    url = "{}/api/jobs".format(deadline_url)
     response = requests.post(url, json=payload, timeout=10)
     if not response.ok:
         raise Exception(response.text)
 
     deadline_publish_job_id = response.json()["_id"]
+    logger.info(deadline_publish_job_id)
 
     return deadline_publish_job_id
 
 
 if __name__ == "__main__":
-    deliver_playlist()
+    republish_version_command()
