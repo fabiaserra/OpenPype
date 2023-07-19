@@ -128,6 +128,9 @@ class ProcessSubmittedJobOnFarm(pyblish.api.InstancePlugin,
              "celaction", "aftereffects", "harmony", "traypublisher",
              "hiero"]
 
+    ### Starts Alkemy-X Override ###
+    # Add all the families from TrayPublisher with a `.farm` suffix so this
+    # plugin only picks them up when the suffix is added
     families = [
         "arnold_rop",
         "camera.farm",
@@ -154,6 +157,7 @@ class ProcessSubmittedJobOnFarm(pyblish.api.InstancePlugin,
         "vrayscene",
         "workfile.farm",
     ]
+    ### Ends Alkemy-X Override ###
 
     aov_filter = {"maya": [r".*([Bb]eauty).*"],
                   "aftereffects": [r".*"],  # for everything from AE
