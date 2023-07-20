@@ -150,12 +150,20 @@ def deliver_playlist(
             )
             representation_names.append(representation_name)
 
+        # Add 'review' and 'final' as representation names as we want to deliver
+        # those in some cases. If 'delete output' tag is added on the Extract OIIO
+        # Transcode plugin, these representations won't exist but that doesn't matter
+        representation_names.append(delivery_type)
+
     if representation_names:
-        logger.info("Delivering representation names: %s", representation_names)
+        msg = "Delivering representation names:"
+        logger.info("%s: %s", msg, representation_names)
+        report_items[msg] = representation_names
     else:
-        logger.info(
-            "No representation names so we will deliver all existing representations."
-        )
+        msg = "No representation names specified: "
+        sub_msg = "All representations will be delivered."
+        logger.info(msg + sub_msg)
+        report_items[msg] = sub_msg
 
     # Get all the SG versions associated to the playlist
     sg_versions = sg.find(
