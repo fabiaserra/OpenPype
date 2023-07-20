@@ -33,7 +33,6 @@ logger = Logger.get_logger(__name__)
 # query for delivery purposes
 SG_DELIVERY_FIELDS = [
     "sg_delivery_name",
-    "sg_delivery_template",
     "sg_final_output_type",
     "sg_review_output_type",
 ]
@@ -79,16 +78,18 @@ def get_shotgrid_session():
     type=int,
     help="Shotgrid playlist id to deliver.",
 )
-@click.option("--delivery_template_name", "-t", required=False)
 @click.option("--representation_names", "-r", multiple=True, required=False)
 @click.option(
-    "--delivery_type", "-type", type=click.Choice(["final", "review"]), required=False
+    "--delivery_types",
+    "-types",
+    type=click.Choice(["final", "review"]),
+    required=False,
+    multiple=True,
 )
 def deliver_playlist_command(
     playlist_id,
-    delivery_template_name=None,
     representation_names=None,
-    delivery_type=None,
+    delivery_types=None,
 ):
     """Given a SG playlist id, deliver all the versions associated to it.
 
@@ -98,24 +99,29 @@ def deliver_playlist_command(
         representation_names (list): List of representation names to deliver.
     """
     return deliver_playlist(
-        playlist_id, delivery_template_name, representation_names, delivery_type
+        playlist_id, representation_names, delivery_types
     )
 
 
 def deliver_playlist(
     playlist_id,
-    delivery_template_name=None,
     representation_names=None,
-    delivery_type=None,
+    delivery_types=None,
+    delivery_templates=None,
 ):
     """Given a SG playlist id, deliver all the versions associated to it.
 
     Args:
         playlist_id (int): Shotgrid playlist id to deliver.
-        delivery_template_name (str): Name of the delivery template to use.
         representation_names (list): List of representation names to deliver.
-        delivery_type (str): What type of delivery it is (i.e., final, review)
+        delivery_type (list[str]): What type(s) of delivery it is
+            (i.e., ["final", "review"])
+        delivery_templates (dict[str, str]): Dictionary that maps different
+            delivery types (i.e., 'single_file', 'sequence') to the corresponding
+            templated string to use for delivery.
     """
+    report_items = collections.defaultdict(list)
+
     sg = get_shotgrid_session()
 
     sg_playlist = sg.find_one(
@@ -131,10 +137,7 @@ def deliver_playlist(
 
     project_doc = get_project(project_name, fields=["name"])
     if not project_doc:
-        return {
-            "success": False,
-            "message": ('Didn\'t find project "{}" in avalon.').format(project_name),
-        }
+        return report_items[f"Didn't find project '{project_name}' in avalon."], False
 
     # Get whether the project entity contains any delivery overrides
     sg_project = sg.find_one(
@@ -143,26 +146,34 @@ def deliver_playlist(
         fields=SG_DELIVERY_FIELDS,
     )
     delivery_project_name = sg_project.get("sg_delivery_name")
-    delivery_template = sg_project.get("sg_delivery_template")
 
     if not representation_names:
         representation_names = []
 
     # Generate a list of representation names from the output types set in SG
-    out_data_types = sg_project.get(f"sg_{delivery_type}_output_type")
-    for out_data_type in out_data_types:
-        representation_name = "{}_{}".format(
-            out_data_type["name"].replace(" ", "").lower(),
-            delivery_type,
-        )
-        representation_names.append(representation_name)
+    for delivery_type in delivery_types:
+        out_data_types = sg_project.get(f"sg_{delivery_type}_output_type")
+        for out_data_type in out_data_types:
+            representation_name = "{}_{}".format(
+                out_data_type["name"].replace(" ", "").lower(),
+                delivery_type,
+            )
+            representation_names.append(representation_name)
+
+        # Add 'review' and 'final' as representation names as we want to deliver
+        # those in some cases. If 'delete output' tag is added on the Extract OIIO
+        # Transcode plugin, these representations won't exist but that doesn't matter
+        representation_names.append(delivery_type)
 
     if representation_names:
-        logger.info("Delivering representation names: %s", representation_names)
+        msg = "Delivering representation names:"
+        logger.info("%s: %s", msg, representation_names)
+        report_items[msg] = representation_names
     else:
-        logger.info(
-            "No representation names so we will deliver all existing representations."
-        )
+        msg = "No representation names specified: "
+        sub_msg = "All representations will be delivered."
+        logger.info(msg + sub_msg)
+        report_items[msg] = sub_msg
 
     # Get all the SG versions associated to the playlist
     sg_versions = sg.find(
@@ -174,34 +185,50 @@ def deliver_playlist(
     # Create dictionary of inputs required by deliver_sg_version
     delivery_data = {
         "date": get_datetime_data(),
-        "delivery_template": delivery_template,
         "delivery_project_name": delivery_project_name,
     }
 
     # Iterate over each SG version and deliver it
-    report_items = collections.defaultdict(list)
+    success = True
     for sg_version in tqdm.tqdm(sg_versions):
-        new_report_items = deliver_sg_version(
+        new_report_items, new_success = deliver_sg_version(
             sg_version,
             project_name,
             delivery_data,
-            delivery_template_name,
             representation_names,
+            delivery_templates,
         )
         if new_report_items:
             report_items.update(new_report_items)
 
+        if not new_success:
+            success = False
+
     click.echo(report_items)
-    return report_items
+    return report_items, success
 
 
 def deliver_sg_version(
     sg_version,
     project_name,
     delivery_data,
-    delivery_template_name=None,
     representation_names=None,
+    delivery_templates=None,
 ):
+    """Deliver a single SG version.
+
+    Args:
+        sg_version (): Shotgrid Version object to deliver.
+        project_name (str): Name of the project corresponding to the version being
+            delivered.
+        delivery_data (dict[str, str]): Dictionary of relevant data for delivery.
+        representation_names (list): List of representation names to deliver.
+        delivery_type (list[str]): What type(s) of delivery it is
+            (i.e., ["final", "review"])
+        delivery_templates (dict[str, str]): Dictionary that maps different
+            delivery types (i.e., 'single_file', 'sequence') to the corresponding
+            templated string to use for delivery.
+    """
     report_items = collections.defaultdict(list)
 
     # Grab the OP's id corresponding to the SG version
@@ -209,7 +236,7 @@ def deliver_sg_version(
     if not op_version_id or op_version_id == "-":
         sub_msg = f"{sg_version['code']}<br>"
         report_items["Missing 'sg_op_instance_id' field on SG Versions"].append(sub_msg)
-        return report_items
+        return report_items, False
 
     anatomy = Anatomy(project_name)
 
@@ -220,16 +247,7 @@ def deliver_sg_version(
         [["id", "is", sg_version["entity"]["id"]]],
         fields=SG_DELIVERY_FIELDS,
     )
-
     delivery_shot_name = sg_shot.get("sg_delivery_name")
-    # Override delivery_template only if the value is not None, otherwise fallback
-    # to whatever existing value delivery_template had (could be None as well)
-    delivery_template = sg_shot.get("sg_delivery_template") or delivery_data.get(
-        "delivery_template"
-    )
-    # Make sure we prefix the template with the io folder for the project
-    if delivery_template:
-        delivery_template = f"/proj/{anatomy.project_code}/io/out/{delivery_template}"
 
     # Find the OP representations we want to deliver
     repres_to_deliver = list(
@@ -252,14 +270,35 @@ def deliver_sg_version(
         if frame:
             repre["context"]["frame"] = len(str(frame)) * "#"
 
-        # If delivery template name is passed as an argument, use that
-        # Otherwise, set it based on whether it's a sequence or a single file
-        if delivery_template_name:
-            _delivery_template_name = delivery_template_name
-        elif frame:
-            _delivery_template_name = "sequence"
-        else:
-            _delivery_template_name = "single_file"
+        # If delivery templates dictionary is passed as an argument, use that to set the
+        # template token for the representation.
+        delivery_template_name = None
+        if delivery_templates:
+            if frame:
+                template_name = "{}Sequence".format(
+                    "V0 " if repre["context"]["version"] == 0 else ""
+                )
+            else:
+                template_name = "{}Single File".format(
+                        "V0 " if repre["context"]["version"] == 0 else ""
+                    )
+
+            logger.info(
+                "Using template name '%s' for representation '%s'",
+                template_name,
+                repre["data"]["path"]
+            )
+            delivery_template = delivery_templates[template_name]
+
+            # Make sure we prefix the template with the io folder for the project
+            if delivery_template:
+                delivery_template = f"/proj/{anatomy.project_code}/io/out/{delivery_template}"
+
+        else:  # Otherwise, set it based on whether it's a sequence or a single file
+            if frame:
+                delivery_template_name = "sequence"
+            else:
+                delivery_template_name = "single_file"
 
         anatomy_data = copy.deepcopy(repre["context"])
 
@@ -283,17 +322,18 @@ def deliver_sg_version(
 
         logger.debug(anatomy_data)
 
-        repre_report_items = check_destination_path(
+        repre_report_items, dest_path = check_destination_path(
             repre["_id"],
             anatomy,
             anatomy_data,
             delivery_data.get("date"),
-            _delivery_template_name,
+            delivery_template_name,
             delivery_template,
+            return_dest_path=True,
         )
 
         if repre_report_items:
-            return repre_report_items
+            return repre_report_items, False
 
         repre_path = get_representation_path_with_anatomy(repre, anatomy)
 
@@ -301,7 +341,7 @@ def deliver_sg_version(
             repre_path,
             repre,
             anatomy,
-            _delivery_template_name,
+            delivery_template_name,
             anatomy_data,
             None,
             report_items,
@@ -322,10 +362,12 @@ def deliver_sg_version(
             # If not new report items it means the delivery was successful
             # so we append it to the list of successful delivers
             if not new_report_items:
-                report_items["Successfully delivered representations"].append(repre_path)
+                report_items["Successful delivered representations"].append(
+                    f"{repre_path} -> {dest_path}<br>"
+                )
             report_items.update(new_report_items)
 
-    return report_items
+    return report_items, True
 
 
 

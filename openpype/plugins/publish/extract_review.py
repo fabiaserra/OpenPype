@@ -80,7 +80,7 @@ class ExtractReview(pyblish.api.InstancePlugin):
 
     ### Starts Alkemy-X Override ###
     # Skeleton dictionary of what an ExtractReview profile looks like
-    profile_skeleton = {
+    profile_output_skeleton = {
         "ext": None,
         "tags": [],
         "burnins": [],
@@ -209,24 +209,35 @@ class ExtractReview(pyblish.api.InstancePlugin):
             return None
 
         sg_profiles = {}
-        for override_entity in ["project", "shot"]:
+        for hierarchy_level, override_entity in enumerate(["project", "shot"]):
             ent_overrides = delivery_overrides_dict[override_entity]
             for delivery_type in ["review", "final"]:
                 delivery_outputs = ent_overrides[f"sg_{delivery_type}_output_type"]
-                # If on the next run of the for loop there's still delivery
+                # If on the next run of the hierarchy loop there delivery
                 # outputs it means these should override the prior entity
+                # so we clear the sg_profiles entries for that delivery type
                 # i.e., if there's different output types on the shot than
                 # the project
-                if delivery_outputs:
+                if hierarchy_level > 0 and delivery_outputs:
                     self.log.info(
-                        "There's delivery overrides on the SG entity %s, clearing " \
-                        "overrides from parent entity.",
-                        override_entity
+                        "There's '%s' delivery overrides on the SG entity '%s', " \
+                        "clearing '%s' overrides from parent entity.",
+                        delivery_type, override_entity, delivery_type
                     )
-                    sg_profiles.clear()
+                    sg_profiles = {
+                        k: v for k, v in sg_profiles.items() if not k.endswith(delivery_type)
+                    }
 
                 for out_name, out_fields in delivery_outputs.items():
-                    sg_profiles[out_name] = self.profile_skeleton.copy()
+                    # Only run extract review for the output types that are video
+                    # extensions
+                    if out_fields["sg_extension"] not in self.video_exts:
+                        self.log.debug(
+                            "Skipping profile '%s' because it's not a video extension",
+                            out_name
+                        )
+                        continue
+                    sg_profiles[out_name] = self.profile_output_skeleton.copy()
                     sg_profiles[out_name]["ext"] = out_fields["sg_extension"]
                     sg_profiles[out_name]["tags"] = [
                         tag["name"] for tag in ent_overrides[f"sg_{delivery_type}_tags"]
