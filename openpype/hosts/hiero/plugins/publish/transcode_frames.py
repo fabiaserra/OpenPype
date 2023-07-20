@@ -35,6 +35,11 @@ class TranscodeFrames(publish.Extractor):
         "{input_path}",
         "-v",
         "--info",
+        "--compression",
+        "zips",
+        "-d",
+        "half",
+        "--scanline",
         "--colorconvert",
         "{src_colorspace}",
         "{dst_colorspace}",
@@ -126,7 +131,10 @@ class TranscodeFrames(publish.Extractor):
         self.log.info("Source ext: %s", source_ext.lower())
 
         # If either source or output is a video format, transcode using Nuke
-        if True:
+        if (self.output_ext.lower() in self.movie_extensions or
+                source_ext.lower() in self.movie_extensions or
+                source_ext.lower() in self.nuke_specific_extensions):
+            # No need to raise error as Nuke raises an error exit value if something went wrong
             self.log.info("Submitting Nuke transcode")
 
             # Add environment variables required to run Nuke script
