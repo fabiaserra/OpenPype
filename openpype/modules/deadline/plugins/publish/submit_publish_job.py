@@ -118,7 +118,7 @@ class ProcessSubmittedJobOnFarm(pyblish.api.InstancePlugin,
 
     """
 
-    label = "Submit image sequence jobs to Deadline or Muster"
+    label = "Submit publish job to Deadline"
     order = pyblish.api.IntegratorOrder + 0.2
     icon = "tractor"
     deadline_plugin = "OpenPype"
@@ -138,21 +138,21 @@ class ProcessSubmittedJobOnFarm(pyblish.api.InstancePlugin,
         "imagesequence",
         "karma_rop",
         "mantra_rop",
-        "matchmove.farm"
+        "matchmove.farm",
         "maxrender",
-        "model.farm"
-        "plate.farm"
-        "pointcache.farm"
+        "model.farm",
+        "plate.farm",
+        "pointcache.farm",
         "prerender.farm_frames",
         "prerender.farm",
         "redshift_rop",
         "reference.farm",
         "render.farm_frames",
-        "render.farm"
+        "render.farm",
         "renderlayer",
-        "rig.farm"
-        "simpleUnrealTexture.farm"
-        "vdb.farm"
+        "rig.farm",
+        "simpleUnrealTexture.farm",
+        "vdb.farm",
         "vray_rop",
         "vrayscene",
         "workfile.farm",
