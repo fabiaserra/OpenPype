@@ -90,7 +90,13 @@ class PrecollectInstances(pyblish.api.ContextPlugin):
             subset = tag_data["subset"]
 
             # insert family into families
-            family = tag_data["family"]
+            ### Starts Alkemy-X Override ###
+            # Hard-code the addition of `.farm` suffix to the families so plugins get
+            # filtered by it and we can control when the submit publish job plugin
+            # gets executed. We can do this because in Hiero we have decided to always
+            # publish in the farm
+            family = "{}.farm".format(tag_data["family"])
+            ### Ends Alkemy-X Override ###
             families = [str(f) for f in tag_data["families"]]
             families.insert(0, str(family))
 
@@ -116,7 +122,9 @@ class PrecollectInstances(pyblish.api.ContextPlugin):
 
                 # add all additional tags
                 "tags": phiero.get_track_item_tags(track_item),
-                "newAssetPublishing": True
+                "newAssetPublishing": True,
+                "toBeRenderedOn": "deadline",
+                "farm": True,
             })
 
             # otio clip data

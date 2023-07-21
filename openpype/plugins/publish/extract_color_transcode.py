@@ -5,7 +5,6 @@ import pyblish.api
 
 from openpype.pipeline import publish
 from openpype.lib import (
-
     is_oiio_supported,
 )
 
@@ -61,6 +60,18 @@ class ExtractOIIOTranscode(publish.Extractor):
     # for now this simplifies our pipeline so we can have more control over
     # when the transcoding happens.
     families = ["client_review"]
+
+    # Skeleton of an output definition of a profile
+    profile_output_skeleton = {
+        "extension": "",
+        "transcoding_type": "colorspace",
+        "colorspace": "",
+        "display": "",
+        "view": "",
+        "oiiotool_args": {"additional_command_args": []},
+        "tags": [],
+        "custom_tags": [],
+    }
     ### Ends Alkemy-X Override ###
     optional = True
 
@@ -87,6 +98,23 @@ class ExtractOIIOTranscode(publish.Extractor):
         profile = self._get_profile(instance)
         if not profile:
             return
+
+        ### Starts Alkemy-X Override ###
+        # Adds support to define review profiles from SG instead of OP settings
+        sg_outputs, lut_colorspace_review = self.get_sg_output_profiles(instance)
+        if sg_outputs:
+            self.log.info(
+                "Found some profiles on the Shotgrid instance: %s", sg_outputs
+            )
+            profile["outputs"].update(sg_outputs)
+
+        # If 'Review Lut' on the SG entity is not enabled we override it so the
+        # colorspace is not the default "input_process"
+        if not lut_colorspace_review:
+            profile["outputs"]["review"]["colorspace"] = "delivery_frame"
+
+        self.log.debug("Profile: %s", profile)
+        ### Ends Alkemy-X Override ###
 
         new_representations = []
         repres = instance.data["representations"]
@@ -221,6 +249,82 @@ class ExtractOIIOTranscode(publish.Extractor):
                 instance.data["representations"].remove(repre)
 
         instance.data["representations"].extend(new_representations)
+
+    ### Starts Alkemy-X Override ###
+    def get_sg_output_profiles(self, instance):
+        """Returns a dictionary of profiles based on delivery overrides set on
+        the SG instance.
+
+        If there are delivery overrides set on the Shotgrid instance, this
+        method returns a dictionary of output profiles that matches what OP
+        profiles expect based on those overrides. Otherwise, it returns None.
+
+        Args:
+            instance (Instance): The instance to get Shotgrid output profiles
+                for.
+
+        Returns:
+            dict: A dictionary of Shotgrid output profiles, or None if there
+                are no delivery overrides.
+        """
+        # Check if there's any delivery overrides set on the SG instance
+        # and use that instead of the profile output definitions if that's
+        # the case
+        delivery_overrides_dict = instance.context.data.get("shotgridDeliveryOverrides")
+        if not delivery_overrides_dict:
+            return None
+
+        # Boolean to figure out whether we need to override the default 'review' profile
+        # colorspace based on if 'Review LUT' field is enabled
+        lut_colorspace_review = False
+
+        sg_profiles = {}
+        for hierarchy_level, override_entity in enumerate(["project", "shot"]):
+            ent_overrides = delivery_overrides_dict[override_entity]
+
+            # Whether we need to override the review colorspace
+            lut_colorspace_review = ent_overrides["sg_review_lut"]
+
+            for delivery_type in ["review", "final"]:
+                delivery_outputs = ent_overrides[f"sg_{delivery_type}_output_type"]
+                # If on the next run of the hierarchy loop there delivery
+                # outputs it means these should override the prior entity
+                # so we clear the sg_profiles entries for that delivery type
+                # i.e., if there's different output types on the shot than
+                # the project
+                if hierarchy_level > 0 and delivery_outputs:
+                    self.log.info(
+                        "There's '%s' delivery overrides on the SG entity '%s', " \
+                        "clearing '%s' overrides from parent entity.",
+                        delivery_type, override_entity, delivery_type
+                    )
+                    sg_profiles = {
+                        k: v for k, v in sg_profiles.items() if not k.endswith(delivery_type)
+                    }
+
+                for out_name, out_fields in delivery_outputs.items():
+                    # Only run extract review for the output types that are image
+                    # extensions
+                    if out_fields["sg_extension"] not in self.supported_exts:
+                        self.log.debug(
+                            "Skipping profile '%s' because it's not a supported extension",
+                            out_name
+                        )
+                        continue
+                    sg_profiles[out_name] = self.profile_output_skeleton.copy()
+                    sg_profiles[out_name]["extension"] = out_fields["sg_extension"]
+                    sg_profiles[out_name]["tags"] = [
+                        tag["name"] for tag in ent_overrides[f"sg_{delivery_type}_tags"]
+                    ]
+
+                    dest_colorspace = "delivery_frame"
+                    if delivery_type == "review" and lut_colorspace_review:
+                        dest_colorspace = "input_process"
+
+                    sg_profiles[out_name]["colorspace"] = dest_colorspace
+
+        return sg_profiles, lut_colorspace_review
+    ### Ends Alkemy-X Override ###
 
     def _rename_in_representation(self, new_repre, files_to_convert,
                                   output_name, output_extension):

@@ -439,7 +439,7 @@ class ExtractSlateGlobal(publish.Extractor):
                 frame_end = len(repre["files"]) + frame_start
                 output_name = "{}.{}.{}".format(
                     filename,
-                    str(slate_frame_start).zfill(int(common_data["frame_padding"])),
+                    str(slate_frame_start).zfill(len(_frame)),
                     ext,
                 )
                 thumbnail_path = os.path.join(
