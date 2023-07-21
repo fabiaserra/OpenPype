@@ -4,12 +4,8 @@ import copy
 import collections
 import click
 import tqdm
-import clique
 import getpass
 import json
-import requests
-
-import shotgun_api3
 
 from openpype.client import (
     get_project,
@@ -24,9 +20,9 @@ from openpype.pipeline.delivery import (
     check_destination_path,
     deliver_single_file,
 )
-from openpype.pipeline.colorspace import get_imageio_config
-from openpype.modules.shotgrid.lib.settings import get_shotgrid_servers
 from openpype.settings import get_system_settings
+
+from . import utils
 
 logger = Logger.get_logger(__name__)
 
@@ -39,39 +35,7 @@ SG_DELIVERY_FIELDS = [
 ]
 
 
-def get_shotgrid_session():
-    """Return a Shotgun API session object for the configured ShotGrid server.
-
-    The function reads the ShotGrid server settings from the OpenPype
-    configuration file and uses them to create a Shotgun API session object.
-
-    Returns:
-        A Shotgun API session object.
-    """
-    shotgrid_servers_settings = get_shotgrid_servers()
-    logger.info("shotgrid_servers_settings: {}".format(shotgrid_servers_settings))
-
-    shotgrid_server_setting = shotgrid_servers_settings.get("alkemyx", {})
-    shotgrid_url = shotgrid_server_setting.get("shotgrid_url", "")
-
-    shotgrid_script_name = shotgrid_server_setting.get("shotgrid_script_name", "")
-    shotgrid_script_key = shotgrid_server_setting.get("shotgrid_script_key", "")
-    if not shotgrid_script_name and not shotgrid_script_key:
-        logger.error(
-            "No Shotgrid API credential found, please enter "
-            "script name and script key in OpenPype settings"
-        )
-
-    proxy = os.environ.get("HTTPS_PROXY", "").lstrip("https://")
-    return shotgun_api3.Shotgun(
-        shotgrid_url,
-        script_name=shotgrid_script_name,
-        api_key=shotgrid_script_key,
-        http_proxy=proxy,
-    )
-
-
-@click.command("deliver_playlist")
+@click.command("deliver_playlist_id")
 @click.option(
     "--playlist_id",
     "-p",
@@ -87,7 +51,7 @@ def get_shotgrid_session():
     required=False,
     multiple=True,
 )
-def deliver_playlist_command(
+def deliver_playlist_id_command(
     playlist_id,
     representation_names=None,
     delivery_types=None,
@@ -96,13 +60,18 @@ def deliver_playlist_command(
 
     Args:
         playlist_id (int): Shotgrid playlist id to deliver.
-        delivery_template_name (str): Name of the delivery template to use.
         representation_names (list): List of representation names to deliver.
+        delivery_types (list[str]): What type(s) of delivery it is
+            (i.e., ["final", "review"])
+
+    Returns:
+        tuple: A tuple containing a dictionary of report items and a boolean indicating
+            whether the delivery was successful.
     """
-    return deliver_playlist(playlist_id, representation_names, delivery_types)
+    return deliver_playlist_id(playlist_id, representation_names, delivery_types)
 
 
-def deliver_playlist(
+def deliver_playlist_id(
     playlist_id,
     representation_names=None,
     delivery_types=None,
@@ -113,15 +82,19 @@ def deliver_playlist(
     Args:
         playlist_id (int): Shotgrid playlist id to deliver.
         representation_names (list): List of representation names to deliver.
-        delivery_type (list[str]): What type(s) of delivery it is
+        delivery_types (list[str]): What type(s) of delivery it is
             (i.e., ["final", "review"])
         delivery_templates (dict[str, str]): Dictionary that maps different
             delivery types (i.e., 'single_file', 'sequence') to the corresponding
             templated string to use for delivery.
+
+    Returns:
+        tuple: A tuple containing a dictionary of report items and a boolean indicating
+            whether the delivery was successful.
     """
     report_items = collections.defaultdict(list)
 
-    sg = get_shotgrid_session()
+    sg = utils.get_shotgrid_session()
 
     sg_playlist = sg.find_one(
         "Playlist",
@@ -146,23 +119,37 @@ def deliver_playlist(
     )
     delivery_project_name = sg_project.get("sg_delivery_name")
 
+    # Get all the SG versions associated to the playlist
+    sg_versions = sg.find(
+        "Version",
+        [["playlists", "in", sg_playlist]],
+        ["sg_op_instance_id", "entity", "code"],
+    )
+
+    # Create dictionary of inputs required by deliver_version
+    delivery_data = {
+        "date": get_datetime_data(),
+        "delivery_project_name": delivery_project_name,
+    }
+
     if not representation_names:
         representation_names = []
 
     # Generate a list of representation names from the output types set in SG
-    for delivery_type in delivery_types:
-        out_data_types = sg_project.get(f"sg_{delivery_type}_output_type")
-        for out_data_type in out_data_types:
-            representation_name = "{}_{}".format(
-                out_data_type["name"].replace(" ", "").lower(),
-                delivery_type,
-            )
-            representation_names.append(representation_name)
+    if delivery_types:
+        for delivery_type in delivery_types:
+            out_data_types = sg_project.get(f"sg_{delivery_type}_output_type")
+            for out_data_type in out_data_types:
+                representation_name = "{}_{}".format(
+                    out_data_type["name"].replace(" ", "").lower(),
+                    delivery_type,
+                )
+                representation_names.append(representation_name)
 
-        # Add 'review' and 'final' as representation names as we want to deliver
-        # those in some cases. If 'delete output' tag is added on the Extract OIIO
-        # Transcode plugin, these representations won't exist but that doesn't matter
-        representation_names.append(delivery_type)
+            # Add 'review' and 'final' as representation names as we want to deliver
+            # those in some cases. If 'delete output' tag is added on the Extract OIIO
+            # Transcode plugin, these representations won't exist but that doesn't matter
+            representation_names.append(delivery_type)
 
     if representation_names:
         msg = "Delivering representation names:"
@@ -172,25 +159,12 @@ def deliver_playlist(
         msg = "No representation names specified: "
         sub_msg = "All representations will be delivered."
         logger.info(msg + sub_msg)
-        report_items[msg] = sub_msg
-
-    # Get all the SG versions associated to the playlist
-    sg_versions = sg.find(
-        "Version",
-        [["playlists", "in", sg_playlist]],
-        ["sg_op_instance_id", "entity", "code"],
-    )
-
-    # Create dictionary of inputs required by deliver_sg_version
-    delivery_data = {
-        "date": get_datetime_data(),
-        "delivery_project_name": delivery_project_name,
-    }
+        report_items[msg] = [sub_msg]
 
     # Iterate over each SG version and deliver it
     success = True
     for sg_version in tqdm.tqdm(sg_versions):
-        new_report_items, new_success = deliver_sg_version(
+        new_report_items, new_success = deliver_version(
             sg_version,
             project_name,
             delivery_data,
@@ -207,7 +181,56 @@ def deliver_playlist(
     return report_items, success
 
 
-def deliver_sg_version(
+# TODO: Create Click command equivalent (when needed)
+def deliver_version_id(
+    version_id,
+    project_name,
+    delivery_data,
+    representation_names=None,
+    delivery_templates=None,
+):
+    """Util function to deliver a single SG version given its id.
+
+    Args:
+        version_id (str): Shotgrid Version id to deliver.
+        project_name (str): Name of the project corresponding to the version being
+            delivered.
+        delivery_data (dict[str, str]): Dictionary of relevant data for delivery.
+        representation_names (list): List of representation names to deliver.
+        delivery_type (list[str]): What type(s) of delivery it is
+            (i.e., ["final", "review"])
+        delivery_templates (dict[str, str]): Dictionary that maps different
+            delivery types (i.e., 'single_file', 'sequence') to the corresponding
+            templated string to use for delivery.
+
+    Returns:
+        tuple: A tuple containing a dictionary of report items and a boolean indicating
+            whether the delivery was successful.
+    """
+    report_items = collections.defaultdict(list)
+
+    sg = utils.get_shotgrid_session()
+
+    # Get all the SG versions associated to the playlist
+    sg_version = sg.find(
+        "Version",
+        [["id", "is", version_id]],
+        ["sg_op_instance_id", "entity", "code"],
+    )
+    if not sg_version:
+        report_items["SG Version not found"].append(version_id)
+        return report_items, False
+
+    return deliver_version(
+        sg_version,
+        project_name,
+        delivery_data,
+        representation_names,
+        delivery_templates,
+    )
+
+
+def deliver_version(
     sg_version,
     project_name,
     delivery_data,
@@ -222,11 +245,13 @@ def deliver_sg_version(
             delivered.
         delivery_data (dict[str, str]): Dictionary of relevant data for delivery.
         representation_names (list): List of representation names to deliver.
-        delivery_type (list[str]): What type(s) of delivery it is
-            (i.e., ["final", "review"])
         delivery_templates (dict[str, str]): Dictionary that maps different
             delivery types (i.e., 'single_file', 'sequence') to the corresponding
             templated string to use for delivery.
+
+    Returns:
+        tuple: A tuple containing a dictionary of report items and a boolean indicating
+            whether the delivery was successful.
     """
     report_items = collections.defaultdict(list)
 
@@ -240,7 +265,7 @@ def deliver_sg_version(
     anatomy = Anatomy(project_name)
 
     # Get the corresponding shot and whether it contains any overrides
-    sg = get_shotgrid_session()
+    sg = utils.get_shotgrid_session()
     sg_shot = sg.find_one(
         "Shot",
         [["id", "is", sg_version["entity"]["id"]]],
@@ -271,6 +296,7 @@ def deliver_sg_version(
 
         # If delivery templates dictionary is passed as an argument, use that to set the
         # template token for the representation.
+        delivery_template = None
         delivery_template_name = None
         if delivery_templates:
             if frame:
@@ -371,7 +397,7 @@ def deliver_sg_version(
     return report_items, True
 
 
-@click.command("republish_version")
+@click.command("republish_version_id")
 @click.option(
     "--version_id",
     "-v",
@@ -379,15 +405,32 @@ def deliver_sg_version(
     type=int,
     help="Shotgrid version id to republish.",
 )
-def republish_version_command(
+@click.option('--override/--no-override', default=False)
+@click.option(
+    "--delivery_types",
+    "-types",
+    type=click.Choice(["final", "review"]),
+    required=False,
+    multiple=True,
+    default=["final", "review"]
+)
+def republish_version_id_command(
     version_id,
+    delivery_types,
+    override=False,
 ):
     """Given a SG version id, republish it so it triggers the OP publish pipeline again.
 
     Args:
-        version (int): Shotgrid version id to republish.
+        version_id (int): Shotgrid version id to republish.
+        delivery_types (list[str]): What type(s) of delivery it is so we
+            regenerate those representations.
+        override (bool): Whether to override existing representations or not.
+
     """
-    sg = get_shotgrid_session()
+    report_items = collections.defaultdict(list)
+
+    sg = utils.get_shotgrid_session()
 
     sg_version = sg.find_one(
         "Version",
@@ -396,10 +439,49 @@ def republish_version_command(
         ],
         ["project", "sg_op_instance_id", "code"],
     )
-    return republish_version(sg_version, sg_version["project"]["name"])
+    if not sg_version:
+        report_items["SG Version not found"].append(version_id)
+        return report_items, False
+
+    return republish_version(sg_version, sg_version["project"]["name"], delivery_types)
 
 
-def republish_version(sg_version, project_name, review=True, final=True):
+def republish_version_id(
+    version_id,
+    delivery_types,
+    override=False,
+):
+    """Given a SG version id, republish it so it triggers the OP publish pipeline again.
+
+    Args:
+        version_id (int): Shotgrid version id to republish.
+        delivery_types (list[str]): What type(s) of delivery it is so we
+            regenerate those representations.
+        override (bool): Whether to override existing representations or not.
+
+    """
+    sg = utils.get_shotgrid_session()
+
+    sg_version = sg.find_one(
+        "Version",
+        [
+            ["id", "is", int(version_id)],
+        ],
+        ["project", "sg_op_instance_id", "code"],
+    )
+    return republish_version(sg_version, sg_version["project"]["name"], delivery_types)
+
+
+def republish_version(sg_version, project_name, delivery_types):
+    """
+    Republishes the given SG version by creating new review and/or final outputs.
+
+    Args:
+        sg_version (dict): The Shotgrid version to republish.
+        project_name (str): The name of the Shotgrid project.
+        delivery_types (list[str]): What type(s) of delivery it is
+            (i.e., ["final", "review"])
+    """
     report_items = collections.defaultdict(list)
 
     # Grab the OP's id corresponding to the SG version
@@ -434,11 +516,10 @@ def republish_version(sg_version, project_name, review=True, final=True):
     families = version_doc["data"]["families"]
     families.append("review")
 
-    if review:
-        families.append("client_review")
-
-    if final:
-        families.append("client_final")
+    # Add family for each delivery type to control which publish plugins
+    # get executed
+    for delivery_type in delivery_types:
+        families.append(f"client_{delivery_type}")
 
     instance_data = {
         "project": project_name,
@@ -478,7 +559,7 @@ def republish_version(sg_version, project_name, review=True, final=True):
     legacy_io.Session["AVALON_APP"] = "traypublisher"
 
     # TODO: account for slate
-    expected_files(
+    utils.expected_files(
         instance_data,
         version_doc["data"]["source"],
         instance_data["frameStartHandle"],
@@ -486,7 +567,7 @@ def republish_version(sg_version, project_name, review=True, final=True):
     )
     logger.debug("__ expectedFiles: `{}`".format(instance_data["expectedFiles"]))
 
-    representations = _get_representations(
+    representations = utils.get_representations(
         instance_data,
         instance_data.get("expectedFiles"),
         False,
@@ -494,7 +575,7 @@ def republish_version(sg_version, project_name, review=True, final=True):
 
     # inject colorspace data
     for rep in representations:
-        set_representation_colorspace(
+        utils.set_representation_colorspace(
             rep, project_name, colorspace=instance_data["colorspace"]
         )
 
@@ -522,10 +603,10 @@ def republish_version(sg_version, project_name, review=True, final=True):
         "default"
     ]
 
-    metadata_path = _create_metadata_path(instance_data)
+    metadata_path = utils.create_metadata_path(instance_data)
     logger.info("Metadata path: %s", metadata_path)
 
-    deadline_publish_job_id = _submit_deadline_post_job(
+    deadline_publish_job_id = utils.submit_deadline_post_job(
         instance_data, render_job, instances, render_path, deadline_url, metadata_path
     )
 
@@ -556,305 +637,8 @@ def republish_version(sg_version, project_name, review=True, final=True):
     with open(metadata_path, "w") as f:
         json.dump(publish_job, f, indent=4, sort_keys=True)
 
-
-def _create_metadata_path(instance_data):
-    # Ensure output dir exists
-    output_dir = instance_data.get(
-        "publishRenderMetadataFolder", instance_data["outputDir"]
-    )
-
-    try:
-        if not os.path.isdir(output_dir):
-            os.makedirs(output_dir)
-    except OSError:
-        # directory is not available
-        logger.warning("Path is unreachable: `{}`".format(output_dir))
-
-    metadata_filename = "{}_{}_metadata.json".format(
-        instance_data["asset"], instance_data["subset"]
-    )
-
-    return os.path.join(output_dir, metadata_filename)
-
-
-def _get_representations(instance_data, exp_files, do_not_add_review):
-    """Create representations for file sequences.
-
-    This will return representations of expected files if they are not
-    in hierarchy of aovs. There should be only one sequence of files for
-    most cases, but if not - we create representation from each of them.
-
-    Arguments:
-        instance_data (dict): instance["data"] for which we are
-                            setting representations
-        exp_files (list): list of expected files
-        do_not_add_review (bool): explicitly skip review
-
-    Returns:
-        list of representations
-
-    """
-    representations = []
-    collections, _ = clique.assemble(exp_files)
-
-    anatomy = Anatomy(instance_data["project"])
-
-    # create representation for every collected sequence
-    for collection in collections:
-        ext = collection.tail.lstrip(".")
-        preview = True
-
-        staging = os.path.dirname(list(collection)[0])
-        success, rootless_staging_dir = anatomy.find_root_template_from_path(staging)
-        if success:
-            staging = rootless_staging_dir
-        else:
-            logger.warning(
-                (
-                    "Could not find root path for remapping '{}'."
-                    " This may cause issues on farm."
-                ).format(staging)
-            )
-
-        frame_start = int(instance_data.get("frameStartHandle"))
-        if instance_data.get("slate"):
-            frame_start -= 1
-
-        preview = preview and not do_not_add_review
-        rep = {
-            "name": ext,
-            "ext": ext,
-            "files": [os.path.basename(f) for f in list(collection)],
-            "frameStart": frame_start,
-            "frameEnd": int(instance_data.get("frameEndHandle")),
-            # If expectedFile are absolute, we need only filenames
-            "stagingDir": staging,
-            "fps": instance_data.get("fps"),
-            "tags": ["review", "shotgridreview"] if preview else [],
-        }
-
-        if instance_data.get("multipartExr", False):
-            rep["tags"].append("multipartExr")
-
-        # support conversion from tiled to scanline
-        if instance_data.get("convertToScanline"):
-            logger.info("Adding scanline conversion.")
-            rep["tags"].append("toScanline")
-
-        representations.append(rep)
-
-        _solve_families(instance_data, preview)
-
-    return representations
-
-
-def get_colorspace_settings(project_name):
-    """Returns colorspace settings for project.
-
-    Returns:
-        tuple | bool: config, file rules or None
-    """
-    config_data = get_imageio_config(
-        project_name,
-        host_name=None,
-    )
-
-    # in case host color management is not enabled
-    if not config_data:
-        return None
-
-    return config_data
-
-
-def set_representation_colorspace(
-    representation,
-    project_name,
-    colorspace=None,
-):
-    """Sets colorspace data to representation.
-
-    Args:
-        representation (dict): publishing representation
-        project_name (str): Name of project
-        config_data (dict): host resolved config data
-        file_rules (dict): host resolved file rules data
-        colorspace (str, optional): colorspace name. Defaults to None.
-
-    Example:
-        ```
-        {
-            # for other publish plugins and loaders
-            "colorspace": "linear",
-            "config": {
-                # for future references in case need
-                "path": "/abs/path/to/config.ocio",
-                # for other plugins within remote publish cases
-                "template": "{project[root]}/path/to/config.ocio"
-            }
-        }
-        ```
-
-    """
-    ext = representation["ext"]
-    # check extension
-    logger.debug("__ ext: `{}`".format(ext))
-
-    config_data = get_colorspace_settings(project_name)
-
-    if not config_data:
-        # warn in case no colorspace path was defined
-        logger.warning("No colorspace management was defined")
-        return
-
-    logger.debug("Config data is: `{}`".format(config_data))
-
-    # infuse data to representation
-    if colorspace:
-        colorspace_data = {"colorspace": colorspace, "config": config_data}
-
-        # update data key
-        representation["colorspaceData"] = colorspace_data
-
-
-def _solve_families(instance, preview=False):
-    families = instance.get("families")
-
-    # if we have one representation with preview tag
-    # flag whole instance for review and for ftrack
-    if preview:
-        if "review" not in families:
-            logger.debug('Adding "review" to families because of preview tag.')
-            families.append("review")
-        if "client_review" not in families:
-            logger.debug('Adding "client_review" to families because of preview tag.')
-            families.append("client_review")
-        instance["families"] = families
-
-
-def expected_files(instance_data, path, out_frame_start, out_frame_end):
-    """Create expected files in instance data"""
-    if not instance_data.get("expectedFiles"):
-        instance_data["expectedFiles"] = []
-
-    dirname = os.path.dirname(path)
-    filename = os.path.basename(path)
-
-    if "#" in filename:
-        pparts = filename.split("#")
-        padding = "%0{}d".format(len(pparts) - 1)
-        filename = pparts[0] + padding + pparts[-1]
-
-    if "%" not in filename:
-        instance_data["expectedFiles"].append(path)
-        return
-
-    for i in range(out_frame_start, (out_frame_end + 1)):
-        instance_data["expectedFiles"].append(
-            os.path.join(dirname, (filename % i)).replace("\\", "/")
-        )
-
-
-def _submit_deadline_post_job(
-    instance_data, job, instances, output_dir, deadline_url, metadata_path
-):
-    """Submit publish job to Deadline.
-
-    Deadline specific code separated from :meth:`process` for sake of
-    more universal code. Muster post job is sent directly by Muster
-    submitter, so this type of code isn't necessary for it.
-
-    Returns:
-        (str): deadline_publish_job_id
-    """
-    subset = instance_data["subset"]
-    job_name = "Publish - {subset}".format(subset=subset)
-
-    # instance_data.get("subset") != instances[0]["subset"]
-    # 'Main' vs 'renderMain'
-    override_version = None
-    instance_version = instance_data.get("version")  # take this if exists
-    if instance_version != 1:
-        override_version = instance_version
-
-    # Transfer the environment from the original job to this dependent
-    # job so they use the same environment
-    # metadata_path = _create_metadata_path(instance_data)
-    # logger.info("Metadata path: %s", metadata_path)
-    username = getpass.getuser()
-
-    environment = {
-        "AVALON_PROJECT": instance_data.get("project"),
-        "AVALON_ASSET": instance_data.get("asset"),
-        "AVALON_TASK": instance_data.get("task"),
-        "OPENPYPE_USERNAME": username,
-        "OPENPYPE_PUBLISH_JOB": "1",
-        "OPENPYPE_RENDER_JOB": "0",
-        "OPENPYPE_REMOTE_JOB": "0",
-        "OPENPYPE_LOG_NO_COLORS": "1",
-        "OPENPYPE_SG_USER": username,
-    }
-
-    args = [
-        "--headless",
-        "publish",
-        '"{}"'.format(metadata_path),
-        "--targets",
-        "deadline",
-        "--targets",
-        "farm",
-    ]
-
-    # Generate the payload for Deadline submission
-    payload = {
-        "JobInfo": {
-            "Plugin": "OpenPype",
-            "BatchName": job["Props"]["Batch"],
-            "Name": job_name,
-            "UserName": job["Props"]["User"],
-            "Comment": instance_data.get("comment", ""),
-            "Department": "",
-            "ChunkSize": 1,
-            "Priority": 50,
-            "Group": "nuke-cpu-epyc",
-            "Pool": "",
-            "SecondaryPool": "",
-            # ensure the outputdirectory with correct slashes
-            "OutputDirectory0": output_dir.replace("\\", "/"),
-        },
-        "PluginInfo": {
-            "Version": os.getenv("OPENPYPE_VERSION"),
-            "Arguments": " ".join(args),
-            "SingleFrameOnly": "True",
-        },
-        # Mandatory for Deadline, may be empty
-        "AuxFiles": [],
-    }
-
-    if instance_data.get("suspend_publish"):
-        payload["JobInfo"]["InitialStatus"] = "Suspended"
-
-    for index, (key_, value_) in enumerate(environment.items()):
-        payload["JobInfo"].update(
-            {
-                "EnvironmentKeyValue%d"
-                % index: "{key}={value}".format(key=key_, value=value_)
-            }
-        )
-    # remove secondary pool
-    payload["JobInfo"].pop("SecondaryPool", None)
-
-    logger.info("Submitting Deadline job ...")
-    logger.debug("Payload: %s", payload)
-
-    url = "{}/api/jobs".format(deadline_url)
-    response = requests.post(url, json=payload, timeout=10)
-    if not response.ok:
-        raise Exception(response.text)
-
-    deadline_publish_job_id = response.json()["_id"]
-    logger.info(deadline_publish_job_id)
-
-    return deadline_publish_job_id
+    click.echo(report_items)
+    return report_items
 
 
 if __name__ == "__main__":
