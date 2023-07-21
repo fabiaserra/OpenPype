@@ -449,8 +449,6 @@ def republish_version(sg_version, project_name, review=True, final=True):
     if final:
         families.append("client_final")
 
-    work_directory = os.path.dirname(version_doc["data"]["source"])
-
     instance_data = {
         "project": project_name,
         "family": exr_repre_doc["context"]["family"],
@@ -474,13 +472,13 @@ def republish_version(sg_version, project_name, review=True, final=True):
         "useSequenceForReview": True,
         "colorspace": version_doc["data"].get("colorspace"),
         "version": version_doc["name"],
-        "outputDir": work_directory,
+        "outputDir": render_path,
     }
 
     # TODO: account for slate
     expected_files(
         instance_data,
-        render_path,
+        version_doc["data"]["source"],
         version_doc["data"]["frameStart"],
         version_doc["data"]["frameEnd"]
     )
@@ -525,7 +523,7 @@ def republish_version(sg_version, project_name, review=True, final=True):
 
     legacy_io.Session["AVALON_ASSET"] = instance_data["asset"]
     legacy_io.Session["AVALON_TASK"] = instance_data.get("task")
-    legacy_io.Session["AVALON_WORKDIR"] = work_directory
+    legacy_io.Session["AVALON_WORKDIR"] = render_path
 
     # Inject deadline url to instances.
     for inst in instances:
