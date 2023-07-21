@@ -24,6 +24,7 @@ from openpype.pipeline.delivery import (
     check_destination_path,
     deliver_single_file,
 )
+from openpype.pipeline.colorspace import get_imageio_config
 from openpype.modules.shotgrid.lib.settings import get_shotgrid_servers
 from openpype.settings import get_system_settings
 
@@ -98,9 +99,7 @@ def deliver_playlist_command(
         delivery_template_name (str): Name of the delivery template to use.
         representation_names (list): List of representation names to deliver.
     """
-    return deliver_playlist(
-        playlist_id, representation_names, delivery_types
-    )
+    return deliver_playlist(playlist_id, representation_names, delivery_types)
 
 
 def deliver_playlist(
@@ -280,19 +279,21 @@ def deliver_sg_version(
                 )
             else:
                 template_name = "{}Single File".format(
-                        "V0 " if repre["context"]["version"] == 0 else ""
-                    )
+                    "V0 " if repre["context"]["version"] == 0 else ""
+                )
 
             logger.info(
                 "Using template name '%s' for representation '%s'",
                 template_name,
-                repre["data"]["path"]
+                repre["data"]["path"],
             )
             delivery_template = delivery_templates[template_name]
 
             # Make sure we prefix the template with the io folder for the project
             if delivery_template:
-                delivery_template = f"/proj/{anatomy.project_code}/io/out/{delivery_template}"
+                delivery_template = (
+                    f"/proj/{anatomy.project_code}/io/out/{delivery_template}"
+                )
 
         else:  # Otherwise, set it based on whether it's a sequence or a single file
             if frame:
@@ -370,7 +371,6 @@ def deliver_sg_version(
     return report_items, True
 
 
-
 @click.command("republish_version")
 @click.option(
     "--version_id",
@@ -396,31 +396,24 @@ def republish_version_command(
         ],
         ["project", "sg_op_instance_id", "code"],
     )
-    return republish_version(
-        sg_version, sg_version["project"]["name"]
-    )
+    return republish_version(sg_version, sg_version["project"]["name"])
 
 
 def republish_version(sg_version, project_name, review=True, final=True):
-
     report_items = collections.defaultdict(list)
 
     # Grab the OP's id corresponding to the SG version
     op_version_id = sg_version["sg_op_instance_id"]
     if not op_version_id or op_version_id == "-":
         sub_msg = f"{sg_version['code']}<br>"
-        report_items[
-            "Missing 'sg_op_instance_id' field on SG Versions"
-        ].append(sub_msg)
+        report_items["Missing 'sg_op_instance_id' field on SG Versions"].append(sub_msg)
         return report_items
 
     # Get OP version corresponding to the SG version
     version_doc = get_version_by_id(project_name, op_version_id)
     if not version_doc:
         sub_msg = f"{sg_version['code']}<br>"
-        report_items[
-            "No OP version found for SG versions"
-        ].append(sub_msg)
+        report_items["No OP version found for SG versions"].append(sub_msg)
         return report_items
 
     # Find the OP representations we want to deliver
@@ -432,9 +425,7 @@ def republish_version(sg_version, project_name, review=True, final=True):
 
     if not exr_repre_doc:
         sub_msg = f"{sg_version['code']}<br>"
-        report_items[
-            "No 'exr' representation found on SG versions"
-        ].append(sub_msg)
+        report_items["No 'exr' representation found on SG versions"].append(sub_msg)
         return report_items
 
     exr_path = exr_repre_doc["data"]["path"]
@@ -460,8 +451,12 @@ def republish_version(sg_version, project_name, review=True, final=True):
         "frameEnd": version_doc["data"]["frameEnd"],
         "handleStart": version_doc["data"]["handleStart"],
         "handleEnd": version_doc["data"]["handleEnd"],
-        "frameStartHandle": version_doc["data"]["frameStart"] - version_doc["data"]["handleStart"],
-        "frameEndHandle": version_doc["data"]["frameEnd"] + version_doc["data"]["handleEnd"],
+        "frameStartHandle": int(
+            version_doc["data"]["frameStart"] - version_doc["data"]["handleStart"]
+        ),
+        "frameEndHandle": int(
+            version_doc["data"]["frameEnd"] + version_doc["data"]["handleEnd"]
+        ),
         "comment": version_doc["data"]["comment"],
         "fps": version_doc["data"]["fps"],
         "source": version_doc["data"]["source"],
@@ -475,22 +470,33 @@ def republish_version(sg_version, project_name, review=True, final=True):
         "outputDir": render_path,
     }
 
+    # Inject variables into session
+    legacy_io.Session["AVALON_ASSET"] = instance_data["asset"]
+    legacy_io.Session["AVALON_TASK"] = instance_data.get("task")
+    legacy_io.Session["AVALON_WORKDIR"] = render_path
+    legacy_io.Session["AVALON_PROJECT"] = project_name
+    legacy_io.Session["AVALON_APP"] = "traypublisher"
+
     # TODO: account for slate
     expected_files(
         instance_data,
         version_doc["data"]["source"],
-        version_doc["data"]["frameStart"],
-        version_doc["data"]["frameEnd"]
+        instance_data["frameStartHandle"],
+        instance_data["frameEndHandle"],
     )
-    logger.debug(
-        "__ expectedFiles: `{}`".format(instance_data["expectedFiles"])
-    )
+    logger.debug("__ expectedFiles: `{}`".format(instance_data["expectedFiles"]))
 
     representations = _get_representations(
         instance_data,
         instance_data.get("expectedFiles"),
         False,
     )
+
+    # inject colorspace data
+    for rep in representations:
+        set_representation_colorspace(
+            rep, project_name, colorspace=instance_data["colorspace"]
+        )
 
     if "representations" not in instance_data.keys():
         instance_data["representations"] = []
@@ -512,7 +518,9 @@ def republish_version(sg_version, project_name, review=True, final=True):
     render_job["Props"]["User"] = getpass.getuser()
 
     # get default deadline webservice url from deadline module
-    deadline_url = get_system_settings()["modules"]["deadline"]["deadline_urls"]["default"]
+    deadline_url = get_system_settings()["modules"]["deadline"]["deadline_urls"][
+        "default"
+    ]
 
     metadata_path = _create_metadata_path(instance_data)
     logger.info("Metadata path: %s", metadata_path)
@@ -521,10 +529,6 @@ def republish_version(sg_version, project_name, review=True, final=True):
         instance_data, render_job, instances, render_path, deadline_url, metadata_path
     )
 
-    legacy_io.Session["AVALON_ASSET"] = instance_data["asset"]
-    legacy_io.Session["AVALON_TASK"] = instance_data.get("task")
-    legacy_io.Session["AVALON_WORKDIR"] = render_path
-
     # Inject deadline url to instances.
     for inst in instances:
         inst["deadlineUrl"] = deadline_url
@@ -532,8 +536,8 @@ def republish_version(sg_version, project_name, review=True, final=True):
     # publish job file
     publish_job = {
         "asset": instance_data["asset"],
-        "frameStart": instance_data["frameEnd"],
-        "frameEnd": instance_data["frameStart"],
+        "frameStart": instance_data["frameStartHandle"],
+        "frameEnd": instance_data["frameEndHandle"],
         "fps": instance_data["fps"],
         "source": instance_data["source"],
         "user": getpass.getuser(),
@@ -542,7 +546,7 @@ def republish_version(sg_version, project_name, review=True, final=True):
         "comment": instance_data["comment"],
         "job": render_job or None,
         "session": legacy_io.Session.copy(),
-        "instances": instances
+        "instances": instances,
     }
 
     if deadline_publish_job_id:
@@ -556,7 +560,8 @@ def republish_version(sg_version, project_name, review=True, final=True):
 def _create_metadata_path(instance_data):
     # Ensure output dir exists
     output_dir = instance_data.get(
-        "publishRenderMetadataFolder", instance_data["outputDir"])
+        "publishRenderMetadataFolder", instance_data["outputDir"]
+    )
 
     try:
         if not os.path.isdir(output_dir):
@@ -600,16 +605,16 @@ def _get_representations(instance_data, exp_files, do_not_add_review):
         preview = True
 
         staging = os.path.dirname(list(collection)[0])
-        success, rootless_staging_dir = (
-            anatomy.find_root_template_from_path(staging)
-        )
+        success, rootless_staging_dir = anatomy.find_root_template_from_path(staging)
         if success:
             staging = rootless_staging_dir
         else:
-            logger.warning((
-                "Could not find root path for remapping \"{}\"."
-                " This may cause issues on farm."
-            ).format(staging))
+            logger.warning(
+                (
+                    "Could not find root path for remapping '{}'."
+                    " This may cause issues on farm."
+                ).format(staging)
+            )
 
         frame_start = int(instance_data.get("frameStartHandle"))
         if instance_data.get("slate"):
@@ -640,14 +645,75 @@ def _get_representations(instance_data, exp_files, do_not_add_review):
 
         _solve_families(instance_data, preview)
 
-    # for rep in representations:
-    #     # inject colorspace data
-    #     set_representation_colorspace(
-    #         rep, context,
-    #         colorspace=instance_data["colorspace"]
-    #     )
-
     return representations
+
+
+def get_colorspace_settings(project_name):
+    """Returns colorspace settings for project.
+
+    Returns:
+        tuple | bool: config, file rules or None
+    """
+    config_data = get_imageio_config(
+        project_name,
+        host_name=None,
+    )
+
+    # in case host color management is not enabled
+    if not config_data:
+        return None
+
+    return config_data
+
+
+def set_representation_colorspace(
+    representation,
+    project_name,
+    colorspace=None,
+):
+    """Sets colorspace data to representation.
+
+    Args:
+        representation (dict): publishing representation
+        project_name (str): Name of project
+        config_data (dict): host resolved config data
+        file_rules (dict): host resolved file rules data
+        colorspace (str, optional): colorspace name. Defaults to None.
+
+    Example:
+        ```
+        {
+            # for other publish plugins and loaders
+            "colorspace": "linear",
+            "config": {
+                # for future references in case need
+                "path": "/abs/path/to/config.ocio",
+                # for other plugins within remote publish cases
+                "template": "{project[root]}/path/to/config.ocio"
+            }
+        }
+        ```
+
+    """
+    ext = representation["ext"]
+    # check extension
+    logger.debug("__ ext: `{}`".format(ext))
+
+    config_data = get_colorspace_settings(project_name)
+
+    if not config_data:
+        # warn in case no colorspace path was defined
+        logger.warning("No colorspace management was defined")
+        return
+
+    logger.debug("Config data is: `{}`".format(config_data))
+
+    # infuse data to representation
+    if colorspace:
+        colorspace_data = {"colorspace": colorspace, "config": config_data}
+
+        # update data key
+        representation["colorspaceData"] = colorspace_data
 
 
 def _solve_families(instance, preview=False):
@@ -657,24 +723,15 @@ def _solve_families(instance, preview=False):
     # flag whole instance for review and for ftrack
     if preview:
         if "review" not in families:
-            logger.debug(
-                "Adding \"review\" to families because of preview tag."
-            )
+            logger.debug('Adding "review" to families because of preview tag.')
             families.append("review")
         if "client_review" not in families:
-            logger.debug(
-                "Adding \"client_review\" to families because of preview tag."
-            )
+            logger.debug('Adding "client_review" to families because of preview tag.')
             families.append("client_review")
         instance["families"] = families
 
 
-def expected_files(
-    instance_data,
-    path,
-    out_frame_start,
-    out_frame_end
-):
+def expected_files(instance_data, path, out_frame_start, out_frame_end):
     """Create expected files in instance data"""
     if not instance_data.get("expectedFiles"):
         instance_data["expectedFiles"] = []
@@ -693,11 +750,13 @@ def expected_files(
 
     for i in range(out_frame_start, (out_frame_end + 1)):
         instance_data["expectedFiles"].append(
-            os.path.join(dirname, (filename % i)).replace("\\", "/"))
+            os.path.join(dirname, (filename % i)).replace("\\", "/")
+        )
 
 
-
-def _submit_deadline_post_job(instance_data, job, instances, output_dir, deadline_url, metadata_path):
+def _submit_deadline_post_job(
+    instance_data, job, instances, output_dir, deadline_url, metadata_path
+):
     """Submit publish job to Deadline.
 
     Deadline specific code separated from :meth:`process` for sake of
@@ -732,21 +791,17 @@ def _submit_deadline_post_job(instance_data, job, instances, output_dir, deadlin
         "OPENPYPE_RENDER_JOB": "0",
         "OPENPYPE_REMOTE_JOB": "0",
         "OPENPYPE_LOG_NO_COLORS": "1",
-        "OPENPYPE_SG_USER": username
+        "OPENPYPE_SG_USER": username,
     }
-
-    # pass environment keys from self.environ_job_filter
-    # job_environ = job["Props"].get("Env", {})
-    # for env_j_key in self.environ_job_filter:
-    #     if job_environ.get(env_j_key):
-    #         environment[env_j_key] = job_environ[env_j_key]
 
     args = [
         "--headless",
-        'publish',
+        "publish",
         '"{}"'.format(metadata_path),
-        "--targets", "deadline",
-        "--targets", "farm"
+        "--targets",
+        "deadline",
+        "--targets",
+        "farm",
     ]
 
     # Generate the payload for Deadline submission
@@ -757,7 +812,6 @@ def _submit_deadline_post_job(instance_data, job, instances, output_dir, deadlin
             "Name": job_name,
             "UserName": job["Props"]["User"],
             "Comment": instance_data.get("comment", ""),
-
             "Department": "",
             "ChunkSize": 1,
             "Priority": 50,
@@ -765,7 +819,7 @@ def _submit_deadline_post_job(instance_data, job, instances, output_dir, deadlin
             "Pool": "",
             "SecondaryPool": "",
             # ensure the outputdirectory with correct slashes
-            "OutputDirectory0": output_dir.replace("\\", "/")
+            "OutputDirectory0": output_dir.replace("\\", "/"),
         },
         "PluginInfo": {
             "Version": os.getenv("OPENPYPE_VERSION"),
@@ -776,16 +830,6 @@ def _submit_deadline_post_job(instance_data, job, instances, output_dir, deadlin
         "AuxFiles": [],
     }
 
-    # add assembly jobs as dependencies
-    # if instance_data.get("bakingSubmissionJobs"):
-    #     logger.info("Adding baking submission jobs as dependencies...")
-    #     job_index = 0
-    #     for assembly_id in instance_data["bakingSubmissionJobs"]:
-    #         payload["JobInfo"]["JobDependency{}".format(job_index)] = assembly_id  # noqa: E501
-    #         job_index += 1
-    # elif job.get("_id"):
-    #     payload["JobInfo"]["JobDependency0"] = job["_id"]
-
     if instance_data.get("suspend_publish"):
         payload["JobInfo"]["InitialStatus"] = "Suspended"
 
@@ -793,9 +837,7 @@ def _submit_deadline_post_job(instance_data, job, instances, output_dir, deadlin
         payload["JobInfo"].update(
             {
                 "EnvironmentKeyValue%d"
-                % index: "{key}={value}".format(
-                    key=key_, value=value_
-                )
+                % index: "{key}={value}".format(key=key_, value=value_)
             }
         )
     # remove secondary pool
