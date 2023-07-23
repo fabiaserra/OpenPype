@@ -170,10 +170,11 @@ class ExtractReview(pyblish.api.InstancePlugin):
                 " subset name \"{}\"."
             ).format(str(instance_families), subset_name))
 
-        filtered_outputs.update(sg_outputs)
-        self.log.info(
-            "Added Shotgrid profiles to filtered outputs."
-        )
+        if sg_outputs:
+            filtered_outputs.update(sg_outputs)
+            self.log.info(
+                "Added Shotgrid profiles to filtered outputs."
+            )
         ### Ends Alkemy-X Override ###
 
         # Store `filename_suffix` to save arguments
