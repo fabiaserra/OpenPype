@@ -59,7 +59,7 @@ class ExtractOIIOTranscode(publish.Extractor):
     # In the future we might want to run the transcode for other cases but
     # for now this simplifies our pipeline so we can have more control over
     # when the transcoding happens.
-    families = ["client_review"]
+    families = ["client_review", "client_final"]
 
     # Skeleton of an output definition of a profile
     profile_output_skeleton = {
@@ -112,6 +112,14 @@ class ExtractOIIOTranscode(publish.Extractor):
         # colorspace is not the default "input_process"
         if not lut_colorspace_review:
             profile["outputs"]["review"]["colorspace"] = "delivery_frame"
+
+        if "client_review" not in instance.families:
+            self.log.debug("Removing 'review' from profile because 'client_review' is not part of the families.")
+            profile["outputs"].pop("review")
+
+        if "client_final" not in instance.families:
+            self.log.debug("Removing 'final' from profile because 'client_final' is not part of the families.")
+            profile["outputs"].pop("final")
 
         self.log.debug("Profile: %s", profile)
         ### Ends Alkemy-X Override ###

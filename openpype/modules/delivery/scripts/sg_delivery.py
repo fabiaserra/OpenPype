@@ -21,8 +21,8 @@ from openpype.pipeline.delivery import (
     deliver_single_file,
 )
 from openpype.settings import get_system_settings
+from openpype.modules.delivery.scripts import utils
 
-from . import utils
 
 logger = Logger.get_logger(__name__)
 
@@ -34,6 +34,12 @@ SG_DELIVERY_FIELDS = [
     "sg_review_output_type",
 ]
 
+# List of SG entities hierarchy from more specific to more generic
+SG_HIERARCHY = ["Shot", "Sequence", "Episode", "Project"]
+
+# List of SG fields that we need to query to grab the parent entity
+SG_HIERARCHY_FIELDS = ["entity", "sg_sequence", "episode", "project"]
+
 
 @click.command("deliver_playlist_id")
 @click.option(
@@ -43,38 +49,45 @@ SG_DELIVERY_FIELDS = [
     type=int,
     help="Shotgrid playlist id to deliver.",
 )
-@click.option("--representation_names", "-r", multiple=True, required=False)
 @click.option(
     "--delivery_types",
     "-types",
     type=click.Choice(["final", "review"]),
     required=False,
     multiple=True,
+    default=["final", "review"],
+)
+@click.option(
+    "--representation_names",
+    "-r",
+    multiple=True,
+    required=False,
+    help="List of representation names that we want to deliver",
 )
 def deliver_playlist_id_command(
     playlist_id,
+    delivery_types,
     representation_names=None,
-    delivery_types=None,
 ):
     """Given a SG playlist id, deliver all the versions associated to it.
 
     Args:
         playlist_id (int): Shotgrid playlist id to deliver.
-        representation_names (list): List of representation names to deliver.
         delivery_types (list[str]): What type(s) of delivery it is
+        representation_names (list): List of representation names to deliver.
             (i.e., ["final", "review"])
 
     Returns:
         tuple: A tuple containing a dictionary of report items and a boolean indicating
             whether the delivery was successful.
     """
-    return deliver_playlist_id(playlist_id, representation_names, delivery_types)
+    return deliver_playlist_id(playlist_id, delivery_types, representation_names)
 
 
 def deliver_playlist_id(
     playlist_id,
+    delivery_types,
     representation_names=None,
-    delivery_types=None,
     delivery_templates=None,
 ):
     """Given a SG playlist id, deliver all the versions associated to it.
@@ -136,30 +149,19 @@ def deliver_playlist_id(
         representation_names = []
 
     # Generate a list of representation names from the output types set in SG
-    if delivery_types:
-        for delivery_type in delivery_types:
-            out_data_types = sg_project.get(f"sg_{delivery_type}_output_type")
-            for out_data_type in out_data_types:
-                representation_name = "{}_{}".format(
-                    out_data_type["name"].replace(" ", "").lower(),
-                    delivery_type,
-                )
-                representation_names.append(representation_name)
-
-            # Add 'review' and 'final' as representation names as we want to deliver
-            # those in some cases. If 'delete output' tag is added on the Extract OIIO
-            # Transcode plugin, these representations won't exist but that doesn't matter
-            representation_names.append(delivery_type)
-
-    if representation_names:
-        msg = "Delivering representation names:"
-        logger.info("%s: %s", msg, representation_names)
-        report_items[msg] = representation_names
-    else:
-        msg = "No representation names specified: "
-        sub_msg = "All representations will be delivered."
-        logger.info(msg + sub_msg)
-        report_items[msg] = [sub_msg]
+    # if delivery_types:
+    #     representation_names.extend(
+    #         utils.get_sg_entity_representation_names(sg_project, delivery_types)
+    #     )
+    # if representation_names:
+    #     msg = "Delivering representation names:"
+    #     logger.info("%s: %s", msg, representation_names)
+    #     report_items[msg] = representation_names
+    # else:
+    #     msg = "No representation names specified: "
+    #     sub_msg = "All representations will be delivered."
+    #     logger.info(msg + sub_msg)
+    #     report_items[msg] = [sub_msg]
 
     # Iterate over each SG version and deliver it
     success = True
@@ -168,6 +170,7 @@ def deliver_playlist_id(
             sg_version,
             project_name,
             delivery_data,
+            delivery_types,
             representation_names,
             delivery_templates,
         )
@@ -184,8 +187,7 @@ def deliver_playlist_id(
 # TODO: Create Click command equivalent (when needed)
 def deliver_version_id(
     version_id,
-    project_name,
-    delivery_data,
+    delivery_types,
     representation_names=None,
     delivery_templates=None,
 ):
@@ -196,9 +198,9 @@ def deliver_version_id(
         project_name (str): Name of the project corresponding to the version being
             delivered.
         delivery_data (dict[str, str]): Dictionary of relevant data for delivery.
-        representation_names (list): List of representation names to deliver.
-        delivery_type (list[str]): What type(s) of delivery it is
+        delivery_types (list[str]): What type(s) of delivery it is
             (i.e., ["final", "review"])
+        representation_names (list): List of representation names to deliver.
         delivery_templates (dict[str, str]): Dictionary that maps different
             delivery types (i.e., 'single_file', 'sequence') to the corresponding
             templated string to use for delivery.
@@ -214,17 +216,32 @@ def deliver_version_id(
     # Get all the SG versions associated to the playlist
     sg_version = sg.find(
         "Version",
-        [["id", "is", version_id]],
-        ["sg_op_instance_id", "entity", "code"],
+        [["id", "is", int(version_id)]],
+        ["sg_op_instance_id", "entity", "code", "project"],
     )
     if not sg_version:
         report_items["SG Version not found"].append(version_id)
         return report_items, False
 
+    # Get whether the project entity contains any delivery overrides
+    sg_project = sg.find_one(
+        "Project",
+        [["id", "is", sg_version["project"]["id"]]],
+        fields=SG_DELIVERY_FIELDS,
+    )
+    delivery_project_name = sg_project.get("sg_delivery_name")
+
+    # Create dictionary of inputs required by deliver_version
+    delivery_data = {
+        "date": get_datetime_data(),
+        "delivery_project_name": delivery_project_name,
+    }
+
     return deliver_version(
         sg_version,
-        project_name,
+        sg_version["project"]["name"],
         delivery_data,
+        delivery_types,
         representation_names,
         delivery_templates,
     )
@@ -234,6 +251,7 @@ def deliver_version(
     sg_version,
     project_name,
     delivery_data,
+    delivery_types,
     representation_names=None,
     delivery_templates=None,
 ):
@@ -244,6 +262,8 @@ def deliver_version(
         project_name (str): Name of the project corresponding to the version being
             delivered.
         delivery_data (dict[str, str]): Dictionary of relevant data for delivery.
+        delivery_types (list[str]): What type(s) of delivery it is
+            (i.e., ["final", "review"])
         representation_names (list): List of representation names to deliver.
         delivery_templates (dict[str, str]): Dictionary that maps different
             delivery types (i.e., 'single_file', 'sequence') to the corresponding
@@ -272,6 +292,28 @@ def deliver_version(
         fields=SG_DELIVERY_FIELDS,
     )
     delivery_shot_name = sg_shot.get("sg_delivery_name")
+
+    entity = None
+    if not representation_names:
+        # Add representation names for the current SG Version
+        representation_names, entity = utils.get_sg_version_representation_names(
+            sg_version, delivery_types
+        )
+
+    if representation_names:
+        if entity != "Project":
+            msg = f"Override of outputs for '{sg_version['code']}' at the {entity} level"
+            logger.info("%s: %s", msg, representation_names)
+            report_items[msg] = representation_names
+        else:
+            msg = "Project delivery representation names:"
+            logger.info("%s: %s", msg, representation_names)
+            report_items[msg] = representation_names
+    else:
+        msg = "No representation names specified:"
+        sub_msg = "All representations will be delivered."
+        logger.info(msg + sub_msg)
+        report_items[msg] = [sub_msg]
 
     # Find the OP representations we want to deliver
     repres_to_deliver = list(
@@ -397,6 +439,117 @@ def deliver_version(
     return report_items, True
 
 
+@click.command("republish_playlist_id")
+@click.option(
+    "--playlist_id",
+    "-p",
+    required=True,
+    type=int,
+    help="Shotgrid playlist id to republish.",
+)
+@click.option(
+    "--representation_names",
+    "-r",
+    multiple=True,
+    required=False,
+    help="List of representation names that should exist on the republished version",
+)
+@click.option(
+    "--delivery_types",
+    "-types",
+    type=click.Choice(["final", "review"]),
+    required=False,
+    multiple=True,
+    default=["final", "review"],
+)
+@click.option("--override/--no-override", default=False)
+def republish_playlist_id_command(
+    playlist_id,
+    delivery_types,
+    representation_names=None,
+    override=False,
+):
+    """Given a SG playlist id, republish all the versions associated to it.
+
+    Args:
+        playlist_id (int): Shotgrid playlist id to republish.
+        delivery_types (list[str]): What type(s) of delivery it is
+            (i.e., ["final", "review"])
+        representation_names (list): List of representation names that should exist on
+            the representations being published.
+        force (bool): Whether to force the creation of the delivery representations or not.
+
+
+    Returns:
+        tuple: A tuple containing a dictionary of report items and a boolean indicating
+            whether the republish was successful.
+    """
+    return republish_playlist_id(
+        playlist_id, delivery_types, representation_names, override
+    )
+
+
+def republish_playlist_id(
+    playlist_id, delivery_types, representation_names=None, force=False
+):
+    """Given a SG playlist id, deliver all the versions associated to it.
+
+    Args:
+        playlist_id (int): Shotgrid playlist id to republish.
+        delivery_types (list[str]): What type(s) of delivery it is
+            (i.e., ["final", "review"])
+        representation_names (list): List of representation names that should exist on
+            the representations being published.
+        force (bool): Whether to force the creation of the delivery representations or not.
+
+    Returns:
+        tuple: A tuple containing a dictionary of report items and a boolean indicating
+            whether the republish was successful.
+    """
+    report_items = collections.defaultdict(list)
+
+    sg = utils.get_shotgrid_session()
+
+    sg_playlist = sg.find_one(
+        "Playlist",
+        [
+            ["id", "is", int(playlist_id)],
+        ],
+        ["project"],
+    )
+
+    # Get the project name associated with the selected entities
+    project_name = sg_playlist["project"]["name"]
+
+    project_doc = get_project(project_name, fields=["name"])
+    if not project_doc:
+        return report_items[f"Didn't find project '{project_name}' in avalon."], False
+
+    if not representation_names:
+        representation_names = []
+
+    # Get all the SG versions associated to the playlist
+    sg_versions = sg.find(
+        "Version",
+        [["playlists", "in", sg_playlist]],
+        ["sg_op_instance_id", "entity", "code"],
+    )
+
+    success = True
+    for sg_version in sg_versions:
+        new_report_items, new_success = republish_version(
+            sg_version, delivery_types, representation_names, force
+        )
+        if new_report_items:
+            report_items.update(new_report_items)
+
+        if not new_success:
+            success = False
+
+    click.echo(report_items)
+    return report_items, success
+
+
 @click.command("republish_version_id")
 @click.option(
     "--version_id",
@@ -405,19 +558,27 @@ def deliver_version(
     type=int,
     help="Shotgrid version id to republish.",
 )
-@click.option('--override/--no-override', default=False)
 @click.option(
     "--delivery_types",
     "-types",
     type=click.Choice(["final", "review"]),
     required=False,
     multiple=True,
-    default=["final", "review"]
+    default=["final", "review"],
 )
+@click.option(
+    "--representation_names",
+    "-r",
+    multiple=True,
+    required=False,
+    help="List of representation names that should exist on the republished version",
+)
+@click.option("--force/--no-force", default=False)
 def republish_version_id_command(
     version_id,
     delivery_types,
-    override=False,
+    representation_names=None,
+    force=False,
 ):
     """Given a SG version id, republish it so it triggers the OP publish pipeline again.
 
@@ -425,31 +586,22 @@ def republish_version_id_command(
         version_id (int): Shotgrid version id to republish.
         delivery_types (list[str]): What type(s) of delivery it is so we
             regenerate those representations.
-        override (bool): Whether to override existing representations or not.
+        representation_names (list): List of representation names that should exist on
+            the representations being published.
+        force (bool): Whether to force the creation of the delivery representations or not.
 
+    Returns:
+        tuple: A tuple containing a dictionary of report items and a boolean indicating
+            whether the republish was successful.
     """
-    report_items = collections.defaultdict(list)
-
-    sg = utils.get_shotgrid_session()
-
-    sg_version = sg.find_one(
-        "Version",
-        [
-            ["id", "is", int(version_id)],
-        ],
-        ["project", "sg_op_instance_id", "code"],
-    )
-    if not sg_version:
-        report_items["SG Version not found"].append(version_id)
-        return report_items, False
-
-    return republish_version(sg_version, sg_version["project"]["name"], delivery_types)
+    return republish_version_id(version_id, delivery_types, representation_names, force)
 
 
 def republish_version_id(
     version_id,
     delivery_types,
-    override=False,
+    representation_names=None,
+    force=False,
 ):
     """Given a SG version id, republish it so it triggers the OP publish pipeline again.
 
@@ -457,8 +609,13 @@ def republish_version_id(
         version_id (int): Shotgrid version id to republish.
         delivery_types (list[str]): What type(s) of delivery it is so we
             regenerate those representations.
-        override (bool): Whether to override existing representations or not.
+        representation_names (list): List of representation names that should exist on
+            the representations being published.
+        force (bool): Whether to force the creation of the delivery representations or not.
 
+    Returns:
+        tuple: A tuple containing a dictionary of report items and a boolean indicating
+            whether the republish was successful.
     """
     sg = utils.get_shotgrid_session()
 
@@ -467,12 +624,20 @@ def republish_version_id(
         [
             ["id", "is", int(version_id)],
         ],
-        ["project", "sg_op_instance_id", "code"],
+        ["project", "sg_op_instance_id", "code", "entity", "project"],
     )
-    return republish_version(sg_version, sg_version["project"]["name"], delivery_types)
+    return republish_version(
+        sg_version,
+        sg_version["project"]["name"],
+        delivery_types,
+        representation_names,
+        force,
+    )
 
 
-def republish_version(sg_version, project_name, delivery_types):
+def republish_version(
+    sg_version, project_name, delivery_types, representation_names=None, force=False
+):
     """
     Republishes the given SG version by creating new review and/or final outputs.
 
@@ -481,6 +646,13 @@ def republish_version(sg_version, project_name, delivery_types):
         project_name (str): The name of the Shotgrid project.
         delivery_types (list[str]): What type(s) of delivery it is
             (i.e., ["final", "review"])
+        representation_names (list): List of representation names that should exist on
+            the representations being published.
+        force (bool): Whether to force the creation of the delivery representations or not.
+
+    Returns:
+        tuple: A tuple containing a dictionary of report items and a boolean indicating
+            whether the republish was successful.
     """
     report_items = collections.defaultdict(list)
 
@@ -489,14 +661,14 @@ def republish_version(sg_version, project_name, delivery_types):
     if not op_version_id or op_version_id == "-":
         sub_msg = f"{sg_version['code']}<br>"
         report_items["Missing 'sg_op_instance_id' field on SG Versions"].append(sub_msg)
-        return report_items
+        return report_items, False
 
     # Get OP version corresponding to the SG version
     version_doc = get_version_by_id(project_name, op_version_id)
     if not version_doc:
         sub_msg = f"{sg_version['code']}<br>"
         report_items["No OP version found for SG versions"].append(sub_msg)
-        return report_items
+        return report_items, False
 
     # Find the OP representations we want to deliver
     exr_repre_doc = get_representation_by_name(
@@ -504,11 +676,29 @@ def republish_version(sg_version, project_name, delivery_types):
         "exr",
         version_id=op_version_id,
     )
-
     if not exr_repre_doc:
         sub_msg = f"{sg_version['code']}<br>"
         report_items["No 'exr' representation found on SG versions"].append(sub_msg)
-        return report_items
+        return report_items, False
+
+    # If we are not forcing the creation of representations we validate whether the
+    # representations requested already exist
+    if not force:
+        representation_names.extend(
+            utils.get_sg_version_representation_names(sg_version, delivery_types)
+        )
+        representations = get_representations(
+            project_name,
+            version_ids=[op_version_id],
+        )
+        existing_rep_names = {rep["name"] for rep in representations}
+        missing_rep_names = set(representation_names) - existing_rep_names
+        if not missing_rep_names:
+            sub_msg = f"{sg_version['code']}<br>"
+            report_items[
+                f"Requested '{delivery_types}' representations already exist"
+            ].append(sub_msg)
+            return report_items, True
 
     exr_path = exr_repre_doc["data"]["path"]
     render_path = os.path.dirname(exr_path)
@@ -558,7 +748,6 @@ def republish_version(sg_version, project_name, delivery_types):
     legacy_io.Session["AVALON_PROJECT"] = project_name
     legacy_io.Session["AVALON_APP"] = "traypublisher"
 
-    # TODO: account for slate
     utils.expected_files(
         instance_data,
         version_doc["data"]["source"],
@@ -575,8 +764,10 @@ def republish_version(sg_version, project_name, delivery_types):
 
     # inject colorspace data
     for rep in representations:
+        source_colorspace = instance_data["colorspace"] or "scene_linear"
+        logger.debug("Setting colorspace '%s' to representation", source_colorspace)
         utils.set_representation_colorspace(
-            rep, project_name, colorspace=instance_data["colorspace"]
+            rep, project_name, colorspace=source_colorspace
         )
 
     if "representations" not in instance_data.keys():
@@ -607,8 +798,10 @@ def republish_version(sg_version, project_name, delivery_types):
     logger.info("Metadata path: %s", metadata_path)
 
     deadline_publish_job_id = utils.submit_deadline_post_job(
-        instance_data, render_job, instances, render_path, deadline_url, metadata_path
+        instance_data, render_job, render_path, deadline_url, metadata_path
     )
+
+    report_items["Submitted republish job to Deadline"].append(deadline_publish_job_id)
 
     # Inject deadline url to instances.
     for inst in instances:
@@ -638,8 +831,8 @@ def republish_version(sg_version, project_name, delivery_types):
         json.dump(publish_job, f, indent=4, sort_keys=True)
 
     click.echo(report_items)
-    return report_items
+    return report_items, True
 
 
 if __name__ == "__main__":
-    republish_version_command()
+    republish_version_id_command()

@@ -20,6 +20,21 @@ from openpype.modules.shotgrid.lib.settings import get_shotgrid_servers
 logger = Logger.get_logger(__name__)
 
 
+# List of SG fields from context entities (i.e., Project, Shot) that we care to
+# query for delivery purposes
+SG_DELIVERY_FIELDS = [
+    "sg_delivery_name",
+    "sg_final_output_type",
+    "sg_review_output_type",
+]
+
+# List of SG entities hierarchy from more specific to more generic
+SG_HIERARCHY = ["Shot", "Sequence", "Episode", "Project"]
+
+# List of SG fields that we need to query to grab the parent entity
+SG_HIERARCHY_FIELDS = ["entity", "sg_sequence", "episode", "project"]
+
+
 def get_shotgrid_session():
     """Return a Shotgun API session object for the configured ShotGrid server.
 
@@ -50,6 +65,62 @@ def get_shotgrid_session():
         api_key=shotgrid_script_key,
         http_proxy=proxy,
     )
+
+
+def get_sg_version_representation_names(sg_version, delivery_types):
+    sg = get_shotgrid_session()
+
+    representation_names = []
+    sg_entity = sg_version
+    index = 0
+    for entity, query_field in zip(SG_HIERARCHY, SG_HIERARCHY_FIELDS):
+        query_fields = SG_DELIVERY_FIELDS.copy()
+
+        # If it's the last iteration (Project) we don't try query the next entity
+        if entity != SG_HIERARCHY[-1]:
+            next_query_field = SG_HIERARCHY_FIELDS[index + 1]
+            query_fields.append(next_query_field)
+
+        index += 1
+
+        sg_entity = sg.find_one(
+            entity,
+            [["id", "is", sg_entity[query_field]["id"]]],
+            query_fields,
+        )
+        entity_representation_names = get_sg_entity_representation_names(
+            sg_entity, delivery_types
+        )
+        # If there's some representation names set at that level of the SG
+        #  entity, we stop searching at the higher entity level
+        if entity_representation_names:
+            representation_names = entity_representation_names
+            break
+
+    return representation_names, entity
+
+
+def get_sg_entity_representation_names(sg_entity, delivery_types):
+
+    representation_names = []
+    for delivery_type in delivery_types:
+        out_data_types = sg_entity.get(f"sg_{delivery_type}_output_type", {})
+        for out_data_type in out_data_types:
+            representation_name = "{}_{}".format(
+                out_data_type["name"].replace(" ", "").lower(),
+                delivery_type,
+            )
+            representation_names.append(representation_name)
+
+    # If we found some representation names it means there were some deliveries
+    # set at that SG entity
+    if representation_names:
+        # Add 'review' and 'final' as representation names as we want to deliver
+        # those in some cases. If 'delete output' tag is added on the Extract OIIO
+        # Transcode plugin, these representations won't exist but that doesn't matter
+        representation_names.extend(delivery_types)
+
+    return representation_names
 
 
 def create_metadata_path(instance_data):
@@ -138,7 +209,7 @@ def get_representations(instance_data, exp_files, do_not_add_review):
 
         representations.append(rep)
 
-        _solve_families(instance_data, preview)
+        solve_families(instance_data, preview)
 
     return representations
 
@@ -151,7 +222,7 @@ def get_colorspace_settings(project_name):
     """
     config_data = get_imageio_config(
         project_name,
-        host_name=None,
+        host_name="nuke",  # temporary hack as get_imageio_config doesn't support grabbing just global
     )
 
     # in case host color management is not enabled
@@ -194,7 +265,7 @@ def set_representation_colorspace(
     # check extension
     logger.debug("__ ext: `{}`".format(ext))
 
-    config_data = _get_colorspace_settings(project_name)
+    config_data = get_colorspace_settings(project_name)
 
     if not config_data:
         # warn in case no colorspace path was defined
@@ -250,7 +321,7 @@ def expected_files(instance_data, path, out_frame_start, out_frame_end):
 
 
 def submit_deadline_post_job(
-    instance_data, job, instances, output_dir, deadline_url, metadata_path
+    instance_data, job, output_dir, deadline_url, metadata_path
 ):
     """Submit publish job to Deadline.
 
@@ -262,14 +333,7 @@ def submit_deadline_post_job(
         (str): deadline_publish_job_id
     """
     subset = instance_data["subset"]
-    job_name = "Publish - {subset}".format(subset=subset)
-
-    # instance_data.get("subset") != instances[0]["subset"]
-    # 'Main' vs 'renderMain'
-    override_version = None
-    instance_version = instance_data.get("version")  # take this if exists
-    if instance_version != 1:
-        override_version = instance_version
+    job_name = f"Republish - {instance_data['asset']} - {subset}"
 
     # Transfer the environment from the original job to this dependent
     # job so they use the same environment
@@ -278,9 +342,9 @@ def submit_deadline_post_job(
     username = getpass.getuser()
 
     environment = {
-        "AVALON_PROJECT": instance_data.get("project"),
-        "AVALON_ASSET": instance_data.get("asset"),
-        "AVALON_TASK": instance_data.get("task"),
+        "AVALON_PROJECT": instance_data["project"],
+        "AVALON_ASSET": instance_data["asset"],
+        "AVALON_TASK": instance_data["task"],
         "OPENPYPE_USERNAME": username,
         "OPENPYPE_PUBLISH_JOB": "1",
         "OPENPYPE_RENDER_JOB": "0",

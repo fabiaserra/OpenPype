@@ -21,7 +21,7 @@ class DeliveryTrayWrapper:
     def tray_menu(self, parent_menu):
         tray_menu = QtWidgets.QMenu("Delivery", parent_menu)
 
-        show_delivery_action = QtWidgets.QAction("Deliver SG Playlist", tray_menu)
+        show_delivery_action = QtWidgets.QAction("Deliver SG Entities", tray_menu)
         show_delivery_action.triggered.connect(self.show_delivery_dialog)
         tray_menu.addAction(show_delivery_action)
 
