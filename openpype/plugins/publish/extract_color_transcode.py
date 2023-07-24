@@ -101,25 +101,33 @@ class ExtractOIIOTranscode(publish.Extractor):
 
         ### Starts Alkemy-X Override ###
         # Adds support to define review profiles from SG instead of OP settings
-        sg_outputs, lut_colorspace_review = self.get_sg_output_profiles(instance)
+        sg_outputs = self.get_sg_output_profiles(instance)
         if sg_outputs:
             self.log.info(
                 "Found some profiles on the Shotgrid instance: %s", sg_outputs
             )
-            profile["outputs"].update(sg_outputs)
+            # Override output definitions but only if values from SG aren't empty
+            profile["outputs"].update({k: v for k, v in sg_outputs.items() if v})
 
-        # If 'Review Lut' on the SG entity is not enabled we override it so the
-        # colorspace is not the default "input_process"
-        if not lut_colorspace_review:
-            profile["outputs"]["review"]["colorspace"] = "delivery_frame"
+        # If 'exr' was one of the review outputs, remove the default 'delete' tag
+        # from the output definition profile
+        if "review_exr" in sg_outputs and "delete" in sg_outputs["review_exr"]["custom_tags"]:
+            self.log.debug(
+                "Removing 'delete' tag from 'review_exr' tag so representation doesn't get deleted."
+            )
+            sg_outputs["review_exr"]["custom_tags"].remove("delete")
 
         if "client_review" not in instance.families:
-            self.log.debug("Removing 'review' from profile because 'client_review' is not part of the families.")
-            profile["outputs"].pop("review")
+            self.log.debug(
+                "Removing 'review' from profile because 'client_review' is not part of the families."
+            )
+            profile["outputs"].pop("review_exr")
 
         if "client_final" not in instance.families:
-            self.log.debug("Removing 'final' from profile because 'client_final' is not part of the families.")
-            profile["outputs"].pop("final")
+            self.log.debug(
+                "Removing 'final' from profile because 'client_final' is not part of the families."
+            )
+            profile["outputs"].pop("final_exr")
 
         self.log.debug("Profile: %s", profile)
         ### Ends Alkemy-X Override ###
@@ -282,10 +290,6 @@ class ExtractOIIOTranscode(publish.Extractor):
         if not delivery_overrides_dict:
             return None
 
-        # Boolean to figure out whether we need to override the default 'review' profile
-        # colorspace based on if 'Review LUT' field is enabled
-        lut_colorspace_review = False
-
         sg_profiles = {}
         for hierarchy_level, override_entity in enumerate(["project", "shot"]):
             ent_overrides = delivery_overrides_dict[override_entity]
@@ -302,12 +306,16 @@ class ExtractOIIOTranscode(publish.Extractor):
                 # the project
                 if hierarchy_level > 0 and delivery_outputs:
                     self.log.info(
-                        "There's '%s' delivery overrides on the SG entity '%s', " \
+                        "There's '%s' delivery overrides on the SG entity '%s', "
                         "clearing '%s' overrides from parent entity.",
-                        delivery_type, override_entity, delivery_type
+                        delivery_type,
+                        override_entity,
+                        delivery_type,
                     )
                     sg_profiles = {
-                        k: v for k, v in sg_profiles.items() if not k.endswith(delivery_type)
+                        k: v
+                        for k, v in sg_profiles.items()
+                        if not k.endswith(delivery_type)
                     }
 
                 for out_name, out_fields in delivery_outputs.items():
@@ -316,14 +324,16 @@ class ExtractOIIOTranscode(publish.Extractor):
                     if out_fields["sg_extension"] not in self.supported_exts:
                         self.log.debug(
                             "Skipping profile '%s' because it's not a supported extension",
-                            out_name
+                            out_name,
                         )
                         continue
                     sg_profiles[out_name] = self.profile_output_skeleton.copy()
                     sg_profiles[out_name]["extension"] = out_fields["sg_extension"]
-                    sg_profiles[out_name]["tags"] = [
-                        tag["name"] for tag in ent_overrides[f"sg_{delivery_type}_tags"]
-                    ]
+                    # Ignoring tags as most of those only apply for the ExtractReview step
+                    # Maybe in the future we want to split the tags for transcode / review
+                    # sg_profiles[out_name]["tags"] = [
+                    #     tag["name"] for tag in ent_overrides[f"sg_{delivery_type}_tags"]
+                    # ]
 
                     dest_colorspace = "delivery_frame"
                     if delivery_type == "review" and lut_colorspace_review:
@@ -331,7 +341,8 @@ class ExtractOIIOTranscode(publish.Extractor):
 
                     sg_profiles[out_name]["colorspace"] = dest_colorspace
 
-        return sg_profiles, lut_colorspace_review
+        return sg_profiles
+
     ### Ends Alkemy-X Override ###
 
     def _rename_in_representation(self, new_repre, files_to_convert,

@@ -94,6 +94,10 @@ def get_sg_version_representation_names(sg_version, delivery_types):
         # If there's some representation names set at that level of the SG
         #  entity, we stop searching at the higher entity level
         if entity_representation_names:
+            logger.info(
+                "Found output deliveries at entity %s: %s",
+                entity, entity_representation_names
+            )
             representation_names = entity_representation_names
             break
 
@@ -111,14 +115,6 @@ def get_sg_entity_representation_names(sg_entity, delivery_types):
                 delivery_type,
             )
             representation_names.append(representation_name)
-
-    # If we found some representation names it means there were some deliveries
-    # set at that SG entity
-    if representation_names:
-        # Add 'review' and 'final' as representation names as we want to deliver
-        # those in some cases. If 'delete output' tag is added on the Extract OIIO
-        # Transcode plugin, these representations won't exist but that doesn't matter
-        representation_names.extend(delivery_types)
 
     return representation_names
 
