@@ -63,6 +63,7 @@ SG_HIERARCHY_FIELDS = ["entity", "sg_sequence", "episode", "project"]
     multiple=True,
     required=False,
     help="List of representation names that we want to deliver",
+    default=None,
 )
 def deliver_playlist_id_command(
     playlist_id,
@@ -184,7 +185,52 @@ def deliver_playlist_id(
     return report_items, success
 
 
-# TODO: Create Click command equivalent (when needed)
+@click.command("deliver_version_id")
+@click.option(
+    "--version_id",
+    "-v",
+    required=True,
+    type=int,
+    help="Shotgrid version id to deliver.",
+)
+@click.option(
+    "--delivery_types",
+    "-types",
+    type=click.Choice(["final", "review"]),
+    required=False,
+    multiple=True,
+    default=["final", "review"],
+)
+@click.option(
+    "--representation_names",
+    "-r",
+    multiple=True,
+    required=False,
+    help="List of representation names that should be delivered.",
+    default=None,
+)
+def deliver_version_id_command(
+    version_id,
+    delivery_types,
+    representation_names=None,
+):
+    """Given a SG version id, deliver it so it triggers the OP publish pipeline again.
+
+    Args:
+        version_id (int): Shotgrid version id to deliver.
+        delivery_types (list[str]): What type(s) of delivery it is so we
+            regenerate those representations.
+        representation_names (list): List of representation names that should exist on
+            the representations being published.
+        force (bool): Whether to force the creation of the delivery representations or not.
+
+    Returns:
+        tuple: A tuple containing a dictionary of report items and a boolean indicating
+            whether the deliver was successful.
+    """
+    return deliver_version_id(version_id, delivery_types, representation_names)
+
+
 def deliver_version_id(
     version_id,
     delivery_types,
@@ -214,11 +260,12 @@ def deliver_version_id(
     sg = utils.get_shotgrid_session()
 
     # Get all the SG versions associated to the playlist
-    sg_version = sg.find(
+    sg_version = sg.find_one(
         "Version",
         [["id", "is", int(version_id)]],
         ["sg_op_instance_id", "entity", "code", "project"],
     )
+
     if not sg_version:
         report_items["SG Version not found"].append(version_id)
         return report_items, False
@@ -278,8 +325,10 @@ def deliver_version(
     # Grab the OP's id corresponding to the SG version
     op_version_id = sg_version["sg_op_instance_id"]
     if not op_version_id or op_version_id == "-":
-        sub_msg = f"{sg_version['code']}<br>"
-        report_items["Missing 'sg_op_instance_id' field on SG Versions"].append(sub_msg)
+        sub_msg = f"{sg_version['code']} - {sg_version['id']}<br>"
+        msg = "Missing 'sg_op_instance_id' field on SG Versions"
+        report_items[msg].append(sub_msg)
+        logger.error("%s: %s", msg, sub_msg)
         return report_items, False
 
     anatomy = Anatomy(project_name)
@@ -302,17 +351,18 @@ def deliver_version(
 
     if representation_names:
         if entity != "Project":
-            msg = f"Override of outputs for '{sg_version['code']}' at the {entity} level"
+            msg = f"Override of outputs for '{sg_version['code']}' " \
+                f"({sg_version['id']}) at the {entity} level"
             logger.info("%s: %s", msg, representation_names)
             report_items[msg] = representation_names
         else:
-            msg = "Project delivery representation names:"
+            msg = "Project delivery representation names"
             logger.info("%s: %s", msg, representation_names)
             report_items[msg] = representation_names
     else:
-        msg = "No representation names specified:"
+        msg = "No representation names specified"
         sub_msg = "All representations will be delivered."
-        logger.info(msg + sub_msg)
+        logger.info("%s: %s", msg, sub_msg)
         report_items[msg] = [sub_msg]
 
     # Find the OP representations we want to deliver
@@ -323,6 +373,13 @@ def deliver_version(
             version_ids=[op_version_id],
         )
     )
+    if not repres_to_deliver:
+        sub_msg = f"{sg_version['code']} - {sg_version['id']}<br>"
+        msg = "None of the representations requested found on SG Versions"
+        report_items[msg].append(sub_msg)
+        logger.error("%s: %s", msg, sub_msg)
+        return report_items, False
+
     for repre in repres_to_deliver:
         source_path = repre.get("data", {}).get("path")
         debug_msg = "Processing representation {}".format(repre["_id"])
@@ -374,22 +431,26 @@ def deliver_version(
         # Set overrides if passed
         delivery_project_name = delivery_data.get("delivery_project_name")
         if delivery_project_name:
-            logger.info(
-                "Project name '%s' overridden by '%s'.",
+            msg = "Project name overridden"
+            sub_msg = "{} -> {}".format(
                 anatomy_data["project"]["name"],
                 delivery_project_name,
             )
+            logger.info("%s: %s", msg, sub_msg)
+            report_items[msg] = sub_msg
             anatomy_data["project"]["name"] = delivery_project_name
 
         if delivery_shot_name:
-            logger.info(
-                "Shot '%s' name overridden by '%s'.",
+            msg = "Shot name overridden"
+            sub_msg = "{} -> {}".format(
                 anatomy_data["asset"],
                 delivery_shot_name,
             )
+            logger.info("%s: %s", msg, sub_msg)
+            report_items[msg] = sub_msg
             anatomy_data["asset"] = delivery_shot_name
 
-        logger.debug(anatomy_data)
+        logger.debug("Anatomy data: %s" % anatomy_data)
 
         repre_report_items, dest_path = check_destination_path(
             repre["_id"],
@@ -431,9 +492,12 @@ def deliver_version(
             # If not new report items it means the delivery was successful
             # so we append it to the list of successful delivers
             if not new_report_items:
-                report_items["Successful delivered representations"].append(
-                    f"{repre_path} -> {dest_path}<br>"
+                msg = "Successful delivered representations"
+                sub_msg = f"{repre_path} -> {dest_path}<br>"
+                report_items[msg].append(
+                    sub_msg
                 )
+                logger.info("%s: %s", msg, sub_msg)
             report_items.update(new_report_items)
 
     return report_items, True
@@ -453,6 +517,7 @@ def deliver_version(
     multiple=True,
     required=False,
     help="List of representation names that should exist on the republished version",
+    default=None,
 )
 @click.option(
     "--delivery_types",
@@ -572,6 +637,7 @@ def republish_playlist_id(
     multiple=True,
     required=False,
     help="List of representation names that should exist on the republished version",
+    default=None,
 )
 @click.option("--force/--no-force", default=False)
 def republish_version_id_command(
@@ -659,15 +725,19 @@ def republish_version(
     # Grab the OP's id corresponding to the SG version
     op_version_id = sg_version["sg_op_instance_id"]
     if not op_version_id or op_version_id == "-":
-        sub_msg = f"{sg_version['code']}<br>"
-        report_items["Missing 'sg_op_instance_id' field on SG Versions"].append(sub_msg)
+        msg = "Missing 'sg_op_instance_id' field on SG Versions"
+        sub_msg = f"{sg_version['code']} - {sg_version['id']}<br>"
+        logger.error("%s: %s", msg, sub_msg)
+        report_items[msg].append(sub_msg)
         return report_items, False
 
     # Get OP version corresponding to the SG version
     version_doc = get_version_by_id(project_name, op_version_id)
     if not version_doc:
-        sub_msg = f"{sg_version['code']}<br>"
-        report_items["No OP version found for SG versions"].append(sub_msg)
+        msg = "No OP version found for SG versions"
+        sub_msg = f"{sg_version['code']} - {sg_version['id']}<br>"
+        logger.error("%s: %s", msg, sub_msg)
+        report_items[msg].append(sub_msg)
         return report_items, False
 
     # Find the OP representations we want to deliver
@@ -677,16 +747,19 @@ def republish_version(
         version_id=op_version_id,
     )
     if not exr_repre_doc:
-        sub_msg = f"{sg_version['code']}<br>"
-        report_items["No 'exr' representation found on SG versions"].append(sub_msg)
+        msg = "No 'exr' representation found on SG versions"
+        sub_msg = f"{sg_version['code']} - {sg_version['id']}<br>"
+        logger.error("%s: %s", msg, sub_msg)
+        report_items[msg].append(sub_msg)
         return report_items, False
 
     # If we are not forcing the creation of representations we validate whether the
     # representations requested already exist
     if not force:
-        representation_names.extend(
-            utils.get_sg_version_representation_names(sg_version, delivery_types)
-        )
+        if not representation_names:
+            representation_names, _ = utils.get_sg_version_representation_names(
+                sg_version, delivery_types
+            )
         representations = get_representations(
             project_name,
             version_ids=[op_version_id],
@@ -694,10 +767,10 @@ def republish_version(
         existing_rep_names = {rep["name"] for rep in representations}
         missing_rep_names = set(representation_names) - existing_rep_names
         if not missing_rep_names:
-            sub_msg = f"{sg_version['code']}<br>"
-            report_items[
-                f"Requested '{delivery_types}' representations already exist"
-            ].append(sub_msg)
+            msg = f"Requested '{delivery_types}' representations already exist"
+            sub_msg = f"{sg_version['code']} - {sg_version['id']}<br>"
+            report_items[msg].append(sub_msg)
+            logger.info("%s: %s", msg, sub_msg)
             return report_items, True
 
     exr_path = exr_repre_doc["data"]["path"]
@@ -834,5 +907,15 @@ def republish_version(
     return report_items, True
 
 
+@click.group()
+def cli():
+    pass
+
+cli.add_command(deliver_playlist_id_command)
+cli.add_command(deliver_version_id_command)
+cli.add_command(republish_version_id_command)
+cli.add_command(republish_playlist_id_command)
+
+
 if __name__ == "__main__":
-    republish_version_id_command()
+    cli()
