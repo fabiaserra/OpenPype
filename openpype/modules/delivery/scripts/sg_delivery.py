@@ -1,5 +1,6 @@
 """Module for handling OP delivery of Shotgrid playlists"""
 import os
+import re
 import copy
 import collections
 import click
@@ -821,9 +822,15 @@ def republish_version(
     legacy_io.Session["AVALON_PROJECT"] = project_name
     legacy_io.Session["AVALON_APP"] = "traypublisher"
 
+    # Convert frame to #### for expected_files function
+    hashes_path = re.sub(
+        r"%(\d*)d",
+        lambda m: "#" * int(m.group(1)) if m.group(1) else "#", exr_path
+    )
+
     utils.expected_files(
         instance_data,
-        version_doc["data"]["source"],
+        hashes_path,
         instance_data["frameStartHandle"],
         instance_data["frameEndHandle"],
     )
