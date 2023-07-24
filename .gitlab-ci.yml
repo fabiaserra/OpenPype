@@ -145,8 +145,6 @@ patch-release:
         echo "Release "${openpype_version}" does not exist, creating..."
         release-cli create --description "Release ${openpype_version} using CI pipeline $CI_PIPELINE_ID" --tag-name "${openpype_version}"
       fi
-  needs:
-    - deploy-patch
 
 deploy-to-deadline:
   tags:
