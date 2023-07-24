@@ -47,7 +47,7 @@ class DeliveryDialog(QtWidgets.QDialog):
     def ui_init(self):
         input_widget = QtWidgets.QWidget(self)
         input_layout = QtWidgets.QFormLayout(input_widget)
-        input_layout.setContentsMargins(10, 15, 5, 5)
+        input_layout.setContentsMargins(5, 5, 5, 5)
 
         self.input_group = QtWidgets.QButtonGroup(input_widget)
         self.input_group.setExclusive(True)
