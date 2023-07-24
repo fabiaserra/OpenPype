@@ -808,11 +808,11 @@ class ProcessSubmittedJobOnFarm(pyblish.api.InstancePlugin,
                     "Adding \"client_review\" to families because of preview tag."
                 )
                 families.append("client_review")
-            # if "client_final" not in families:
-            #     self.log.debug(
-            #         "Adding \"client_final\" to families because of preview tag."
-            #     )
-            #     families.append("client_final")
+            if "client_final" not in families:
+                self.log.debug(
+                    "Adding \"client_final\" to families because of preview tag."
+                )
+                families.append("client_final")
             instance["families"] = families
 
     def process(self, instance):

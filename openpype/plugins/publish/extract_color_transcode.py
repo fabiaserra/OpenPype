@@ -121,13 +121,13 @@ class ExtractOIIOTranscode(publish.Extractor):
             self.log.debug(
                 "Removing 'exr_review' from profile because 'client_review' is not part of the families."
             )
-            profile["outputs"].pop("exr_review")
+            del profile["outputs"]["exr_review"]
 
         if "client_final" not in instance.data.get("families"):
             self.log.debug(
                 "Removing 'exr_final' from profile because 'client_final' is not part of the families."
             )
-            profile["outputs"].pop("exr_final")
+            del profile["outputs"]["exr_final"]
 
         self.log.debug("Profile: %s", profile)
         ### Ends Alkemy-X Override ###
