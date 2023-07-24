@@ -822,23 +822,22 @@ def republish_version(
     legacy_io.Session["AVALON_PROJECT"] = project_name
     legacy_io.Session["AVALON_APP"] = "traypublisher"
 
-    # Convert frame to #### for expected_files function
+    # Replace frame number with #'s for expected_files function
     hashes_path = re.sub(
-        r"%(\d*)d",
-        lambda m: "#" * int(m.group(1)) if m.group(1) else "#", exr_path
+        r"\d+(?=\.\w+$)",
+        lambda m: "#" * len(m.group()) if m.group() else "#", exr_path
     )
 
-    utils.expected_files(
-        instance_data,
+    expected_files = utils.expected_files(
         hashes_path,
         instance_data["frameStartHandle"],
         instance_data["frameEndHandle"],
     )
-    logger.debug("__ expectedFiles: `{}`".format(instance_data["expectedFiles"]))
+    logger.debug("__ expectedFiles: `{}`".format(expected_files))
 
     representations = utils.get_representations(
         instance_data,
-        instance_data.get("expectedFiles"),
+        expected_files,
         False,
     )
 

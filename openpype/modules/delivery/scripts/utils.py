@@ -296,10 +296,10 @@ def solve_families(instance_data, preview=False):
         instance_data["families"] = families
 
 
-def expected_files(instance_data, path, out_frame_start, out_frame_end):
-    """Create expected files in instance data"""
-    if not instance_data.get("expectedFiles"):
-        instance_data["expectedFiles"] = []
+def expected_files(path, out_frame_start, out_frame_end):
+    """Return a list of expected files"""
+
+    expected_file = []
 
     dirname = os.path.dirname(path)
     filename = os.path.basename(path)
@@ -310,13 +310,15 @@ def expected_files(instance_data, path, out_frame_start, out_frame_end):
         filename = pparts[0] + padding + pparts[-1]
 
     if "%" not in filename:
-        instance_data["expectedFiles"].append(path)
+        expected_file.append(path)
         return
 
     for i in range(out_frame_start, (out_frame_end + 1)):
-        instance_data["expectedFiles"].append(
+        expected_file.append(
             os.path.join(dirname, (filename % i)).replace("\\", "/")
         )
+
+    return expected_files
 
 
 def submit_deadline_post_job(
