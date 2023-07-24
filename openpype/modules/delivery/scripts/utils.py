@@ -287,12 +287,6 @@ def solve_families(instance_data, preview=False):
         if "review" not in families:
             logger.debug('Adding "review" to families because of preview tag.')
             families.append("review")
-        if "client_review" not in families:
-            logger.debug('Adding "client_review" to families because of preview tag.')
-            families.append("client_review")
-        if "client_final" not in families:
-            logger.debug('Adding "client_final" to families because of preview tag.')
-            families.append("client_final")
         instance_data["families"] = families
 
 

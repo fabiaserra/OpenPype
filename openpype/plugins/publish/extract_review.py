@@ -209,10 +209,17 @@ class ExtractReview(pyblish.api.InstancePlugin):
         if not delivery_overrides_dict:
             return None
 
+        # Grab which delivery types we are running by checking the families
+        delivery_types = []
+        if instance.data.get("client_review"):
+            delivery_types.append("review")
+        if instance.data.get("client_final"):
+            delivery_types.append("final")
+
         sg_profiles = {}
         for hierarchy_level, override_entity in enumerate(["project", "shot"]):
             ent_overrides = delivery_overrides_dict[override_entity]
-            for delivery_type in ["review", "final"]:
+            for delivery_type in delivery_types:
                 delivery_outputs = ent_overrides[f"sg_{delivery_type}_output_type"]
                 # If on the next run of the hierarchy loop there delivery
                 # outputs it means these should override the prior entity
