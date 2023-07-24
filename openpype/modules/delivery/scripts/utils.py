@@ -299,7 +299,7 @@ def solve_families(instance_data, preview=False):
 def expected_files(path, out_frame_start, out_frame_end):
     """Return a list of expected files"""
 
-    expected_file = []
+    expected_files = []
 
     dirname = os.path.dirname(path)
     filename = os.path.basename(path)
@@ -310,11 +310,11 @@ def expected_files(path, out_frame_start, out_frame_end):
         filename = pparts[0] + padding + pparts[-1]
 
     if "%" not in filename:
-        expected_file.append(path)
+        expected_files.append(path)
         return
 
     for i in range(out_frame_start, (out_frame_end + 1)):
-        expected_file.append(
+        expected_files.append(
             os.path.join(dirname, (filename % i)).replace("\\", "/")
         )
 
