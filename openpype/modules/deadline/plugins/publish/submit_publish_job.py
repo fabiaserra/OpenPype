@@ -774,6 +774,10 @@ class ProcessSubmittedJobOnFarm(pyblish.api.InstancePlugin,
                 representations.append(rep)
 
         for rep in representations:
+            self.log.debug(
+                "Injecting colorspace '%s' to representation '%s'",
+                instance_data["colorspace"], rep["name"]
+            )
             # inject colorspace data
             self.set_representation_colorspace(
                 rep, self.context,
@@ -804,11 +808,11 @@ class ProcessSubmittedJobOnFarm(pyblish.api.InstancePlugin,
                     "Adding \"client_review\" to families because of preview tag."
                 )
                 families.append("client_review")
-            if "client_final" not in families:
-                self.log.debug(
-                    "Adding \"client_final\" to families because of preview tag."
-                )
-                families.append("client_final")
+            # if "client_final" not in families:
+            #     self.log.debug(
+            #         "Adding \"client_final\" to families because of preview tag."
+            #     )
+            #     families.append("client_final")
             instance["families"] = families
 
     def process(self, instance):

@@ -211,9 +211,12 @@ class ExtractReview(pyblish.api.InstancePlugin):
 
         # Grab which delivery types we are running by checking the families
         delivery_types = []
-        if instance.data.get("client_review"):
+        if "client_review" in instance.data.get("families"):
+            self.log.debug("Adding 'review' as delivery type for SG outputs.")
             delivery_types.append("review")
-        if instance.data.get("client_final"):
+
+        if "client_final" in instance.data.get("families"):
+            self.log.debug("Adding 'final' as delivery type for SG outputs.")
             delivery_types.append("final")
 
         sg_profiles = {}
@@ -241,10 +244,14 @@ class ExtractReview(pyblish.api.InstancePlugin):
                     # extensions
                     if out_fields["sg_extension"] not in self.video_exts:
                         self.log.debug(
-                            "Skipping profile '%s' because it's not a video extension",
+                            "Skipping output '%s' because it's not a video extension",
                             out_name
                         )
                         continue
+                    self.log.debug(
+                        "Generating output definition '%s'...",
+                        out_name
+                    )
                     sg_profiles[out_name] = self.profile_output_skeleton.copy()
                     sg_profiles[out_name]["ext"] = out_fields["sg_extension"]
                     sg_profiles[out_name]["tags"] = [
@@ -309,10 +316,10 @@ class ExtractReview(pyblish.api.InstancePlugin):
                 profile_outputs, custom_tags)
             if not outputs:
                 self.log.info((
-                    "Skipped representation. All output definitions from"
+                    "Skipped representation '%s'. All output definitions from"
                     " selected profile does not match to representation's"
                     " custom tags. \"{}\""
-                ).format(str(custom_tags)))
+                ).format(repre_name, str(custom_tags)))
                 continue
 
             outputs_per_representations.append((repre, outputs))

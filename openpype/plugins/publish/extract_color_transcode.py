@@ -150,6 +150,8 @@ class ExtractOIIOTranscode(publish.Extractor):
                 continue
 
             for output_name, output_def in profile.get("outputs", {}).items():
+                self.log.debug("Generating output: {}".format(output_name))
+
                 new_repre = copy.deepcopy(repre)
 
                 original_staging_dir = new_repre["stagingDir"]

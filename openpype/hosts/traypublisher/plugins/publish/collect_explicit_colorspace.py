@@ -26,9 +26,14 @@ class CollectColorspace(pyblish.api.InstancePlugin,
             return
 
         self.log.debug("Explicit colorspace set to: {}".format(colorspace))
+        instance.data["colorspace"] = colorspace
 
         context = instance.context
         for repre in instance.data.get("representations", {}):
+            self.log.debug(
+                "Injecting colorspace '%s' to representation '%s'.",
+                colorspace, repre["name"]
+            )
             self.set_representation_colorspace(
                 representation=repre,
                 context=context,
