@@ -278,11 +278,11 @@ def set_representation_colorspace(
         representation["colorspaceData"] = colorspace_data
 
 
-def solve_families(instance, preview=False):
-    families = instance.get("families")
+def solve_families(instance_data, preview=False):
+    families = instance_data.get("families")
 
     # if we have one representation with preview tag
-    # flag whole instance for review and for ftrack
+    # flag whole instance_data for review and for ftrack
     if preview:
         if "review" not in families:
             logger.debug('Adding "review" to families because of preview tag.')
@@ -290,7 +290,10 @@ def solve_families(instance, preview=False):
         if "client_review" not in families:
             logger.debug('Adding "client_review" to families because of preview tag.')
             families.append("client_review")
-        instance["families"] = families
+        if "client_final" not in families:
+            logger.debug('Adding "client_final" to families because of preview tag.')
+            families.append("client_final")
+        instance_data["families"] = families
 
 
 def expected_files(instance_data, path, out_frame_start, out_frame_end):

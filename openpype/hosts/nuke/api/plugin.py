@@ -302,7 +302,8 @@ class NukeWriteCreator(NukeCreator):
         if "reviewable" in self.instance_attributes:
             attr_defs.append(self._get_reviewable_bool())
             ### Starts Alkemy-X Override ###
-            attr_defs.append(self._get_client_reviewable_bool())
+            attr_defs.append(self._get_client_review_bool())
+            attr_defs.append(self._get_client_final_bool())
             ### Ends Alkemy-X Override ###
 
         return attr_defs
@@ -330,11 +331,18 @@ class NukeWriteCreator(NukeCreator):
         )
 
     ### Starts Alkemy-X Override ###
-    def _get_client_reviewable_bool(self):
+    def _get_client_review_bool(self):
         return BoolDef(
             "client_review",
             default=True,
             label="Client Review"
+        )
+
+    def _get_client_final_bool(self):
+        return BoolDef(
+            "client_final",
+            default=True,
+            label="Client Final"
         )
     ### Ends Alkemy-X Override ###
 

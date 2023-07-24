@@ -204,7 +204,7 @@ class ProcessSubmittedJobOnFarm(pyblish.api.InstancePlugin,
 
     # list of family names to transfer to new family if present
     families_transfer = [
-        "render3d", "render2d", "ftrack", "slate", "client_review"
+        "render3d", "render2d", "ftrack", "slate", "client_review", "client_final",
     ]
     plugin_pype_version = "3.0"
 
@@ -804,6 +804,11 @@ class ProcessSubmittedJobOnFarm(pyblish.api.InstancePlugin,
                     "Adding \"client_review\" to families because of preview tag."
                 )
                 families.append("client_review")
+            if "client_final" not in families:
+                self.log.debug(
+                    "Adding \"client_final\" to families because of preview tag."
+                )
+                families.append("client_final")
             instance["families"] = families
 
     def process(self, instance):
