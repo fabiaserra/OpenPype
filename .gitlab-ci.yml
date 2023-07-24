@@ -10,7 +10,6 @@ stages:
   - build
   - deploy
   - release
-  - tag
 
 build-centos7:
   tags:
@@ -132,7 +131,7 @@ deploy-patch:
 patch-release:
   tags:
     - dind
-  stage: tag
+  stage: release
   image: registry.gitlab.com/gitlab-org/release-cli:latest
   script:
     - apk add --no-cache python3
@@ -146,6 +145,8 @@ patch-release:
         echo "Release "${openpype_version}" does not exist, creating..."
         release-cli create --description "Release ${openpype_version} using CI pipeline $CI_PIPELINE_ID" --tag-name "${openpype_version}"
       fi
+  needs:
+    - deploy-patch
 
 deploy-to-deadline:
   tags:
