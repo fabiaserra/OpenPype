@@ -117,13 +117,13 @@ class ExtractOIIOTranscode(publish.Extractor):
             )
             sg_outputs["review_exr"]["custom_tags"].remove("delete")
 
-        if "client_review" not in instance.families:
+        if "client_review" not in instance.get("families"):
             self.log.debug(
                 "Removing 'review' from profile because 'client_review' is not part of the families."
             )
             profile["outputs"].pop("review_exr")
 
-        if "client_final" not in instance.families:
+        if "client_final" not in instance.get("families"):
             self.log.debug(
                 "Removing 'final' from profile because 'client_final' is not part of the families."
             )
