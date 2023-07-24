@@ -10,6 +10,7 @@ stages:
   - build
   - deploy
   - release
+  - tag
 
 build-centos7:
   tags:
@@ -131,7 +132,7 @@ deploy-patch:
 patch-release:
   tags:
     - dind
-  stage: release
+  stage: tag
   image: registry.gitlab.com/gitlab-org/release-cli:latest
   script:
     - apk add --no-cache python3
