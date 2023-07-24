@@ -111,23 +111,23 @@ class ExtractOIIOTranscode(publish.Extractor):
 
         # If 'exr' was one of the review outputs, remove the default 'delete' tag
         # from the output definition profile
-        if "review_exr" in sg_outputs and "delete" in sg_outputs["review_exr"]["custom_tags"]:
+        if "exr_review" in sg_outputs and "delete" in sg_outputs["exr_review"]["custom_tags"]:
             self.log.debug(
-                "Removing 'delete' tag from 'review_exr' tag so representation doesn't get deleted."
+                "Removing 'delete' tag from 'exr_review' tag so representation doesn't get deleted."
             )
-            sg_outputs["review_exr"]["custom_tags"].remove("delete")
+            sg_outputs["exr_review"]["custom_tags"].remove("delete")
 
         if "client_review" not in instance.data.get("families"):
             self.log.debug(
-                "Removing 'review' from profile because 'client_review' is not part of the families."
+                "Removing 'exr_review' from profile because 'client_review' is not part of the families."
             )
-            profile["outputs"].pop("review_exr")
+            profile["outputs"].pop("exr_review")
 
         if "client_final" not in instance.data.get("families"):
             self.log.debug(
-                "Removing 'final' from profile because 'client_final' is not part of the families."
+                "Removing 'exr_final' from profile because 'client_final' is not part of the families."
             )
-            profile["outputs"].pop("final_exr")
+            profile["outputs"].pop("exr_final")
 
         self.log.debug("Profile: %s", profile)
         ### Ends Alkemy-X Override ###
