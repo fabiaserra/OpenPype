@@ -138,7 +138,7 @@ patch-release:
     - version_command="import os;exec(open(os.path.join('./', 'openpype', 'version.py')).read());print(__version__);"
     - openpype_version="$(python3 -c "${version_command}")"
     - >
-      if release-cli get --name "${openpype_version}"; then
+      if release-cli get --tag-name "${openpype_version}"; then
         echo "Release "${openpype_version}" already exists, updating..."
         release-cli update --description "Release ${openpype_version} using CI pipeline $CI_PIPELINE_ID" --tag-name "${openpype_version}"
       else
