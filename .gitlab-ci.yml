@@ -137,7 +137,14 @@ patch-release:
     - apk add --no-cache python3
     - version_command="import os;exec(open(os.path.join('./', 'openpype', 'version.py')).read());print(__version__);"
     - openpype_version="$(python3 -c "${version_command}")"
-    - release-cli create --description "Release ${openpype_version} using CI pipeline $CI_PIPELINE_ID" --tag-name "${openpype_version}"
+    - >
+      if release-cli get --name "${openpype_version}"; then
+        echo "Release "${openpype_version}" already exists, updating..."
+        release-cli update --description "Release ${openpype_version} using CI pipeline $CI_PIPELINE_ID" --tag-name "${openpype_version}"
+      else
+        echo "Release "${openpype_version}" does not exist, creating..."
+        release-cli create --description "Release ${openpype_version} using CI pipeline $CI_PIPELINE_ID" --tag-name "${openpype_version}"
+      fi
   needs:
     - deploy-patch
 
