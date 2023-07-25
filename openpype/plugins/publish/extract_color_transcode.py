@@ -111,10 +111,11 @@ class ExtractOIIOTranscode(publish.Extractor):
             delivery_types.append("final")
 
         # Adds support to define review profiles from SG instead of OP settings
-        sg_outputs = self.get_sg_output_profiles(instance, delivery_types)
+        sg_outputs, entity = self.get_sg_output_profiles(instance, delivery_types)
         if sg_outputs:
             self.log.info(
-                "Found some profiles on the Shotgrid instance: %s", sg_outputs
+                "Found some profile overrides on the SG instance at the entity " \
+                "level '%s': %s", sg_outputs, entity
             )
             # If 'exr' was one of the review outputs, remove the default 'delete'
             # tag from the output definition profile

@@ -162,10 +162,11 @@ class ExtractReview(pyblish.api.InstancePlugin):
             delivery_types.append("final")
 
         # Adds support to define review profiles from SG instead of OP settings
-        sg_outputs = self.get_sg_output_profiles(instance, delivery_types)
+        sg_outputs, entity = self.get_sg_output_profiles(instance, delivery_types)
         if sg_outputs:
             self.log.info(
-                "Found some profiles on the Shotgrid instance: %s", sg_outputs
+                "Found some profile overrides on the SG instance at the entity " \
+                "level '%s': %s", sg_outputs, entity
             )
 
         subset_name = instance.data.get("subset")
@@ -218,7 +219,7 @@ class ExtractReview(pyblish.api.InstancePlugin):
         # the case
         delivery_overrides_dict = instance.context.data.get("shotgridDeliveryOverrides")
         if not delivery_overrides_dict:
-            return None
+            return None, None
 
         for entity in enumerate(["shot", "project"]):
             ent_overrides = delivery_overrides_dict[entity]
