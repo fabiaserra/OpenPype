@@ -4,7 +4,6 @@ import re
 import copy
 import collections
 import click
-import tqdm
 import getpass
 import json
 
@@ -167,8 +166,8 @@ def deliver_playlist_id(
 
     # Iterate over each SG version and deliver it
     success = True
-    for sg_version in tqdm.tqdm(sg_versions):
-        new_report_items, new_success = deliver_version(
+    for sg_version in sg_versions:
+        new_report_items, new_success = deliver_sg_version(
             sg_version,
             project_name,
             delivery_data,

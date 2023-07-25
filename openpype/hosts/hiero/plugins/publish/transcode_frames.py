@@ -32,7 +32,7 @@ class TranscodeFrames(publish.Extractor):
     oiio_args = [
         "--frames",
         "<STARTFRAME>-<ENDFRAME>",
-        "{input_path}",
+        "\"{input_path}\"",  # Escape input path in case there's whitespaces
         "-v",
         "--info",
         "--compression",
@@ -48,7 +48,7 @@ class TranscodeFrames(publish.Extractor):
         "{src_colorspace}",
         "--sattrib",
         "input/filename",  # Ingest input filename
-        "{input_path}",
+        "\"{input_path}\"",  # Escape input path in case there's whitespaces
         "-o",
         "{output_path}",
     ]
