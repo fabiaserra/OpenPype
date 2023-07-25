@@ -151,8 +151,18 @@ class ExtractReview(pyblish.api.InstancePlugin):
         self.log.debug("Matching profile: \"{}\"".format(json.dumps(profile)))
 
         ### Starts Alkemy-X Override ###
+        # Grab which delivery types we are running by checking the families
+        delivery_types = []
+        if "client_review" in instance.data.get("families"):
+            self.log.debug("Adding 'review' as delivery type for SG outputs.")
+            delivery_types.append("review")
+
+        if "client_final" in instance.data.get("families"):
+            self.log.debug("Adding 'final' as delivery type for SG outputs.")
+            delivery_types.append("final")
+
         # Adds support to define review profiles from SG instead of OP settings
-        sg_outputs = self.get_sg_output_profiles(instance)
+        sg_outputs = self.get_sg_output_profiles(instance, delivery_types)
         if sg_outputs:
             self.log.info(
                 "Found some profiles on the Shotgrid instance: %s", sg_outputs
@@ -186,21 +196,22 @@ class ExtractReview(pyblish.api.InstancePlugin):
         return profile_outputs
 
     ### Starts Alkemy-X Override ###
-    def get_sg_output_profiles(self, instance):
-        """Returns a dictionary of profiles based on delivery overrides set on
-        the SG instance.
+    def get_sg_output_profiles(self, instance, delivery_types):
+        """
+        Returns a dictionary of profiles based on delivery overrides set on the
+        SG instance.
 
         If there are delivery overrides set on the Shotgrid instance, this
         method returns a dictionary of output profiles that matches what OP
         profiles expect based on those overrides. Otherwise, it returns None.
 
         Args:
-            instance (Instance): The instance to get Shotgrid output profiles
-                for.
+            instance (Instance): The instance to get Shotgrid output profiles for.
+            delivery_types (list): A list of delivery types to search for.
 
         Returns:
-            dict: A dictionary of Shotgrid output profiles, or None if there
-                are no delivery overrides.
+            tuple: A tuple containing a dictionary of Shotgrid output profiles
+                and the name of the entity where the override was found.
         """
         # Check if there's any delivery overrides set on the SG instance
         # and use that instead of the profile output definitions if that's
@@ -209,35 +220,15 @@ class ExtractReview(pyblish.api.InstancePlugin):
         if not delivery_overrides_dict:
             return None
 
-        # Grab which delivery types we are running by checking the families
-        delivery_types = []
-        if "client_review" in instance.data.get("families"):
-            self.log.debug("Adding 'review' as delivery type for SG outputs.")
-            delivery_types.append("review")
+        for entity in enumerate(["shot", "project"]):
+            ent_overrides = delivery_overrides_dict[entity]
+            if not ent_overrides:
+                continue
 
-        if "client_final" in instance.data.get("families"):
-            self.log.debug("Adding 'final' as delivery type for SG outputs.")
-            delivery_types.append("final")
+            sg_profiles = {}
 
-        sg_profiles = {}
-        for hierarchy_level, override_entity in enumerate(["project", "shot"]):
-            ent_overrides = delivery_overrides_dict[override_entity]
             for delivery_type in delivery_types:
                 delivery_outputs = ent_overrides[f"sg_{delivery_type}_output_type"]
-                # If on the next run of the hierarchy loop there delivery
-                # outputs it means these should override the prior entity
-                # so we clear the sg_profiles entries for that delivery type
-                # i.e., if there's different output types on the shot than
-                # the project
-                if hierarchy_level > 0 and delivery_outputs:
-                    self.log.info(
-                        "There's '%s' delivery overrides on the SG entity '%s', " \
-                        "clearing '%s' overrides from parent entity.",
-                        delivery_type, override_entity, delivery_type
-                    )
-                    sg_profiles = {
-                        k: v for k, v in sg_profiles.items() if not k.endswith(delivery_type)
-                    }
 
                 for out_name, out_fields in delivery_outputs.items():
                     # Only run extract review for the output types that are video
@@ -248,10 +239,12 @@ class ExtractReview(pyblish.api.InstancePlugin):
                             out_name
                         )
                         continue
+
                     self.log.debug(
-                        "Generating output definition '%s'...",
+                        "Found output definition '%s'...",
                         out_name
                     )
+
                     sg_profiles[out_name] = self.profile_output_skeleton.copy()
                     sg_profiles[out_name]["ext"] = out_fields["sg_extension"]
                     sg_profiles[out_name]["tags"] = [
@@ -271,7 +264,11 @@ class ExtractReview(pyblish.api.InstancePlugin):
                         if ffmpeg_val:
                             sg_profiles[out_name]["ffmpeg_args"][ffmpeg_arg] = [ffmpeg_val]
 
-        return sg_profiles
+            # Found some overrides at the entity, return early
+            if sg_profiles:
+                return sg_profiles, entity
+
+        return None, None
 
     ### Ends Alkemy-X Override ###
     def _get_outputs_per_representations(self, instance, profile_outputs):

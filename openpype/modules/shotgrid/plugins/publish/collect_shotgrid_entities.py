@@ -125,6 +125,7 @@ def _get_shotgrid_entity_overrides(sg, sg_entity):
                 [["id", "is", out_data_type["id"]]],
                 fields=SG_OUTPUT_DATATYPE_FIELDS,
             )
+
             out_name = "{}_{}".format(
                 out_data_type["name"].replace(" ", "").lower(),
                 delivery_type

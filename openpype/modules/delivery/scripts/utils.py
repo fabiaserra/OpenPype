@@ -68,10 +68,26 @@ def get_shotgrid_session():
 
 
 def get_sg_version_representation_names(sg_version, delivery_types):
+    """
+    Return a list of representation names for a given SG version and delivery
+    types.
+
+    It traverses through the hierarchy of SG entities that the SG version
+    belongs to and returns the first representation names found at the entity.
+
+    Args:
+        sg_version (dict): A dictionary representing a ShotGrid version.
+        delivery_types (list): A list of delivery types to search for.
+
+    Returns:
+        tuple: A tuple containing a list of representation names and the entity
+            where the representation names were found.
+    """
     sg = get_shotgrid_session()
 
     representation_names = []
-    sg_entity = sg_version
+    prior_sg_entity = sg_version
+    entity = None
     index = 0
     for entity, query_field in zip(SG_HIERARCHY, SG_HIERARCHY_FIELDS):
         query_fields = SG_DELIVERY_FIELDS.copy()
@@ -85,9 +101,13 @@ def get_sg_version_representation_names(sg_version, delivery_types):
 
         sg_entity = sg.find_one(
             entity,
-            [["id", "is", sg_entity[query_field]["id"]]],
+            [["id", "is", prior_sg_entity[query_field]["id"]]],
             query_fields,
         )
+        if not sg_entity:
+            continue
+
+        prior_sg_entity = sg_entity
         entity_representation_names = get_sg_entity_representation_names(
             sg_entity, delivery_types
         )
@@ -105,7 +125,17 @@ def get_sg_version_representation_names(sg_version, delivery_types):
 
 
 def get_sg_entity_representation_names(sg_entity, delivery_types):
+    """
+    Return a list of representation names for a given SG entity and delivery
+    types.
 
+    Args:
+        sg_entity (dict): A dictionary representing a ShotGrid entity.
+        delivery_types (list): A list of delivery types to search for.
+
+    Returns:
+        list: A list of representation names for the given ShotGrid entity and delivery types.
+    """
     representation_names = []
     for delivery_type in delivery_types:
         out_data_types = sg_entity.get(f"sg_{delivery_type}_output_type", {})
