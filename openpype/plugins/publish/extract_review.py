@@ -219,9 +219,12 @@ class ExtractReview(pyblish.api.InstancePlugin):
         if not delivery_overrides_dict:
             return None, None
 
-        for entity in enumerate(["shot", "project"]):
-            ent_overrides = delivery_overrides_dict[entity]
+        for entity in ["shot", "project"]:
+            ent_overrides = delivery_overrides_dict.get(entity)
             if not ent_overrides:
+                self.log.debug(
+                    "No SG delivery overrides found at the '%s' level.", entity
+                )
                 continue
 
             sg_profiles = {}
@@ -234,7 +237,7 @@ class ExtractReview(pyblish.api.InstancePlugin):
                     # extensions
                     if out_fields["sg_extension"] not in self.video_exts:
                         self.log.debug(
-                            "Skipping output '%s' because it's not a video extension",
+                            "Skipping output '%s' because it's not a video extension.",
                             out_name
                         )
                         continue

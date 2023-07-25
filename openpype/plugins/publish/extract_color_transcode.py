@@ -310,9 +310,12 @@ class ExtractOIIOTranscode(publish.Extractor):
 
         # Iterate from more specific to more generic entity so as soon as we
         # find some values, we break the loop and return the profiles
-        for entity in enumerate(["shot", "project"]):
+        for entity in ["shot", "project"]:
             ent_overrides = delivery_overrides_dict.get(entity)
             if not ent_overrides:
+                self.log.debug(
+                    "No SG delivery overrides found at the '%s' level.", entity
+                )
                 continue
 
             sg_profiles = {}
@@ -328,7 +331,7 @@ class ExtractOIIOTranscode(publish.Extractor):
                     # extensions
                     if out_fields["sg_extension"] not in self.supported_exts:
                         self.log.debug(
-                            "Skipping profile '%s' because it's not a supported extension",
+                            "Skipping output '%s' because it's not an image extension.",
                             out_name,
                         )
                         continue
