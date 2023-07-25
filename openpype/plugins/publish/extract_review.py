@@ -176,13 +176,14 @@ class ExtractReview(pyblish.api.InstancePlugin):
         # Adds support to define review profiles from SG instead of OP settings
         sg_outputs, entity = self.get_sg_output_profiles(instance, delivery_types)
         if sg_outputs:
-            self.log.info(
+            self.log.debug(
                 "Found some profile overrides on the SG instance at the entity " \
                 "level '%s': %s", sg_outputs, entity
             )
             filtered_outputs.update(sg_outputs)
             self.log.info(
-                "Added Shotgrid profiles to filtered outputs."
+                "Added SG output definitions '%s' to filtered outputs.",
+                sg_outputs.keys()
             )
         ### Ends Alkemy-X Override ###
 
@@ -223,7 +224,7 @@ class ExtractReview(pyblish.api.InstancePlugin):
             ent_overrides = delivery_overrides_dict.get(entity)
             if not ent_overrides:
                 self.log.debug(
-                    "No SG delivery overrides found at the '%s' level.", entity
+                    "No SG delivery overrides found at the '%s' entity.", entity
                 )
                 continue
 
@@ -243,8 +244,8 @@ class ExtractReview(pyblish.api.InstancePlugin):
                         continue
 
                     self.log.debug(
-                        "Found output definition '%s'...",
-                        out_name
+                        "Found SG output definition '%s' at '%s' entity...",
+                        out_name, entity
                     )
 
                     sg_profiles[out_name] = self.profile_output_skeleton.copy()

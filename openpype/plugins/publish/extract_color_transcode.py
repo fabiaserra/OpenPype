@@ -101,50 +101,65 @@ class ExtractOIIOTranscode(publish.Extractor):
 
         ### Starts Alkemy-X Override ###
         # Grab which delivery types we are running by checking the families
+        # and remove the output definitions that don't match the delivery types
         delivery_types = []
         if "client_review" in instance.data.get("families"):
             self.log.debug("Adding 'review' as delivery type for SG outputs.")
             delivery_types.append("review")
-
-        if "client_final" in instance.data.get("families"):
-            self.log.debug("Adding 'final' as delivery type for SG outputs.")
-            delivery_types.append("final")
-
-        # Adds support to define review profiles from SG instead of OP settings
-        sg_outputs, entity = self.get_sg_output_profiles(instance, delivery_types)
-        if sg_outputs:
-            self.log.info(
-                "Found some profile overrides on the SG instance at the entity " \
-                "level '%s': %s", sg_outputs, entity
-            )
-            # If 'exr' was one of the review outputs, remove the default 'delete'
-            # tag from the output definition profile
-            if "exr_review" in sg_outputs and \
-                    "delete" in sg_outputs["exr_review"]["custom_tags"]:
-                sg_outputs["exr_review"]["custom_tags"].remove("delete")
-                self.log.debug(
-                    "Removed 'delete' tag from 'exr_review' tag so representation" \
-                    "doesn't get deleted."
-                )
-
-            # Override output definitions but only if values from SG aren't empty
-            profile["outputs"].update({k: v for k, v in sg_outputs.items() if v})
-
-        if "review" not in delivery_types:
+        else:
             self.log.debug(
                 "Removing 'exr_review' from profile because 'client_review' is " \
                 "not part of the families."
             )
             del profile["outputs"]["exr_review"]
 
-        if "final" not in delivery_types:
+        if "client_final" in instance.data.get("families"):
+            self.log.debug("Adding 'final' as delivery type for SG outputs.")
+            delivery_types.append("final")
+        else:
             self.log.debug(
                 "Removing 'exr_final' from profile because 'client_final' is " \
                 "not part of the families."
             )
             del profile["outputs"]["exr_final"]
 
-        self.log.debug("Profile: %s", profile)
+        # Adds support to define review profiles from SG instead of OP settings
+        sg_outputs, entity = self.get_sg_output_profiles(instance, delivery_types)
+        if sg_outputs:
+            self.log.debug(
+                "Found some profile overrides on the SG instance at the entity " \
+                "level '%s': %s", sg_outputs, entity
+            )
+            # If 'exr' was one of the review outputs, remove the default 'delete'
+            # tag from the output definition profile
+            if "exr_review" in sg_outputs and \
+                    "delete" in profile["exr_review"]["custom_tags"]:
+                profile["exr_review"]["custom_tags"].remove("delete")
+                self.log.info(
+                    "Removed 'delete' tag from 'exr_review' tag so representation" \
+                    "doesn't get deleted."
+                )
+
+            for out_name, out_def in sg_outputs.items():
+                # If SG output definition doesn't exist on the profile, add it
+                if out_name not in profile["outputs"]:
+                    profile["outputs"][out_name] = out_def
+                    self.log.info(
+                        "Added SG output definition '%s' to profile.",
+                        out_name
+                    )
+                # Otherwise override output definitions but only if values from SG
+                # aren't empty
+                else:
+                    profile["outputs"][out_name].update(
+                        {k: v for k, v in out_def.items() if v}
+                    )
+                    self.log.info(
+                        "Updated SG output definition %s with values from SG.",
+                        out_name
+                    )
+
+        self.log.debug("Final profile: %s", profile)
         ### Ends Alkemy-X Override ###
 
         new_representations = []
@@ -314,7 +329,7 @@ class ExtractOIIOTranscode(publish.Extractor):
             ent_overrides = delivery_overrides_dict.get(entity)
             if not ent_overrides:
                 self.log.debug(
-                    "No SG delivery overrides found at the '%s' level.", entity
+                    "No SG delivery overrides found at the '%s' entity.", entity
                 )
                 continue
 
@@ -337,8 +352,8 @@ class ExtractOIIOTranscode(publish.Extractor):
                         continue
 
                     self.log.debug(
-                        "Found output definition '%s'...",
-                        out_name
+                        "Found SG output definition '%s' at '%s' entity...",
+                        out_name, entity
                     )
 
                     sg_profiles[out_name] = self.profile_output_skeleton.copy()
