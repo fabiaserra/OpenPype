@@ -150,6 +150,18 @@ class ExtractReview(pyblish.api.InstancePlugin):
 
         self.log.debug("Matching profile: \"{}\"".format(json.dumps(profile)))
 
+        subset_name = instance.data.get("subset")
+        instance_families = self.families_from_instance(instance)
+        filtered_outputs = self.filter_output_defs(
+            profile, subset_name, instance_families
+        )
+        if not filtered_outputs:
+            self.log.info((
+                "Skipped instance. All output definitions from selected"
+                " profile do not match instance families \"{}\" or"
+                " subset name \"{}\"."
+            ).format(str(instance_families), subset_name))
+
         ### Starts Alkemy-X Override ###
         # Grab which delivery types we are running by checking the families
         delivery_types = []
@@ -168,20 +180,6 @@ class ExtractReview(pyblish.api.InstancePlugin):
                 "Found some profile overrides on the SG instance at the entity " \
                 "level '%s': %s", sg_outputs, entity
             )
-
-        subset_name = instance.data.get("subset")
-        instance_families = self.families_from_instance(instance)
-        filtered_outputs = self.filter_output_defs(
-            profile, subset_name, instance_families
-        )
-        if not filtered_outputs:
-            self.log.info((
-                "Skipped instance. All output definitions from selected"
-                " profile do not match instance families \"{}\" or"
-                " subset name \"{}\"."
-            ).format(str(instance_families), subset_name))
-
-        if sg_outputs:
             filtered_outputs.update(sg_outputs)
             self.log.info(
                 "Added Shotgrid profiles to filtered outputs."
