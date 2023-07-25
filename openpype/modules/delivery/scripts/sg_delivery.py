@@ -438,7 +438,7 @@ def deliver_version(
                 delivery_project_name,
             )
             logger.info("%s: %s", msg, sub_msg)
-            report_items[msg] = sub_msg
+            report_items[msg].append(sub_msg)
             anatomy_data["project"]["name"] = delivery_project_name
 
         if delivery_shot_name:
@@ -448,7 +448,7 @@ def deliver_version(
                 delivery_shot_name,
             )
             logger.info("%s: %s", msg, sub_msg)
-            report_items[msg] = sub_msg
+            report_items[msg].append(sub_msg)
             anatomy_data["asset"] = delivery_shot_name
 
         logger.debug("Anatomy data: %s" % anatomy_data)
@@ -495,9 +495,7 @@ def deliver_version(
             if not new_report_items:
                 msg = "Successful delivered representations"
                 sub_msg = f"{repre_path} -> {dest_path}<br>"
-                report_items[msg].append(
-                    sub_msg
-                )
+                report_items[msg].append(sub_msg)
                 logger.info("%s: %s", msg, sub_msg)
             report_items.update(new_report_items)
 
