@@ -210,7 +210,10 @@ class ExtractReview(pyblish.api.InstancePlugin):
 
         sg_profiles = {}
         for hierarchy_level, override_entity in enumerate(["project", "shot"]):
-            ent_overrides = delivery_overrides_dict[override_entity]
+            ent_overrides = delivery_overrides_dict.get(override_entity)
+            if not ent_overrides:
+                continue
+
             for delivery_type in ["review", "final"]:
                 delivery_outputs = ent_overrides[f"sg_{delivery_type}_output_type"]
                 # If on the next run of the hierarchy loop there delivery

@@ -3,7 +3,6 @@ import os
 import copy
 import collections
 import click
-import tqdm
 
 import shotgun_api3
 
@@ -180,7 +179,7 @@ def deliver_playlist(
 
     # Iterate over each SG version and deliver it
     success = True
-    for sg_version in tqdm.tqdm(sg_versions):
+    for sg_version in sg_versions:
         new_report_items, new_success = deliver_sg_version(
             sg_version,
             project_name,

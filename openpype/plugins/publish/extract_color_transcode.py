@@ -272,7 +272,7 @@ class ExtractOIIOTranscode(publish.Extractor):
         # the case
         delivery_overrides_dict = instance.context.data.get("shotgridDeliveryOverrides")
         if not delivery_overrides_dict:
-            return None
+            return None, None
 
         # Boolean to figure out whether we need to override the default 'review' profile
         # colorspace based on if 'Review LUT' field is enabled
@@ -280,7 +280,9 @@ class ExtractOIIOTranscode(publish.Extractor):
 
         sg_profiles = {}
         for hierarchy_level, override_entity in enumerate(["project", "shot"]):
-            ent_overrides = delivery_overrides_dict[override_entity]
+            ent_overrides = delivery_overrides_dict.get(override_entity)
+            if not ent_overrides:
+                continue
 
             # Whether we need to override the review colorspace
             lut_colorspace_review = ent_overrides["sg_review_lut"]
