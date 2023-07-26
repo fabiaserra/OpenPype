@@ -52,7 +52,7 @@ SG_HIERARCHY_MAP = OrderedDict([
 DELIVERY_TYPES = ["review", "final"]
 
 
-def get_shotgrid_entity_overrides(sg, sg_entity):
+def get_sg_entity_overrides(sg, sg_entity):
     """Create a dictionary of relevant delivery fields for the given SG entity.
 
     The returned dictionary includes overrides for the delivery fields defined
@@ -86,36 +86,43 @@ def get_shotgrid_entity_overrides(sg, sg_entity):
                 [["id", "is", out_data_type["id"]]],
                 fields=SG_OUTPUT_DATATYPE_FIELDS,
             )
-            out_name = "{}_{}".format(
+            representation_name = "{}_{}".format(
                 out_data_type["name"].replace(" ", "").lower(),
                 delivery_type
             )
             delivery_overrides[f"sg_{delivery_type}_output_type"]\
-                    [out_name] = {}
+                    [representation_name] = {}
             for field in SG_OUTPUT_DATATYPE_FIELDS:
                 delivery_overrides[f"sg_{delivery_type}_output_type"]\
-                    [out_name][field] = sg_out_data_type.get(field)
+                    [representation_name][field] = sg_out_data_type.get(field)
 
     return delivery_overrides
 
 
-def find_delivery_overrides(context, instance):
-    """Find the delivery overrides for the given SG project and Shot.
+def find_delivery_overrides(context):
+    """
+    Find the delivery overrides for the given Shotgrid project and Shot.
 
     Args:
-        context (dict): The context dictionary.
-        instance (pyblish.api.Instance): The instance to process.
+        context (dict): A dictionary containing the context information. It should have
+            the following keys:
+            - "shotgridSession": A Shotgrid session object.
+            - "shotgridEntity": A dictionary containing information about the Shotgrid
+                entity. It should have the following keys:
+                - "id": The ID of the Shotgrid entity.
+                - "type": The type of the Shotgrid entity.
 
     Returns:
         dict: A dictionary containing the delivery overrides, if found. The keys are:
             - "project": A dictionary with the keys "name" and "template", representing
-                the delivery name and template for the SG project.
+                the delivery name and template for the Shotgrid project.
             - "asset": A dictionary with the keys "name" and "template", representing
                 the delivery name and template for the Shot.
 
     """
-    sg = context.data.get("shotgridSession")
     delivery_overrides = {}
+
+    sg = context.data.get("shotgridSession")
 
     # Find SG entity corresponding to the current instance
     entity_id =  context.data["shotgridEntity"]["id"]
@@ -161,7 +168,7 @@ def find_delivery_overrides(context, instance):
             logger.debug("No SG entity '%s' found" % entity)
             continue
 
-        entity_overrides = get_shotgrid_entity_overrides(
+        entity_overrides = get_sg_entity_overrides(
             sg, sg_entity
         )
         if not entity_overrides:
@@ -176,7 +183,7 @@ def find_delivery_overrides(context, instance):
     #     fields=SG_DELIVERY_FIELDS,
     # )
     # if sg_project:
-    #     delivery_overrides["project"] = get_shotgrid_entity_overrides(
+    #     delivery_overrides["project"] = get_sg_entity_overrides(
     #         sg, sg_project
     #     )
 
@@ -192,7 +199,7 @@ def find_delivery_overrides(context, instance):
     #     fields=SG_DELIVERY_FIELDS,
     # )
     # if sg_shot:
-    #     delivery_overrides["shot"] = get_shotgrid_entity_overrides(
+    #     delivery_overrides["shot"] = get_sg_entity_overrides(
     #         sg, sg_shot
     #     )
 
