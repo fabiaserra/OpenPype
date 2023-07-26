@@ -34,56 +34,6 @@ SG_DELIVERY_FIELDS = [
     "sg_review_output_type",
 ]
 
-# List of SG entities hierarchy from more specific to more generic
-SG_HIERARCHY = ["Shot", "Sequence", "Episode", "Project"]
-
-# List of SG fields that we need to query to grab the parent entity
-SG_HIERARCHY_FIELDS = ["entity", "sg_sequence", "episode", "project"]
-
-
-@click.command("deliver_playlist_id")
-@click.option(
-    "--playlist_id",
-    "-p",
-    required=True,
-    type=int,
-    help="Shotgrid playlist id to deliver.",
-)
-@click.option(
-    "--delivery_types",
-    "-types",
-    type=click.Choice(["final", "review"]),
-    required=False,
-    multiple=True,
-    default=["final", "review"],
-)
-@click.option(
-    "--representation_names",
-    "-r",
-    multiple=True,
-    required=False,
-    help="List of representation names that we want to deliver",
-    default=None,
-)
-def deliver_playlist_id_command(
-    playlist_id,
-    delivery_types,
-    representation_names=None,
-):
-    """Given a SG playlist id, deliver all the versions associated to it.
-
-    Args:
-        playlist_id (int): Shotgrid playlist id to deliver.
-        delivery_types (list[str]): What type(s) of delivery it is
-        representation_names (list): List of representation names to deliver.
-            (i.e., ["final", "review"])
-
-    Returns:
-        tuple: A tuple containing a dictionary of report items and a boolean indicating
-            whether the delivery was successful.
-    """
-    return deliver_playlist_id(playlist_id, delivery_types, representation_names)
-
 
 def deliver_playlist_id(
     playlist_id,
@@ -146,28 +96,10 @@ def deliver_playlist_id(
         "delivery_project_name": delivery_project_name,
     }
 
-    if not representation_names:
-        representation_names = []
-
-    # Generate a list of representation names from the output types set in SG
-    # if delivery_types:
-    #     representation_names.extend(
-    #         utils.get_sg_entity_representation_names(sg_project, delivery_types)
-    #     )
-    # if representation_names:
-    #     msg = "Delivering representation names:"
-    #     logger.info("%s: %s", msg, representation_names)
-    #     report_items[msg] = representation_names
-    # else:
-    #     msg = "No representation names specified: "
-    #     sub_msg = "All representations will be delivered."
-    #     logger.info(msg + sub_msg)
-    #     report_items[msg] = [sub_msg]
-
     # Iterate over each SG version and deliver it
     success = True
     for sg_version in sg_versions:
-        new_report_items, new_success = deliver_sg_version(
+        new_report_items, new_success = deliver_version(
             sg_version,
             project_name,
             delivery_data,
@@ -183,52 +115,6 @@ def deliver_playlist_id(
 
     click.echo(report_items)
     return report_items, success
-
-
-@click.command("deliver_version_id")
-@click.option(
-    "--version_id",
-    "-v",
-    required=True,
-    type=int,
-    help="Shotgrid version id to deliver.",
-)
-@click.option(
-    "--delivery_types",
-    "-types",
-    type=click.Choice(["final", "review"]),
-    required=False,
-    multiple=True,
-    default=["final", "review"],
-)
-@click.option(
-    "--representation_names",
-    "-r",
-    multiple=True,
-    required=False,
-    help="List of representation names that should be delivered.",
-    default=None,
-)
-def deliver_version_id_command(
-    version_id,
-    delivery_types,
-    representation_names=None,
-):
-    """Given a SG version id, deliver it so it triggers the OP publish pipeline again.
-
-    Args:
-        version_id (int): Shotgrid version id to deliver.
-        delivery_types (list[str]): What type(s) of delivery it is so we
-            regenerate those representations.
-        representation_names (list): List of representation names that should exist on
-            the representations being published.
-        force (bool): Whether to force the creation of the delivery representations or not.
-
-    Returns:
-        tuple: A tuple containing a dictionary of report items and a boolean indicating
-            whether the deliver was successful.
-    """
-    return deliver_version_id(version_id, delivery_types, representation_names)
 
 
 def deliver_version_id(
@@ -501,57 +387,6 @@ def deliver_version(
     return report_items, True
 
 
-@click.command("republish_playlist_id")
-@click.option(
-    "--playlist_id",
-    "-p",
-    required=True,
-    type=int,
-    help="Shotgrid playlist id to republish.",
-)
-@click.option(
-    "--representation_names",
-    "-r",
-    multiple=True,
-    required=False,
-    help="List of representation names that should exist on the republished version",
-    default=None,
-)
-@click.option(
-    "--delivery_types",
-    "-types",
-    type=click.Choice(["final", "review"]),
-    required=False,
-    multiple=True,
-    default=["final", "review"],
-)
-@click.option("--override/--no-override", default=False)
-def republish_playlist_id_command(
-    playlist_id,
-    delivery_types,
-    representation_names=None,
-    override=False,
-):
-    """Given a SG playlist id, republish all the versions associated to it.
-
-    Args:
-        playlist_id (int): Shotgrid playlist id to republish.
-        delivery_types (list[str]): What type(s) of delivery it is
-            (i.e., ["final", "review"])
-        representation_names (list): List of representation names that should exist on
-            the representations being published.
-        force (bool): Whether to force the creation of the delivery representations or not.
-
-
-    Returns:
-        tuple: A tuple containing a dictionary of report items and a boolean indicating
-            whether the republish was successful.
-    """
-    return republish_playlist_id(
-        playlist_id, delivery_types, representation_names, override
-    )
-
-
 def republish_playlist_id(
     playlist_id, delivery_types, representation_names=None, force=False
 ):
@@ -588,9 +423,6 @@ def republish_playlist_id(
     if not project_doc:
         return report_items[f"Didn't find project '{project_name}' in avalon."], False
 
-    if not representation_names:
-        representation_names = []
-
     # Get all the SG versions associated to the playlist
     sg_versions = sg.find(
         "Version",
@@ -611,54 +443,6 @@ def republish_playlist_id(
 
     click.echo(report_items)
     return report_items, success
-
-
-@click.command("republish_version_id")
-@click.option(
-    "--version_id",
-    "-v",
-    required=True,
-    type=int,
-    help="Shotgrid version id to republish.",
-)
-@click.option(
-    "--delivery_types",
-    "-types",
-    type=click.Choice(["final", "review"]),
-    required=False,
-    multiple=True,
-    default=["final", "review"],
-)
-@click.option(
-    "--representation_names",
-    "-r",
-    multiple=True,
-    required=False,
-    help="List of representation names that should exist on the republished version",
-    default=None,
-)
-@click.option("--force/--no-force", default=False)
-def republish_version_id_command(
-    version_id,
-    delivery_types,
-    representation_names=None,
-    force=False,
-):
-    """Given a SG version id, republish it so it triggers the OP publish pipeline again.
-
-    Args:
-        version_id (int): Shotgrid version id to republish.
-        delivery_types (list[str]): What type(s) of delivery it is so we
-            regenerate those representations.
-        representation_names (list): List of representation names that should exist on
-            the representations being published.
-        force (bool): Whether to force the creation of the delivery representations or not.
-
-    Returns:
-        tuple: A tuple containing a dictionary of report items and a boolean indicating
-            whether the republish was successful.
-    """
-    return republish_version_id(version_id, delivery_types, representation_names, force)
 
 
 def republish_version_id(
@@ -908,17 +692,3 @@ def republish_version(
 
     click.echo(report_items)
     return report_items, True
-
-
-@click.group()
-def cli():
-    pass
-
-cli.add_command(deliver_playlist_id_command)
-cli.add_command(deliver_version_id_command)
-cli.add_command(republish_version_id_command)
-cli.add_command(republish_playlist_id_command)
-
-
-if __name__ == "__main__":
-    cli()
