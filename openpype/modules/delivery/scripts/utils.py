@@ -54,22 +54,24 @@ def get_sg_version_representation_names(sg_version, delivery_types):
         tuple: A tuple containing a list of representation names and the entity
             where the representation names were found.
     """
+    representation_names = []
+
     sg = get_shotgrid_session()
 
-    representation_names = []
+    # Assign the SG version to the prior_sg_entity variable used on the hierarchy
+    # traversal loop to query the next entity from the "prior" one
     prior_sg_entity = sg_version
 
-    # Create a dictionary holding all the delivery overrides on the hierarchy
-    # of entities
-    # Start iterating from Shot as we have already checked Version
-    entity_index = list(SG_HIERARCHY_MAP.keys()).index("Shot")
-    iterator = itertools.islice(SG_HIERARCHY_MAP.items(), entity_index, None)
-    # We need to offset the iterator by one so we find the field name that queries the
-    # current hierarchy
+    # Find the index on the hierarchy of the "prior" entity
+    prior_entity_index = list(SG_HIERARCHY_MAP.keys()).index("Version")
+    # Create two iterators with an offset of one so we can iterate over the hierarchy
+    # of entities while also finding the query field from the "prior" entity
     # Example: In order to find "Sequence" entity, we need to query "sg_sequence" field
     # on the "Shot"
-    prior_iterator = itertools.islice(SG_HIERARCHY_MAP.items(), entity_index - 1, None)
+    prior_iterator = itertools.islice(SG_HIERARCHY_MAP.items(), prior_entity_index, None)
+    iterator = itertools.islice(SG_HIERARCHY_MAP.items(), prior_entity_index + 1, None)
 
+    # Create a list with all the representation names on the given SG version
     entity = None
     for entity, query_field in iterator:
 

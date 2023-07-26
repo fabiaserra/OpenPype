@@ -62,7 +62,7 @@ class CollectShotgridEntities(pyblish.api.InstancePlugin):
 
         ### Starts Alkemy-X Override ###
         # Collect relevant data for review/delivery purposes
-        delivery_overrides = delivery.find_delivery_overrides(context)
+        delivery_overrides = delivery.find_delivery_overrides(context, instance)
         self.log.debug(
             "Collected delivery overrides : {}".format(delivery_overrides)
         )
