@@ -81,6 +81,9 @@ class DeliveryDialog(QtWidgets.QDialog):
 
         main_layout.addWidget(sg_input_widget)
 
+        # Add a stretch between sections
+        main_layout.addStretch(1)
+
         #### DELIVERY ####
         # Widgets related to delivery functionality
         delivery_input_widget = QtWidgets.QWidget(self)
@@ -102,6 +105,9 @@ class DeliveryDialog(QtWidgets.QDialog):
         deliver_btn.clicked.connect(self._on_delivery_clicked)
 
         main_layout.addWidget(deliver_btn)
+
+        # Add a stretch between sections
+        main_layout.addStretch(1)
 
         #### REPUBLISH ####
         # Widgets related to republish functionality
