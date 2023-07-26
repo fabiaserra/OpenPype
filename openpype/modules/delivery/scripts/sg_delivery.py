@@ -21,6 +21,7 @@ from openpype.pipeline.delivery import (
     deliver_single_file,
 )
 from openpype.settings import get_system_settings
+from openpype.modules.shotgrid.lib import credentials
 from openpype.modules.delivery.scripts import utils
 
 
@@ -58,7 +59,7 @@ def deliver_playlist_id(
     """
     report_items = collections.defaultdict(list)
 
-    sg = utils.get_shotgrid_session()
+    sg = credentials.get_shotgrid_session()
 
     sg_playlist = sg.find_one(
         "Playlist",
@@ -143,7 +144,7 @@ def deliver_version_id(
     """
     report_items = collections.defaultdict(list)
 
-    sg = utils.get_shotgrid_session()
+    sg = credentials.get_shotgrid_session()
 
     # Get all the SG versions associated to the playlist
     sg_version = sg.find_one(
@@ -219,8 +220,9 @@ def deliver_version(
 
     anatomy = Anatomy(project_name)
 
+    sg = credentials.get_shotgrid_session()
+
     # Get the corresponding shot and whether it contains any overrides
-    sg = utils.get_shotgrid_session()
     sg_shot = sg.find_one(
         "Shot",
         [["id", "is", sg_version["entity"]["id"]]],
@@ -406,7 +408,7 @@ def republish_playlist_id(
     """
     report_items = collections.defaultdict(list)
 
-    sg = utils.get_shotgrid_session()
+    sg = credentials.get_shotgrid_session()
 
     sg_playlist = sg.find_one(
         "Playlist",
@@ -469,7 +471,7 @@ def republish_version_id(
         tuple: A tuple containing a dictionary of report items and a boolean indicating
             whether the republish was successful.
     """
-    sg = utils.get_shotgrid_session()
+    sg = credentials.get_shotgrid_session()
 
     sg_version = sg.find_one(
         "Version",
@@ -500,7 +502,8 @@ def republish_version(
             (i.e., ["final", "review"])
         representation_names (list): List of representation names that should exist on
             the representations being published.
-        force (bool): Whether to force the creation of the delivery representations or not.
+        force (bool): Whether to force the creation of the delivery representations or
+            not.
 
     Returns:
         tuple: A tuple containing a dictionary of report items and a boolean indicating
