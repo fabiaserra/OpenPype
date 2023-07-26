@@ -21,7 +21,6 @@ logger = Logger.get_logger(__name__)
 # List of SG fields from context entities (i.e., Project, Shot) that we care to
 # query for delivery purposes
 SG_DELIVERY_FIELDS = [
-    "sg_delivery_name",
     "sg_final_output_type",
     "sg_review_output_type",
 ]
