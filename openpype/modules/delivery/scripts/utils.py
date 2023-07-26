@@ -134,6 +134,12 @@ def get_sg_entity_representation_names(sg_entity, delivery_types):
     return representation_names
 
 
+# TODO: All the functions that follow are copy/paste with slight modifications and
+# simplicitations of existing functions of OpenPype. We should abstract those functions
+# in the plugins so they can be reused elsewhere but that would require quite a big
+# refactor of those OpenPype plugins so for now we just copy pasted them here.
+
+
 def create_metadata_path(instance_data):
     # Ensure output dir exists
     output_dir = instance_data.get(
