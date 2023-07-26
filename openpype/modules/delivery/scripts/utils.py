@@ -7,8 +7,10 @@ in the plugins so they can be reused elsewhere.
 """
 import clique
 import getpass
+import itertools
 import os
 import requests
+from collections import OrderedDict
 
 from openpype.lib import Logger
 from openpype.pipeline import Anatomy
@@ -25,12 +27,15 @@ SG_DELIVERY_FIELDS = [
     "sg_review_output_type",
 ]
 
-# List of SG entities hierarchy from more specific to more generic
-SG_HIERARCHY = ["Shot", "Sequence", "Episode", "Project"]
-
-# List of SG fields that we need to query to grab the parent entity
-# version -> shot -> sequence -> episode -> project
-SG_HIERARCHY_FIELDS = ["entity", "sg_sequence", "episode", "project"]
+# Map of SG entities hierarchy from more specific to more generic with the
+# field that we need to query the parent entity
+SG_HIERARCHY_MAP = OrderedDict([
+    ("Version", "entity"),
+    ("Shot", "sg_sequence"),
+    ("Sequence", "episode"),
+    ("Episode", "project"),
+    ("Project", None),
+])
 
 
 def get_sg_version_representation_names(sg_version, delivery_types):
@@ -53,17 +58,26 @@ def get_sg_version_representation_names(sg_version, delivery_types):
 
     representation_names = []
     prior_sg_entity = sg_version
+
+    # Create a dictionary holding all the delivery overrides on the hierarchy
+    # of entities
+    # index = 0
+    entity_index = list(SG_HIERARCHY_MAP.keys()).index(entity_type)
+    iterator, next_iterator = itertools.tee(
+        itertools.islice(SG_HIERARCHY_MAP.items(), entity_index)
+    )
+    # We need to advance the next_iterator by one so it's offset by one
+    next(next_iterator)
+
     entity = None
-    index = 0
-    for entity, query_field in zip(SG_HIERARCHY, SG_HIERARCHY_FIELDS):
+    for entity, query_field in iterator:
+
         query_fields = SG_DELIVERY_FIELDS.copy()
 
-        # If it's the last iteration (Project) we don't try query the next entity
-        if entity != SG_HIERARCHY[-1]:
-            next_query_field = SG_HIERARCHY_FIELDS[index + 1]
+        # Find the query field for the entity above and add it to the query
+        _, next_query_field = next(next_iterator, (None, None))
+        if next_query_field:
             query_fields.append(next_query_field)
-
-        index += 1
 
         sg_entity = sg.find_one(
             entity,
@@ -71,9 +85,11 @@ def get_sg_version_representation_names(sg_version, delivery_types):
             query_fields,
         )
         if not sg_entity:
+            logger.debug("No SG entity '%s' found" % entity)
             continue
 
         prior_sg_entity = sg_entity
+
         entity_representation_names = get_sg_entity_representation_names(
             sg_entity, delivery_types
         )

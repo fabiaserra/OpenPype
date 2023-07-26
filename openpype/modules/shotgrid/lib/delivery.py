@@ -159,8 +159,6 @@ def find_delivery_overrides(context):
             # next_query_field = str(list(SG_HIERARCHY_MAP.values())[index + 1])
             # query_fields.append(next_query_field)
 
-        # index += 1
-
         sg_entity = sg.find_one(
             entity,
             [["id", "is", prior_sg_entity[query_field]["id"]]],
@@ -170,13 +168,16 @@ def find_delivery_overrides(context):
             logger.debug("No SG entity '%s' found" % entity)
             continue
 
+        prior_sg_entity = sg_entity
+
         entity_overrides = get_sg_entity_overrides(
             sg, sg_entity
         )
         if not entity_overrides:
             continue
-        logger.debug("Adding delivery overrides for SG entity '%s'." % entity)
+
         delivery_overrides[entity] = entity_overrides
+        logger.debug("Added delivery overrides for SG entity '%s'." % entity)
 
     # # Create a dictionary holding all the delivery overrides for the project
     # sg_project = sg.find_one(
