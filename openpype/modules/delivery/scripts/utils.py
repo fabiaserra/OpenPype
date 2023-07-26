@@ -10,12 +10,10 @@ import getpass
 import os
 import requests
 
-import shotgun_api3
-
 from openpype.lib import Logger
 from openpype.pipeline import Anatomy
 from openpype.pipeline.colorspace import get_imageio_config
-from openpype.modules.shotgrid.lib.settings import get_shotgrid_servers
+from openpype.modules.shotgrid.lib.credentials import get_shotgrid_session
 
 logger = Logger.get_logger(__name__)
 
@@ -32,39 +30,8 @@ SG_DELIVERY_FIELDS = [
 SG_HIERARCHY = ["Shot", "Sequence", "Episode", "Project"]
 
 # List of SG fields that we need to query to grab the parent entity
+# version -> shot -> sequence -> episode -> project
 SG_HIERARCHY_FIELDS = ["entity", "sg_sequence", "episode", "project"]
-
-
-def get_shotgrid_session():
-    """Return a Shotgun API session object for the configured ShotGrid server.
-
-    The function reads the ShotGrid server settings from the OpenPype
-    configuration file and uses them to create a Shotgun API session object.
-
-    Returns:
-        A Shotgun API session object.
-    """
-    shotgrid_servers_settings = get_shotgrid_servers()
-    logger.info("shotgrid_servers_settings: {}".format(shotgrid_servers_settings))
-
-    shotgrid_server_setting = shotgrid_servers_settings.get("alkemyx", {})
-    shotgrid_url = shotgrid_server_setting.get("shotgrid_url", "")
-
-    shotgrid_script_name = shotgrid_server_setting.get("shotgrid_script_name", "")
-    shotgrid_script_key = shotgrid_server_setting.get("shotgrid_script_key", "")
-    if not shotgrid_script_name and not shotgrid_script_key:
-        logger.error(
-            "No Shotgrid API credential found, please enter "
-            "script name and script key in OpenPype settings"
-        )
-
-    proxy = os.environ.get("HTTPS_PROXY", "").lstrip("https://")
-    return shotgun_api3.Shotgun(
-        shotgrid_url,
-        script_name=shotgrid_script_name,
-        api_key=shotgrid_script_key,
-        http_proxy=proxy,
-    )
 
 
 def get_sg_version_representation_names(sg_version, delivery_types):
