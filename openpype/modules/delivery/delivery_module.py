@@ -6,14 +6,17 @@ from openpype.modules import (
 )
 from openpype.modules.delivery.scripts import sg_delivery
 
+
 class DeliveryModule(OpenPypeModule, ITrayModule):
     label = "Delivery"
     name = "delivery"
-    enabled = True
     tray_wrapper = None
 
     def initialize(self, modules_settings):
-        pass
+        self.enabled = True
+
+    def cli(self, click_group):
+        click_group.add_command(cli_main)
 
     def tray_init(self):
         from .tray.delivery_tray import DeliveryTrayWrapper
@@ -226,13 +229,13 @@ def republish_version_id_command(
 
 
 @click.group(DeliveryModule.name, help="Delivery CLI")
-def cli():
+def cli_main():
     pass
 
-cli.add_command(deliver_playlist_id_command)
-cli.add_command(deliver_version_id_command)
-cli.add_command(republish_version_id_command)
-cli.add_command(republish_playlist_id_command)
+cli_main.add_command(deliver_playlist_id_command)
+cli_main.add_command(deliver_version_id_command)
+cli_main.add_command(republish_version_id_command)
+cli_main.add_command(republish_playlist_id_command)
 
 if __name__ == "__main__":
-    cli()
+    cli_main()
