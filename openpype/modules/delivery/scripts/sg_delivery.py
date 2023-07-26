@@ -427,13 +427,17 @@ def republish_playlist_id(
     sg_versions = sg.find(
         "Version",
         [["playlists", "in", sg_playlist]],
-        ["sg_op_instance_id", "entity", "code"],
+        ["project", "code", "entity", "sg_op_instance_id"],
     )
 
     success = True
     for sg_version in sg_versions:
         new_report_items, new_success = republish_version(
-            sg_version, delivery_types, representation_names, force
+            sg_version,
+            project_name,
+            delivery_types,
+            representation_names,
+            force,
         )
         if new_report_items:
             report_items.update(new_report_items)
@@ -472,7 +476,7 @@ def republish_version_id(
         [
             ["id", "is", int(version_id)],
         ],
-        ["project", "sg_op_instance_id", "code", "entity", "project"],
+        ["project", "code", "entity", "sg_op_instance_id"],
     )
     return republish_version(
         sg_version,
