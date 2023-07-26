@@ -44,10 +44,6 @@ SG_HIERARCHY_MAP = OrderedDict([
     ("Project", None),
 ])
 
-# List of SG fields that we need to query to grab the parent entity
-# version -> shot -> sequence -> episode -> project
-# SG_HIERARCHY_FIELDS = ["entity", "sg_sequence", "episode", "project"]
-
 # List of delivery types that we support
 DELIVERY_TYPES = ["review", "final"]
 
