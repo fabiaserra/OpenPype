@@ -28,6 +28,7 @@ from openpype.pipeline.publish import (
     get_publish_instance_label,
 )
 from openpype.pipeline.publish.lib import add_repre_files_for_cleanup
+from openpype.modules.shotgrid.lib import delivery
 
 
 class ExtractReview(pyblish.api.InstancePlugin):
@@ -220,11 +221,12 @@ class ExtractReview(pyblish.api.InstancePlugin):
         if not delivery_overrides_dict:
             return None, None
 
-        for entity in ["shot", "project"]:
+        for entity in delivery.SG_HIERARCHY_MAP.keys():
             ent_overrides = delivery_overrides_dict.get(entity)
             if not ent_overrides:
                 self.log.debug(
-                    "No SG delivery overrides found at the '%s' entity.", entity
+                    "No SG delivery overrides found for 'ExtractReview' at the '%s' entity.",
+                    entity
                 )
                 continue
 
@@ -253,7 +255,7 @@ class ExtractReview(pyblish.api.InstancePlugin):
                     sg_profiles[out_name]["tags"] = [
                         tag["name"] for tag in ent_overrides[f"sg_{delivery_type}_tags"]
                     ]
-                    sg_profiles[out_name]["fps"] = ent_overrides[f"sg_{delivery_type}_fps"]
+                    sg_profiles[out_name]["fps"] = ent_overrides.get(f"sg_{delivery_type}_fps")
                     # Set final/review_colorspace tag so it uses the transcoded
                     # representations that have that tag
                     sg_profiles[out_name]["filter"]["custom_tags"] = [
@@ -539,10 +541,10 @@ class ExtractReview(pyblish.api.InstancePlugin):
                     os.unlink(f)
 
             new_repre.update({
-                ### Starts Alkemy-X Override ###
                 # Grab FPS from SG delivery (i.e., review or final) if it
                 # exists, otherwise default to the project FPS
-                "fps": output_def.get("fps") or temp_data["fps"],
+                "fps": temp_data["fps"],
+                ### Starts Alkemy-X Override ###
                 "name": output_name,
                 ### Ends Alkemy-X Override ###
                 "outputName": output_name,
@@ -653,7 +655,11 @@ class ExtractReview(pyblish.api.InstancePlugin):
                 input_allow_bg = True
 
         return {
-            "fps": float(instance.data["fps"]),
+            ### Starts Alkemy-X Override ###
+            # Grab FPS from SG delivery (i.e., review or final) if it
+            # exists, otherwise default to the project FPS
+            "fps": float( output_def.get("fps") or instance.data["fps"]),
+            ### Ends Alkemy-X Override ###
             "frame_start": frame_start,
             "frame_end": frame_end,
             "handle_start": handle_start,

@@ -14,6 +14,7 @@ from openpype.lib.transcoding import (
 )
 
 from openpype.lib.profiles_filtering import filter_profiles
+from openpype.modules.shotgrid.lib import delivery
 
 
 class ExtractOIIOTranscode(publish.Extractor):
@@ -325,18 +326,19 @@ class ExtractOIIOTranscode(publish.Extractor):
 
         # Iterate from more specific to more generic entity so as soon as we
         # find some values, we break the loop and return the profiles
-        for entity in ["shot", "project"]:
+        for entity in delivery.SG_HIERARCHY_MAP.keys():
             ent_overrides = delivery_overrides_dict.get(entity)
             if not ent_overrides:
                 self.log.debug(
-                    "No SG delivery overrides found at the '%s' entity.", entity
+                    "No SG delivery overrides found for 'ExtractOIIOTranscode' the '%s' entity.",
+                    entity
                 )
                 continue
 
             sg_profiles = {}
 
             # Whether we need to override the review colorspace
-            lut_colorspace_review = ent_overrides["sg_review_lut"]
+            lut_colorspace_review = ent_overrides.get("sg_review_lut", True)
 
             for delivery_type in delivery_types:
                 delivery_outputs = ent_overrides[f"sg_{delivery_type}_output_type"]
