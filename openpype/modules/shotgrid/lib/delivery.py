@@ -137,31 +137,27 @@ def find_delivery_overrides(context):
 
     # Create a dictionary holding all the delivery overrides on the hierarchy
     # of entities
-    # index = 0
-    entity_index = list(SG_HIERARCHY_MAP.keys()).index(entity_type)
-    iterator, next_iterator = itertools.tee(
-        itertools.islice(SG_HIERARCHY_MAP.items(), entity_index)
-    )
-    # We need to advance the next_iterator by one so it's offset by one
-    next(next_iterator)
+    # Start iterating from Shot as we have already checked Version
+    entity_index = list(SG_HIERARCHY_MAP.keys()).index("Shot")
+    iterator = itertools.islice(SG_HIERARCHY_MAP.items(), entity_index, None)
+    # We need to offset the iterator by one so we find the field name that queries the
+    # current hierarchy
+    # Example: In order to find "Sequence" entity, we need to query "sg_sequence" field
+    # on the "Shot"
+    prior_iterator = itertools.islice(SG_HIERARCHY_MAP.items(), entity_index - 1, None)
 
     for entity, query_field in iterator:
 
         query_fields = SG_DELIVERY_FIELDS.copy()
+        if query_field:
+            query_fields.append(query_field)
 
-        # Find the query field for the entity above and add it to the query
-        _, next_query_field = next(next_iterator, (None, None))
-        if next_query_field:
-            query_fields.append(next_query_field)
-
-        # If it's the last iteration (Project) we don't try query the next entity
-        # if entity != str(list(SG_HIERARCHY_MAP.keys())[-1]):
-            # next_query_field = str(list(SG_HIERARCHY_MAP.values())[index + 1])
-            # query_fields.append(next_query_field)
+        # Find the query field for the entity above
+        _, prior_query_field = next(prior_iterator, (None, None))
 
         sg_entity = sg.find_one(
             entity,
-            [["id", "is", prior_sg_entity[query_field]["id"]]],
+            [["id", "is", prior_sg_entity[prior_query_field]["id"]]],
             query_fields,
         )
         if not sg_entity:
@@ -178,32 +174,5 @@ def find_delivery_overrides(context):
 
         delivery_overrides[entity] = entity_overrides
         logger.debug("Added delivery overrides for SG entity '%s'." % entity)
-
-    # # Create a dictionary holding all the delivery overrides for the project
-    # sg_project = sg.find_one(
-    #     "Project",
-    #     [["id", "is", context.data["shotgridProject"]["id"]]],
-    #     fields=SG_DELIVERY_FIELDS,
-    # )
-    # if sg_project:
-    #     delivery_overrides["project"] = get_sg_entity_overrides(
-    #         sg, sg_project
-    #     )
-
-    # # Create a dictionary holding all the delivery overrides for the shot
-    # # TODO: In the future we will want to scale this to other hierarchy
-    # # entities (season, episode, sequence...)
-    # sg_shot = sg.find_one(
-    #     "Shot",
-    #     [
-    #         ["project", "is", context.data["shotgridProject"]],
-    #         ["id", "is", instance.data["shotgridEntity"]["id"]],
-    #     ],
-    #     fields=SG_DELIVERY_FIELDS,
-    # )
-    # if sg_shot:
-    #     delivery_overrides["shot"] = get_sg_entity_overrides(
-    #         sg, sg_shot
-    #     )
 
     return delivery_overrides
