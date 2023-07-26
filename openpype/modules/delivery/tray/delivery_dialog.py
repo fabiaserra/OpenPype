@@ -26,7 +26,7 @@ class DeliveryDialog(QtWidgets.QDialog):
     def __init__(self, module, parent=None):
         super(DeliveryDialog, self).__init__(parent)
 
-        self.setWindowTitle("Deliver SG Playlist")
+        self.setWindowTitle("Deliver SG Entities")
 
         self._module = module
 
