@@ -78,8 +78,10 @@ def get_sg_entity_overrides(sg, sg_entity):
     # a dictionary of the ffmpeg args required to create each output
     # type
     for delivery_type in DELIVERY_TYPES:
-        delivery_overrides[f"sg_{delivery_type}_output_type"] = {}
-        out_data_types = sg_entity.get(f"sg_{delivery_type}_output_type") or []
+        output_field = f"sg_{delivery_type}_output_type"
+        # Clear existing overrides for output_types
+        delivery_overrides[output_field] = {}
+        out_data_types = sg_entity.get(output_field) or []
         for out_data_type in out_data_types:
             sg_out_data_type = sg.find_one(
                 "CustomNonProjectEntity03",
@@ -90,10 +92,10 @@ def get_sg_entity_overrides(sg, sg_entity):
                 out_data_type["name"].replace(" ", "").lower(),
                 delivery_type
             )
-            delivery_overrides[f"sg_{delivery_type}_output_type"]\
-                    [representation_name] = {}
+
+            delivery_overrides[output_field][representation_name] = {}
             for field in SG_OUTPUT_DATATYPE_FIELDS:
-                delivery_overrides[f"sg_{delivery_type}_output_type"]\
+                delivery_overrides[output_field]\
                     [representation_name][field] = sg_out_data_type.get(field)
 
     return delivery_overrides
