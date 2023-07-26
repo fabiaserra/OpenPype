@@ -60,7 +60,7 @@ class ExtractOIIOTranscode(publish.Extractor):
     # In the future we might want to run the transcode for other cases but
     # for now this simplifies our pipeline so we can have more control over
     # when the transcoding happens.
-    families = ["client_final"]
+    families = ["client_review", "client_final"]
 
     # Skeleton of an output definition of a profile
     profile_output_skeleton = {
