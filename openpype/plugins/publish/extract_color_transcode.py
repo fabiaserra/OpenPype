@@ -366,6 +366,7 @@ class ExtractOIIOTranscode(publish.Extractor):
                     #     tag["name"] for tag in ent_overrides[f"sg_{delivery_type}_tags"]
                     # ]
 
+                    # Set colorspace we want to transcode the representation to
                     dest_colorspace = "delivery_frame"
                     if delivery_type == "review" and lut_colorspace_review:
                         dest_colorspace = "input_process"
