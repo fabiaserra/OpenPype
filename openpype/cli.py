@@ -5,10 +5,24 @@ import sys
 import code
 import click
 
-# import sys
 from .pype_commands import PypeCommands
 
-@click.group(invoke_without_command=True)
+
+class AliasedGroup(click.Group):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._aliases = {}
+
+    def set_alias(self, src_name, dst_name):
+        self._aliases[dst_name] = src_name
+
+    def get_command(self, ctx, cmd_name):
+        if cmd_name in self._aliases:
+            cmd_name = self._aliases[cmd_name]
+        return super().get_command(ctx, cmd_name)
+
+
+@click.group(cls=AliasedGroup, invoke_without_command=True)
 @click.pass_context
 @click.option("--use-version",
               expose_value=False, help="use specified version")
@@ -57,14 +71,18 @@ def tray():
 
 
 @PypeCommands.add_modules
-@main.group(help="Run command line arguments of OpenPype modules")
+@main.group(help="Run command line arguments of OpenPype addons")
 @click.pass_context
 def module(ctx):
-    """Module specific commands created dynamically.
+    """Addon specific commands created dynamically.
 
-    These commands are generated dynamically by currently loaded addon/modules.
+    These commands are generated dynamically by currently loaded addons.
     """
     pass
+
+
+# Add 'addon' as alias for module
+main.set_alias("module", "addon")
 
 
 @main.command()
@@ -199,27 +217,6 @@ def remotepublish(project, path, user=None, targets=None):
     PypeCommands.remotepublish(project, path, user, targets=targets)
 
 
-@main.command()
-@click.option("-p", "--project", required=True,
-              help="name of project asset is under")
-@click.option("-a", "--asset", required=True,
-              help="name of asset to which we want to copy textures")
-@click.option("--path", required=True,
-              help="path where textures are found",
-              type=click.Path(exists=True))
-def texturecopy(project, asset, path):
-    """Copy specified textures to provided asset path.
-
-    It validates if project and asset exists. Then it will use speedcopy to
-    copy all textures found in all directories under --path to destination
-    folder, determined by template texture in anatomy. I will use source
-    filename and automatically rise version number on directory.
-
-    Result will be copied without directory structure so it will be flat then.
-    Nothing is written to database.
-    """
-
-    PypeCommands().texture_copy(project, asset, path)
 
 
 @main.command(context_settings={"ignore_unknown_options": True})

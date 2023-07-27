@@ -1,7 +1,5 @@
-import os
-
 import pyblish.api
-from openpype.lib.mongo import OpenPypeMongoConnection
+from openpype.client.mongo import OpenPypeMongoConnection
 
 ### Starts Alkemy-X Override ###
 from openpype.modules.shotgrid.lib import delivery
@@ -25,7 +23,7 @@ class CollectShotgridEntities(pyblish.api.InstancePlugin):
         avalon_asset = context.data.get("assetEntity") or instance.data.get(
             "assetEntity"
         )
-        avalon_task_name = os.getenv("AVALON_TASK")
+        avalon_task_name = context.data.get("task")
 
         self.log.debug(avalon_project)
         self.log.debug(avalon_asset)

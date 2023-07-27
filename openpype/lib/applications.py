@@ -1370,13 +1370,8 @@ def get_app_environments_for_context(
         dict: Environments for passed context and application.
     """
     from openpype.modules import ModulesManager
-    from openpype.pipeline import AvalonMongoDB, Anatomy
+    from openpype.pipeline import Anatomy
     from openpype.lib.openpype_version import is_running_staging
-
-    # Avalon database connection
-    dbcon = AvalonMongoDB()
-    dbcon.Session["AVALON_PROJECT"] = project_name
-    dbcon.install()
 
     # Project document
     project_doc = get_project(project_name)
@@ -1399,7 +1394,6 @@ def get_app_environments_for_context(
 
         "app": app,
 
-        "dbcon": dbcon,
         "project_doc": project_doc,
         "asset_doc": asset_doc,
 
@@ -1413,9 +1407,6 @@ def get_app_environments_for_context(
 
     prepare_app_environments(data, env_group, modules_manager)
     prepare_context_environments(data, env_group, modules_manager)
-
-    # Discard avalon connection
-    dbcon.uninstall()
 
     return data["env"]
 
