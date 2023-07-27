@@ -68,8 +68,12 @@ def get_sg_version_representation_names(sg_version, delivery_types):
     # of entities while also finding the query field from the "prior" entity
     # Example: In order to find "Sequence" entity, we need to query "sg_sequence" field
     # on the "Shot"
-    prior_iterator = itertools.islice(SG_HIERARCHY_MAP.items(), prior_entity_index, None)
-    iterator = itertools.islice(SG_HIERARCHY_MAP.items(), prior_entity_index + 1, None)
+    prior_iterator = itertools.islice(
+        SG_HIERARCHY_MAP.items(), prior_entity_index, None
+    )
+    iterator = itertools.islice(
+        SG_HIERARCHY_MAP.items(), prior_entity_index + 1, None
+    )
 
     # Create a list with all the representation names on the given SG version
     entity = None
@@ -119,7 +123,8 @@ def get_sg_entity_representation_names(sg_entity, delivery_types):
         delivery_types (list): A list of delivery types to search for.
 
     Returns:
-        list: A list of representation names for the given ShotGrid entity and delivery types.
+        list: A list of representation names for the given ShotGrid entity and delivery
+            types.
     """
     representation_names = []
     for delivery_type in delivery_types:
