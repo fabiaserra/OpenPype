@@ -12,7 +12,7 @@ import os
 import requests
 from collections import OrderedDict
 
-from openpype.lib import Logger
+from openpype.lib import Logger, is_running_from_build
 from openpype.pipeline import Anatomy
 from openpype.pipeline.colorspace import get_imageio_config
 from openpype.modules.shotgrid.lib.credentials import get_shotgrid_session
@@ -368,6 +368,10 @@ def submit_deadline_post_job(
         "OPENPYPE_LOG_NO_COLORS": "1",
         "OPENPYPE_SG_USER": username,
     }
+
+    # Add OpenPype version if we are running from build.
+    if is_running_from_build():
+        environment["OPENPYPE_VERSION": os.environ.getenv("OPENPYPE_VERSION")]
 
     args = [
         "--headless",
