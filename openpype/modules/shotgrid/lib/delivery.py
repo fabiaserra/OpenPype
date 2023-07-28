@@ -86,7 +86,7 @@ def get_representation_names(
 
 
 def get_entity_overrides(
-    sg, sg_entity, delivery_types, query_fields, query_output_args=False
+    sg, sg_entity, delivery_types, query_fields, query_ffmpeg_args=False
 ):
     """Create a dictionary of relevant delivery fields for the given SG entity.
 
@@ -123,7 +123,7 @@ def get_entity_overrides(
         return {}
 
     # If we are not querying the output type arguments we can return already
-    if not query_output_args:
+    if not query_ffmpeg_args:
         return delivery_overrides
 
     # Otherwise we query the arguments of the output data types and update
@@ -168,6 +168,7 @@ def get_entity_hierarchy_overrides(
     query_delivery_names=False,
     query_representation_names=False,
     query_extra_delivery_fields=False,
+    query_ffmpeg_args=False,
     stop_when_found=False,
 ):
     """
@@ -250,7 +251,7 @@ def get_entity_hierarchy_overrides(
                 entity_id = next_entity_id
                 break
 
-            logger.debug(
+            logger.info(
                 "SG entity '%s' doesn't have a '%s' linked, querying the next parent",
                 entity,
                 query_field,
@@ -267,7 +268,7 @@ def get_entity_hierarchy_overrides(
             query_fields.append(query_field)
 
         entity_overrides = get_entity_overrides(
-            sg, sg_entity, delivery_types, base_query_fields
+            sg, sg_entity, delivery_types, base_query_fields, query_ffmpeg_args
         )
         if not entity_overrides:
             continue
