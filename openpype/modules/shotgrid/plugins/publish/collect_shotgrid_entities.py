@@ -64,6 +64,7 @@ class CollectShotgridEntities(pyblish.api.InstancePlugin):
             context.data.get("shotgridSession"),
             instance.data["shotgridEntity"]["id"],
             instance.data["shotgridEntity"]["type"],
+            delivery_types=["review", "final"],
         )
         self.log.debug(
             "Collected delivery overrides : {}".format(delivery_overrides)
