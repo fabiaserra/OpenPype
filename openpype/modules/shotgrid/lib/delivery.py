@@ -237,6 +237,7 @@ def get_entity_hierarchy_overrides(
                 [["id", "is", entity_id]],
                 query_fields,
             )
+            logger.info("SG Entity: %s", sg_entity)
 
             # If we are querying the highest entity on the hierarchy
             # No need to check for its parent
