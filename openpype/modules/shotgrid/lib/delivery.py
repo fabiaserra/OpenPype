@@ -10,8 +10,6 @@ logger = Logger.get_logger(__name__)
 # List of SG fields from context entities (i.e., Project, Shot) that we care to
 # query for delivery purposes
 SG_EXTRA_DELIVERY_FIELDS = [
-    "sg_delivery_template",
-    "sg_slate_subtitle",
     # "sg_final_datatype",  # TODO: not used yet
     "sg_final_fps",
     "sg_final_tags",
@@ -27,6 +25,10 @@ SG_DELIVERY_NAME_FIELD = "sg_delivery_name"
 SG_DELIVERY_OUTPUT_FIELDS = [
     "sg_final_output_type",
     "sg_review_output_type",
+]
+
+SG_SLATE_FIELDS = [
+    "sg_slate_subtitle",
 ]
 
 # List of SG fields on the 'output_datatypes' entity that we care to query for
@@ -168,6 +170,7 @@ def get_entity_hierarchy_overrides(
     query_delivery_names=False,
     query_representation_names=False,
     query_extra_delivery_fields=False,
+    query_slate_fields=False,
     query_ffmpeg_args=False,
     stop_when_found=False,
 ):
@@ -216,6 +219,11 @@ def get_entity_hierarchy_overrides(
     # that are specific to the delivery type being requested
     if len(delivery_types) == 1:
         base_query_fields = [f for f in base_query_fields if delivery_types[0] in f]
+
+    # We add the slate fields after the filter as those are independent of
+    # delivery type
+    if query_slate_fields:
+        base_query_fields.extend(SG_SLATE_FIELDS)
 
     # Create a dictionary of delivery overrides per entity
     for entity, query_field in iterator:

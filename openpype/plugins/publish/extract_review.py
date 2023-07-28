@@ -217,7 +217,7 @@ class ExtractReview(pyblish.api.InstancePlugin):
         # Check if there's any delivery overrides set on the SG instance
         # and use that instead of the profile output definitions if that's
         # the case
-        delivery_overrides_dict = instance.context.data.get("shotgridDeliveryOverrides")
+        delivery_overrides_dict = instance.context.data.get("shotgridOverrides")
         if not delivery_overrides_dict:
             return None, None
 
