@@ -226,7 +226,7 @@ def get_entity_hierarchy_overrides(
         # Keep querying the hierarchy of entities until we find one
         available_parents = True
         while available_parents:
-            logger.info(
+            logger.debug(
                 "Querying entity '%s' with id '%s' and query field '%s'",
                 entity,
                 entity_id,
@@ -237,7 +237,7 @@ def get_entity_hierarchy_overrides(
                 [["id", "is", entity_id]],
                 query_fields,
             )
-            logger.info("SG Entity: %s", sg_entity)
+            logger.debug("SG Entity: %s", sg_entity)
 
             # If we are querying the highest entity on the hierarchy
             # No need to check for its parent
@@ -247,12 +247,12 @@ def get_entity_hierarchy_overrides(
 
             # If parent entity is found, we break the while loop
             # otherwise we query the next one
-            next_entity_id = sg_entity.get(query_field, {}).get("id")
-            if next_entity_id:
-                entity_id = next_entity_id
+            sg_parent_entity = sg_entity[query_field]
+            if sg_parent_entity:
+                entity_id = sg_parent_entity["id"]
                 break
 
-            logger.info(
+            logger.debug(
                 "SG entity '%s' doesn't have a '%s' linked, querying the next parent",
                 entity,
                 query_field,
