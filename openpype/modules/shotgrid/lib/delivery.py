@@ -9,20 +9,24 @@ logger = Logger.get_logger(__name__)
 
 # List of SG fields from context entities (i.e., Project, Shot) that we care to
 # query for delivery purposes
-SG_DELIVERY_FIELDS = [
-    "sg_delivery_name",
+SG_EXTRA_DELIVERY_FIELDS = [
     "sg_delivery_template",
     "sg_slate_subtitle",
     # "sg_final_datatype",  # TODO: not used yet
     "sg_final_fps",
-    "sg_final_output_type",
     "sg_final_tags",
     "sg_review_fps",
     "sg_review_lut",
-    "sg_review_output_type",
+    "sg_review_tags",
     # "sg_review_reformat",  # TODO: not used yet
     # "sg_review_scale",  # TODO: not used yet
-    "sg_review_tags",
+]
+
+SG_DELIVERY_NAME_FIELD = "sg_delivery_name"
+
+SG_DELIVERY_OUTPUT_FIELDS = [
+    "sg_final_output_type",
+    "sg_review_output_type",
 ]
 
 # List of SG fields on the 'output_datatypes' entity that we care to query for
@@ -36,23 +40,58 @@ SG_OUTPUT_DATATYPE_FIELDS = [
 
 # Map of SG entities hierarchy from more specific to more generic with the
 # field that we need to query the parent entity
-SG_HIERARCHY_MAP = OrderedDict([
-    ("Version", "entity"),
-    ("Shot", "sg_sequence"),
-    ("Sequence", "episode"),
-    ("Episode", "project"),
-    ("Project", None),
-])
+SG_HIERARCHY_MAP = OrderedDict(
+    [
+        ("Version", "entity"),
+        ("Shot", "sg_sequence"),
+        ("Sequence", "episode"),
+        ("Episode", "project"),
+        ("Project", None),
+    ]
+)
 
-# List of delivery types that we support
-DELIVERY_TYPES = ["review", "final"]
+
+def get_representation_names_from_overrides(
+    delivery_overrides, delivery_types
+):
+    representation_names = []
+    for entity in SG_HIERARCHY_MAP.keys():
+        entity_overrides = delivery_overrides.get(entity)
+        if not entity_overrides:
+            continue
+        for delivery_type in delivery_types:
+            delivery_rep_names = entity_overrides[f"sg_{delivery_type}_output_type"]
+            representation_names.extend(delivery_rep_names)
+
+        return representation_names, entity
+
+    return [], None
 
 
-def get_sg_entity_overrides(sg, sg_entity):
+def get_representation_names(
+    sg,
+    entity_id,
+    entity_type,
+    delivery_types,
+):
+    delivery_overrides = get_entity_hierarchy_overrides(
+        sg,
+        entity_id,
+        entity_type,
+        delivery_types,
+        query_representation_names=True,
+        stop_when_found=True
+    )
+    return get_representation_names_from_overrides(delivery_overrides, delivery_types)
+
+
+def get_entity_overrides(
+    sg, sg_entity, delivery_types, query_fields, query_output_args=False
+):
     """Create a dictionary of relevant delivery fields for the given SG entity.
 
     The returned dictionary includes overrides for the delivery fields defined
-    in SG_DELIVERY_FIELDS, as well as overrides for the sg_review_output and
+    in SG_EXTRA_DELIVERY_FIELDS, as well as overrides for the sg_review_output and
     sg_final_output fields. The value for each of these fields is a dictionary
     of the ffmpeg arguments required to create each output type.
 
@@ -62,49 +101,75 @@ def get_sg_entity_overrides(sg, sg_entity):
     Returns:
         dict: A dictionary of overrides for the given Shotgrid entity.
     """
-    delivery_overrides = {}
-
     overrides_exist = False
 
     # Store overrides for all the SG delivery fields
-    for delivery_field in SG_DELIVERY_FIELDS:
+    delivery_overrides = {}
+    for delivery_field in query_fields:
         override_value = sg_entity.get(delivery_field)
         if override_value:
             overrides_exist = True
+            # For the output_type values, we just set the names
+            if delivery_field.endswith("output_type"):
+                delivery_type = "review" if "review" in delivery_field else "final"
+                override_value = [
+                    f"{v['name'].replace(' ', '').lower()}_{delivery_type}"
+                    for v in override_value
+                ]
             delivery_overrides[delivery_field] = override_value
 
     # Return early if no overrides exist on that entity
     if not overrides_exist:
+        return {}
+
+    # If we are not querying the output type arguments we can return already
+    if not query_output_args:
         return delivery_overrides
 
-    # Override the value for the sg_{delivery_type}_output key with
+    # Otherwise we query the arguments of the output data types and update
+    # the delivery overrides dict with it
+    output_ffmpeg_args = get_output_type_ffmpeg_args(sg, sg_entity, delivery_types)
+    delivery_overrides.update(output_ffmpeg_args)
+    return delivery_overrides
+
+
+def get_output_type_ffmpeg_args(sg, sg_entity, delivery_types):
+    # Create a dictionary with sg_{delivery_type}_output keys and values
     # a dictionary of the ffmpeg args required to create each output
     # type
-    for delivery_type in DELIVERY_TYPES:
+    output_ffmpeg_args = {}
+    for delivery_type in delivery_types:
         output_field = f"sg_{delivery_type}_output_type"
-        # Clear existing overrides for output_types
-        delivery_overrides[output_field] = {}
+        output_ffmpeg_args[output_field] = {}
         out_data_types = sg_entity.get(output_field) or []
         for out_data_type in out_data_types:
+            representation_name = "{}_{}".format(
+                out_data_type["name"].replace(" ", "").lower(), delivery_type
+            )
             sg_out_data_type = sg.find_one(
                 "CustomNonProjectEntity03",
                 [["id", "is", out_data_type["id"]]],
                 fields=SG_OUTPUT_DATATYPE_FIELDS,
             )
-            representation_name = "{}_{}".format(
-                out_data_type["name"].replace(" ", "").lower(),
-                delivery_type
-            )
-
-            delivery_overrides[output_field][representation_name] = {}
+            output_ffmpeg_args[output_field][representation_name] = {}
             for field in SG_OUTPUT_DATATYPE_FIELDS:
-                delivery_overrides[output_field]\
-                    [representation_name][field] = sg_out_data_type.get(field)
+                output_ffmpeg_args[output_field][representation_name][
+                    field
+                ] = sg_out_data_type.get(field)
 
-    return delivery_overrides
+    return output_ffmpeg_args
 
 
-def find_delivery_overrides(context, instance, include_current=True):
+def get_entity_hierarchy_overrides(
+    sg,
+    entity_id,
+    entity_type,
+    delivery_types,
+    query_delivery_names=False,
+    query_representation_names=False,
+    query_extra_delivery_fields=False,
+    stop_when_found=False,
+):
     """
     Find the delivery overrides for the given Shotgrid project and Shot.
 
@@ -127,61 +192,83 @@ def find_delivery_overrides(context, instance, include_current=True):
     """
     delivery_overrides = {}
 
-    sg = context.data.get("shotgridSession")
+    # Find the index on the hierarchy of the current entity
+    entity_index = list(SG_HIERARCHY_MAP.keys()).index(entity_type)
 
-    # Find SG entity corresponding to the current instance
-    entity_id = instance.data["shotgridEntity"]["id"]
-    entity_type = instance.data["shotgridEntity"]["type"]
+    # Create an iterator object starting at the current entity index
+    # We are also creating an iterator object so we can manually control
+    # its iterations within the for loop
+    iterator = itertools.islice(SG_HIERARCHY_MAP.items(), entity_index, None)
 
-    prior_sg_entity = None
-    prior_entity_id = entity_id
+    base_query_fields = []
 
-    # Find the index on the hierarchy of the "prior" entity
-    prior_entity_index = list(SG_HIERARCHY_MAP.keys()).index(entity_type)
+    if query_representation_names:
+        base_query_fields.extend(SG_DELIVERY_OUTPUT_FIELDS)
 
-    # If we also want to include the current entity on the overrides, we need to
-    # shift the index one
-    if include_current:
-        prior_entity_index -= 1
+    if query_delivery_names:
+        base_query_fields.append(SG_DELIVERY_NAME_FIELD)
 
-    # Create two iterators with an offset of one so we can iterate over the hierarchy
-    # of entities while also finding the query field from the "prior" entity
-    # Example: In order to find "Sequence" entity, we need to query "sg_sequence" field
-    # on the "Shot"
-    prior_iterator = itertools.islice(SG_HIERARCHY_MAP.items(), prior_entity_index, None)
-    iterator = itertools.islice(SG_HIERARCHY_MAP.items(), prior_entity_index + 1, None)
+    if query_extra_delivery_fields:
+        base_query_fields.extend(SG_EXTRA_DELIVERY_FIELDS)
+
+    # If we are not requesting all delivery types we only keep the fields
+    # that are specific to the delivery type being requested
+    if len(delivery_types) == 1:
+        base_query_fields = [f for f in base_query_fields if delivery_types[0] in f]
 
     # Create a dictionary of delivery overrides per entity
     for entity, query_field in iterator:
-
-        query_fields = SG_DELIVERY_FIELDS.copy()
+        query_fields = base_query_fields.copy()
         if query_field:
             query_fields.append(query_field)
 
-        # Find the query field for the entity above
-        _, prior_query_field = next(prior_iterator, (None, None))
+        # Keep querying the hierarchy of entities until we find one
+        available_parents = True
+        while available_parents:
+            sg_entity = sg.find_one(
+                entity,
+                [["id", "is", entity_id]],
+                query_fields,
+            )
 
-        if prior_sg_entity:
-            prior_entity_id = prior_sg_entity[prior_query_field]["id"]
+            # If we are querying the highest entity on the hierarchy
+            # No need to check for its parent
+            if entity == "Project":
+                available_parents = False
+                break
 
-        sg_entity = sg.find_one(
-            entity,
-            [["id", "is", prior_entity_id]],
-            query_fields,
-        )
-        if not sg_entity:
-            logger.debug("No SG entity '%s' found" % entity)
-            continue
+            # If parent entity is found, we break the while loop
+            # otherwise we query the next one
+            next_entity_id = sg_entity[query_field].get("id")
+            if next_entity_id:
+                entity_id = next_entity_id
+                break
 
-        prior_sg_entity = sg_entity
+            logger.debug(
+                "SG entity '%s' doesn't have a '%s' linked, querying the next parent",
+                entity,
+                query_field,
+            )
 
-        entity_overrides = get_sg_entity_overrides(
-            sg, sg_entity
+            # Skip an iteration
+            _, query_field = next(iterator, (None, None))
+            if not query_field:
+                # This shouldn't happen but we have it in case we run out of
+                # parent entities to query to avoid an endless loop
+                available_parents = False
+                break
+
+            query_fields.append(query_field)
+
+        entity_overrides = get_entity_overrides(
+            sg, sg_entity, delivery_types, base_query_fields
         )
         if not entity_overrides:
             continue
 
         delivery_overrides[entity] = entity_overrides
         logger.debug("Added delivery overrides for SG entity '%s'." % entity)
+        if stop_when_found:
+            return delivery_overrides
 
     return delivery_overrides

@@ -7,8 +7,6 @@ from openpype.lib.mongo import OpenPypeMongoConnection
 from openpype.modules.shotgrid.lib import delivery
 
 
-
-
 class CollectShotgridEntities(pyblish.api.InstancePlugin):
 ### Ends Alkemy-X Override ###
     """Collect shotgrid entities according to the current context"""
@@ -62,12 +60,16 @@ class CollectShotgridEntities(pyblish.api.InstancePlugin):
 
         ### Starts Alkemy-X Override ###
         # Collect relevant data for review/delivery purposes
-        delivery_overrides = delivery.find_delivery_overrides(context, instance)
+        delivery_overrides = delivery.get_entity_hierarchy_overrides(
+            context.data.get("shotgridSession"),
+            instance.data["shotgridEntity"]["id"],
+            instance.data["shotgridEntity"]["type"],
+        )
         self.log.debug(
             "Collected delivery overrides : {}".format(delivery_overrides)
         )
         context.data["shotgridDeliveryOverrides"] = delivery_overrides
-    ### Ends Alkemy-X Override ###
+        ### Ends Alkemy-X Override ###
 
 
 def _get_shotgrid_collection(project):

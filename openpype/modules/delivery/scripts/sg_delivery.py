@@ -21,7 +21,7 @@ from openpype.pipeline.delivery import (
     deliver_single_file,
 )
 from openpype.settings import get_system_settings
-from openpype.modules.shotgrid.lib import credentials
+from openpype.modules.shotgrid.lib import credentials, delivery
 from openpype.modules.delivery.scripts import utils
 
 
@@ -76,14 +76,6 @@ def deliver_playlist_id(
     if not project_doc:
         return report_items[f"Didn't find project '{project_name}' in avalon."], False
 
-    # Get whether the project entity contains any delivery overrides
-    sg_project = sg.find_one(
-        "Project",
-        [["id", "is", sg_playlist["project"]["id"]]],
-        fields=SG_DELIVERY_FIELDS,
-    )
-    delivery_project_name = sg_project.get("sg_delivery_name")
-
     # Get all the SG versions associated to the playlist
     sg_versions = sg.find(
         "Version",
@@ -91,19 +83,12 @@ def deliver_playlist_id(
         ["sg_op_instance_id", "entity", "code"],
     )
 
-    # Create dictionary of inputs required by deliver_version
-    delivery_data = {
-        "date": get_datetime_data(),
-        "delivery_project_name": delivery_project_name,
-    }
-
     # Iterate over each SG version and deliver it
     success = True
     for sg_version in sg_versions:
         new_report_items, new_success = deliver_version(
             sg_version,
             project_name,
-            delivery_data,
             delivery_types,
             representation_names,
             delivery_templates,
@@ -157,24 +142,10 @@ def deliver_version_id(
         report_items["SG Version not found"].append(version_id)
         return report_items, False
 
-    # Get whether the project entity contains any delivery overrides
-    sg_project = sg.find_one(
-        "Project",
-        [["id", "is", sg_version["project"]["id"]]],
-        fields=SG_DELIVERY_FIELDS,
-    )
-    delivery_project_name = sg_project.get("sg_delivery_name")
-
-    # Create dictionary of inputs required by deliver_version
-    delivery_data = {
-        "date": get_datetime_data(),
-        "delivery_project_name": delivery_project_name,
-    }
 
     return deliver_version(
         sg_version,
         sg_version["project"]["name"],
-        delivery_data,
         delivery_types,
         representation_names,
         delivery_templates,
@@ -184,7 +155,6 @@ def deliver_version_id(
 def deliver_version(
     sg_version,
     project_name,
-    delivery_data,
     delivery_types,
     representation_names=None,
     delivery_templates=None,
@@ -195,7 +165,6 @@ def deliver_version(
         sg_version (): Shotgrid Version object to deliver.
         project_name (str): Name of the project corresponding to the version being
             delivered.
-        delivery_data (dict[str, str]): Dictionary of relevant data for delivery.
         delivery_types (list[str]): What type(s) of delivery it is
             (i.e., ["final", "review"])
         representation_names (list): List of representation names to deliver.
@@ -222,25 +191,35 @@ def deliver_version(
 
     sg = credentials.get_shotgrid_session()
 
-    # Get the corresponding shot and whether it contains any overrides
-    sg_shot = sg.find_one(
-        "Shot",
-        [["id", "is", sg_version["entity"]["id"]]],
-        fields=SG_DELIVERY_FIELDS,
+    # Get the dictionary of relevant overrides on the hierarchy
+    # of SG entities
+    # NOTE: We only query representation names if they aren't given
+    delivery_overrides = delivery.get_entity_hierarchy_overrides(
+        sg,
+        sg_version["id"],
+        "Version",
+        delivery_types,
+        query_representation_names=bool(representation_names),
+        query_delivery_names=True,
     )
-    delivery_shot_name = sg_shot.get("sg_delivery_name")
-
     entity = None
     if not representation_names:
         # Add representation names for the current SG Version
-        representation_names, entity = utils.get_sg_version_representation_names(
-            sg_version, delivery_types
+        representation_names, entity = delivery.get_representation_names_from_overrides(
+            delivery_overrides, delivery_types
+        )
+        logger.debug("%s representation names found at '%s': %s",
+            sg_version['code'],
+            entity,
+            representation_names
         )
 
     if representation_names:
         if entity != "Project":
-            msg = f"Override of outputs for '{sg_version['code']}' " \
+            msg = (
+                f"Override of outputs for '{sg_version['code']}' "
                 f"({sg_version['id']}) at the {entity} level"
+            )
             logger.info("%s: %s", msg, representation_names)
             report_items[msg] = representation_names
         else:
@@ -317,7 +296,11 @@ def deliver_version(
         anatomy_data = copy.deepcopy(repre["context"])
 
         # Set overrides if passed
-        delivery_project_name = delivery_data.get("delivery_project_name")
+        # TODO: Create a function that given a delivery overrides dictionary
+        # and anatomy_data it replaces the corresponding entity name
+        delivery_project_name = delivery_overrides.get("Project", {}).get(
+            "delivery_name"
+        )
         if delivery_project_name:
             msg = "Project name overridden"
             sub_msg = "{} -> {}".format(
@@ -328,6 +311,9 @@ def deliver_version(
             report_items[msg].append(sub_msg)
             anatomy_data["project"]["name"] = delivery_project_name
 
+        delivery_shot_name = delivery_overrides.get("Shot", {}).get(
+            "delivery_name"
+        )
         if delivery_shot_name:
             msg = "Shot name overridden"
             sub_msg = "{} -> {}".format(
@@ -344,7 +330,7 @@ def deliver_version(
             repre["_id"],
             anatomy,
             anatomy_data,
-            delivery_data.get("date"),
+            get_datetime_data(),
             delivery_template_name,
             delivery_template,
             return_dest_path=True,
@@ -546,9 +532,16 @@ def republish_version(
     # representations requested already exist
     if not force:
         if not representation_names:
-            representation_names, _ = utils.get_sg_version_representation_names(
-                sg_version, delivery_types
+            sg = credentials.get_shotgrid_session()
+            representation_names, entity = delivery.get_representation_names(
+                sg, sg_version["id"], "Version", delivery_types
             )
+            logger.debug("%s representation names found at '%s': %s",
+                sg_version['code'],
+                entity,
+                representation_names
+            )
+
         representations = get_representations(
             project_name,
             version_ids=[op_version_id],
@@ -612,8 +605,7 @@ def republish_version(
 
     # Replace frame number with #'s for expected_files function
     hashes_path = re.sub(
-        r"\d+(?=\.\w+$)",
-        lambda m: "#" * len(m.group()) if m.group() else "#", exr_path
+        r"\d+(?=\.\w+$)", lambda m: "#" * len(m.group()) if m.group() else "#", exr_path
     )
 
     expected_files = utils.expected_files(
