@@ -225,7 +225,7 @@ def get_entity_hierarchy_overrides(
         # Keep querying the hierarchy of entities until we find one
         available_parents = True
         while available_parents:
-            logger.debug(
+            logger.info(
                 "Querying entity '%s' with query field '%s'",
                 entity,
                 query_field,
