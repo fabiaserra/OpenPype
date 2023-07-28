@@ -226,8 +226,9 @@ def get_entity_hierarchy_overrides(
         available_parents = True
         while available_parents:
             logger.info(
-                "Querying entity '%s' with query field '%s'",
+                "Querying entity '%s' with id '%s' and query field '%s'",
                 entity,
+                entity_id,
                 query_field,
             )
             sg_entity = sg.find_one(
