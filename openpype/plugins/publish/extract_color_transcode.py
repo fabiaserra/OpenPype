@@ -342,7 +342,7 @@ class ExtractOIIOTranscode(publish.Extractor):
 
         # Iterate from more specific to more generic entity so as soon as we
         # find some values, we break the loop and return the profiles
-        for entity in delivery.SG_HIERARCHY_MAP.keys():
+        for entity in delivery.SG_SHOT_HIERARCHY_MAP.keys():
             ent_overrides = delivery_overrides_dict.get(entity)
             if not ent_overrides:
                 self.log.debug(
