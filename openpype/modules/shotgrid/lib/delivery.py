@@ -62,7 +62,12 @@ def get_representation_names_from_overrides(
         if not entity_overrides:
             continue
         for delivery_type in delivery_types:
-            delivery_rep_names = entity_overrides[f"sg_{delivery_type}_output_type"]
+            output_names = entity_overrides[f"sg_{delivery_type}_output_type"]
+            # Convert list from output names to representation names
+            delivery_rep_names = [
+                f"{name.lower().replace(' ', '')}_{delivery_type}"
+                for name in output_names
+            ]
             representation_names.extend(delivery_rep_names)
 
         return representation_names, entity
@@ -110,14 +115,18 @@ def get_entity_overrides(
     for delivery_field in query_fields:
         override_value = sg_entity.get(delivery_field)
         if override_value:
+            # For the values that are list of dictionaries, we only keep the
+            # name (i.e., tags and output_type)
+            if isinstance(override_value, list) and \
+                    all(isinstance(item, dict) for item in override_value):
+                override_value = [v["name"] for v in override_value]
+            # For the sg_review_lut field, we ignore it if it's set to the default
+            # of True as otherwise we will be always saving overrides for all
+            # entities
+            elif delivery_field == "sg_review_lut":
+                if override_value == True:
+                    continue
             overrides_exist = True
-            # For the output_type values, we just set the names
-            if delivery_field.endswith("output_type"):
-                delivery_type = "review" if "review" in delivery_field else "final"
-                override_value = [
-                    f"{v['name'].replace(' ', '').lower()}_{delivery_type}"
-                    for v in override_value
-                ]
             delivery_overrides[delivery_field] = override_value
 
     # Return early if no overrides exist on that entity
@@ -145,17 +154,14 @@ def get_output_type_ffmpeg_args(sg, sg_entity, delivery_types):
         output_ffmpeg_args[output_field] = {}
         out_data_types = sg_entity.get(output_field) or []
         for out_data_type in out_data_types:
-            representation_name = "{}_{}".format(
-                out_data_type["name"].replace(" ", "").lower(), delivery_type
-            )
             sg_out_data_type = sg.find_one(
                 "CustomNonProjectEntity03",
                 [["id", "is", out_data_type["id"]]],
                 fields=SG_OUTPUT_DATATYPE_FIELDS,
             )
-            output_ffmpeg_args[output_field][representation_name] = {}
+            output_ffmpeg_args[output_field][out_data_type["name"]] = {}
             for field in SG_OUTPUT_DATATYPE_FIELDS:
-                output_ffmpeg_args[output_field][representation_name][
+                output_ffmpeg_args[output_field][out_data_type["name"]][
                     field
                 ] = sg_out_data_type.get(field)
 

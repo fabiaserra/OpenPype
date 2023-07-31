@@ -344,6 +344,10 @@ class ExtractOIIOTranscode(publish.Extractor):
                 delivery_outputs = ent_overrides[f"sg_{delivery_type}_output_type"]
 
                 for out_name, out_fields in delivery_outputs.items():
+                    # Add the delivery type to the output name so we can distinguish
+                    # final vs review outputs (i.e., prores_final vs prores_review)
+                    out_name = f"{out_name.lower().replace(' ', '')}_{delivery_type}"
+
                     # Only run extract review for the output types that are image
                     # extensions
                     if out_fields["sg_extension"] not in self.supported_exts:
