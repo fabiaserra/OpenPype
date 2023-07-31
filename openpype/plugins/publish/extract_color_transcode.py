@@ -84,6 +84,13 @@ class ExtractOIIOTranscode(publish.Extractor):
     options = None
 
     def process(self, instance):
+
+        # Instance should be process in the farm
+        if instance.data.get("farm"):
+            self.log.info(
+                "Instance is marked to be processed on farm. Skipping")
+            return
+
         if not self.profiles:
             self.log.debug("No profiles present for color transcode")
             return
