@@ -181,7 +181,7 @@ def deliver_version(
     # Grab the OP's id corresponding to the SG version
     op_version_id = sg_version["sg_op_instance_id"]
     if not op_version_id or op_version_id == "-":
-        sub_msg = f"{sg_version['code']} - {sg_version['id']}<br>"
+        sub_msg = f"{sg_version['code']} - id: {sg_version['id']}<br>"
         msg = "Missing 'sg_op_instance_id' field on SG Versions"
         report_items[msg].append(sub_msg)
         logger.error("%s: %s", msg, sub_msg)
@@ -218,7 +218,7 @@ def deliver_version(
         if entity != "Project":
             msg = (
                 f"Override of outputs for '{sg_version['code']}' "
-                f"({sg_version['id']}) at the {entity} level"
+                f"(id: {sg_version['id']}) at the {entity} level"
             )
             logger.info("%s: %s", msg, representation_names)
             report_items[msg] = representation_names
@@ -241,7 +241,7 @@ def deliver_version(
         )
     )
     if not repres_to_deliver:
-        sub_msg = f"{sg_version['code']} - {sg_version['id']}<br>"
+        sub_msg = f"{sg_version['code']} - id: {sg_version['id']}<br>"
         msg = "None of the representations requested found on SG Versions"
         report_items[msg].append(sub_msg)
         logger.error("%s: %s", msg, sub_msg)
@@ -501,7 +501,7 @@ def republish_version(
     op_version_id = sg_version["sg_op_instance_id"]
     if not op_version_id or op_version_id == "-":
         msg = "Missing 'sg_op_instance_id' field on SG Versions"
-        sub_msg = f"{sg_version['code']} - {sg_version['id']}<br>"
+        sub_msg = f"{sg_version['code']} - id: {sg_version['id']}<br>"
         logger.error("%s: %s", msg, sub_msg)
         report_items[msg].append(sub_msg)
         return report_items, False
@@ -510,7 +510,7 @@ def republish_version(
     version_doc = get_version_by_id(project_name, op_version_id)
     if not version_doc:
         msg = "No OP version found for SG versions"
-        sub_msg = f"{sg_version['code']} - {sg_version['id']}<br>"
+        sub_msg = f"{sg_version['code']} - id: {sg_version['id']}<br>"
         logger.error("%s: %s", msg, sub_msg)
         report_items[msg].append(sub_msg)
         return report_items, False
@@ -523,7 +523,7 @@ def republish_version(
     )
     if not exr_repre_doc:
         msg = "No 'exr' representation found on SG versions"
-        sub_msg = f"{sg_version['code']} - {sg_version['id']}<br>"
+        sub_msg = f"{sg_version['code']} - id: {sg_version['id']}<br>"
         logger.error("%s: %s", msg, sub_msg)
         report_items[msg].append(sub_msg)
         return report_items, False
@@ -550,7 +550,7 @@ def republish_version(
         missing_rep_names = set(representation_names) - existing_rep_names
         if not missing_rep_names:
             msg = f"Requested '{delivery_types}' representations already exist"
-            sub_msg = f"{sg_version['code']} - {sg_version['id']}<br>"
+            sub_msg = f"{sg_version['code']} - id: {sg_version['id']}<br>"
             report_items[msg].append(sub_msg)
             logger.info("%s: %s", msg, sub_msg)
             return report_items, True
