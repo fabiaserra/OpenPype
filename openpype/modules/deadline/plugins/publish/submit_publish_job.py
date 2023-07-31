@@ -875,11 +875,12 @@ class ProcessSubmittedJobOnFarm(pyblish.api.InstancePlugin,
                 " This may cause issues."
             ).format(source))
 
-        family = "render"
-        if ("prerender" in instance.data["families"] or
-                "prerender.farm" in instance.data["families"]):
-            family = "prerender"
-        families = [family]
+        # family = "render"
+        # if ("prerender" in instance.data["families"] or
+        #         "prerender.farm" in instance.data["families"]):
+        #     family = "prerender"
+        # families = [family]
+        families = []
 
         # pass review to families if marked as review
         do_not_add_review = False
@@ -890,9 +891,9 @@ class ProcessSubmittedJobOnFarm(pyblish.api.InstancePlugin,
             do_not_add_review = True
 
         instance_skeleton_data = {
-            "family": family,
+            "family": instance.data["family"],
             "subset": subset,
-            "families": families,
+            "families": [],
             "asset": asset,
             "frameStart": start,
             "frameEnd": end,
@@ -911,7 +912,6 @@ class ProcessSubmittedJobOnFarm(pyblish.api.InstancePlugin,
             "multipartExr": data.get("multipartExr", False),
             "jobBatchName": data.get("jobBatchName", ""),
             "useSequenceForReview": data.get("useSequenceForReview", True),
-            "colorspace": data.get("colorspace"),
             # map inputVersions `ObjectId` -> `str` so json supports it
             "inputVersions": list(map(str, data.get("inputVersions", []))),
             "colorspace": instance.data.get("colorspace")
