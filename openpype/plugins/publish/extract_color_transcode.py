@@ -280,6 +280,11 @@ class ExtractOIIOTranscode(publish.Extractor):
                 if "shotgridreview" in new_repre["tags"]:
                     new_repre["tags"].remove("shotgridreview")
 
+                # Removing 'review' from new representations as we only want
+                # to generate review from the original representation
+                if "review" in new_repre["tags"]:
+                    new_repre["tags"].remove("review")
+
                 for tag in output_def["tags"]:
                     if tag not in new_repre["tags"]:
                         new_repre["tags"].append(tag)
