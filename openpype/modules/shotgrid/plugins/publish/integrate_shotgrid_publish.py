@@ -31,8 +31,8 @@ class IntegrateShotgridPublish(pyblish.api.InstancePlugin):
                 instance, representation, False
             )
 
-            if representation.get("tags", []):
-                continue
+            # if representation.get("tags", []):
+                # continue
 
             code = os.path.basename(local_path)
             ### Starts Alkemy-X Override ###
