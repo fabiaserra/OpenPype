@@ -58,13 +58,13 @@ class DeliveryDialog(QtWidgets.QDialog):
         self.input_group.setExclusive(True)
 
         self.sg_playlist_id_input = QtWidgets.QLineEdit()
-        self.playlist_radio_btn = QtWidgets.QRadioButton("SG Playlist")
+        self.playlist_radio_btn = QtWidgets.QRadioButton("SG Playlist Id")
         self.playlist_radio_btn.setChecked(True)
         self.input_group.addButton(self.playlist_radio_btn)
         sg_input_layout.addRow(self.playlist_radio_btn, self.sg_playlist_id_input)
 
         self.sg_version_id_input = QtWidgets.QLineEdit()
-        self.version_radio_btn = QtWidgets.QRadioButton("SG Version")
+        self.version_radio_btn = QtWidgets.QRadioButton("SG Version Id")
         self.input_group.addButton(self.version_radio_btn)
         sg_input_layout.addRow(self.version_radio_btn, self.sg_version_id_input)
 
@@ -143,7 +143,6 @@ class DeliveryDialog(QtWidgets.QDialog):
         self.text_area = QtWidgets.QTextEdit()
         self.text_area.setReadOnly(True)
         self.text_area.setVisible(False)
-        self.text_area.setMinimumHeight(250)
 
         main_layout.addWidget(self.text_area)
 

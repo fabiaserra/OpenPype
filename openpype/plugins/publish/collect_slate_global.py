@@ -61,7 +61,7 @@ class CollectSlateGlobal(pyblish.api.InstancePlugin):
 
         # Collect possible delivery overrides
         slate_subtitle_template = "{asset}_{task[name]}_v{@version}"
-        delivery_overrides_dict = context.data["shotgridDeliveryOverrides"]
+        delivery_overrides_dict = context.data["shotgridOverrides"]
 
         project_overrides = delivery_overrides_dict.get("Project")
         if project_overrides:

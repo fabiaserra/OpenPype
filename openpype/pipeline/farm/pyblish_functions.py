@@ -211,17 +211,18 @@ def create_skeleton_instance(
         log.warning(("Could not find root path for remapping \"{}\". "
                      "This may cause issues.").format(source))
 
-    family = ("render"
-              if "prerender" not in instance.data["families"]
-              else "prerender")
-    families = [family]
+    # family = ("render"
+    #           if "prerender" not in instance.data["families"]
+    #           else "prerender")
+    # families = [family]
+    families = []
 
     # pass review to families if marked as review
     if data.get("review"):
         families.append("review")
 
     instance_skeleton_data = {
-        "family": family,
+        "family": data["family"],
         "subset": data["subset"],
         "families": families,
         "asset": data["asset"],

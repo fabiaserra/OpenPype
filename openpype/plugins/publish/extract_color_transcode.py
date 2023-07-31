@@ -69,7 +69,7 @@ class ExtractOIIOTranscode(publish.Extractor):
         "colorspace": "",
         "display": "",
         "view": "",
-        "oiiotool_args": {"additional_command_args": []},
+        "oiiotool_args": {"additional_command_args": ["-v"]},
         "tags": [],
         "custom_tags": [],
     }
@@ -84,6 +84,13 @@ class ExtractOIIOTranscode(publish.Extractor):
     options = None
 
     def process(self, instance):
+
+        # Instance should be process in the farm
+        if instance.data.get("farm"):
+            self.log.info(
+                "Instance is marked to be processed on farm. Skipping")
+            return
+
         if not self.profiles:
             self.log.debug("No profiles present for color transcode")
             return
@@ -320,7 +327,7 @@ class ExtractOIIOTranscode(publish.Extractor):
         # Check if there's any delivery overrides set on the SG instance
         # and use that instead of the profile output definitions if that's
         # the case
-        delivery_overrides_dict = instance.context.data.get("shotgridDeliveryOverrides")
+        delivery_overrides_dict = instance.context.data.get("shotgridOverrides")
         if not delivery_overrides_dict:
             return None, None
 
@@ -344,6 +351,10 @@ class ExtractOIIOTranscode(publish.Extractor):
                 delivery_outputs = ent_overrides[f"sg_{delivery_type}_output_type"]
 
                 for out_name, out_fields in delivery_outputs.items():
+                    # Add the delivery type to the output name so we can distinguish
+                    # final vs review outputs (i.e., prores_final vs prores_review)
+                    out_name = f"{out_name.lower().replace(' ', '')}_{delivery_type}"
+
                     # Only run extract review for the output types that are image
                     # extensions
                     if out_fields["sg_extension"] not in self.supported_exts:

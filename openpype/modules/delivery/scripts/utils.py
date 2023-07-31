@@ -7,142 +7,14 @@ in the plugins so they can be reused elsewhere.
 """
 import clique
 import getpass
-import itertools
 import os
 import requests
-from collections import OrderedDict
 
 from openpype.lib import Logger, is_running_from_build
 from openpype.pipeline import Anatomy
 from openpype.pipeline.colorspace import get_imageio_config
-from openpype.modules.shotgrid.lib.credentials import get_shotgrid_session
 
 logger = Logger.get_logger(__name__)
-
-
-# List of SG fields from context entities (i.e., Project, Shot) that we care to
-# query for delivery purposes
-SG_DELIVERY_FIELDS = [
-    "sg_final_output_type",
-    "sg_review_output_type",
-]
-
-# Map of SG entities hierarchy from more specific to more generic with the
-# field that we need to query the parent entity
-SG_HIERARCHY_MAP = OrderedDict([
-    ("Version", "entity"),
-    ("Shot", "sg_sequence"),
-    ("Sequence", "episode"),
-    ("Episode", "project"),
-    ("Project", None),
-])
-
-
-def get_sg_version_representation_names(sg_version, delivery_types):
-    """
-    Return a list of representation names for a given SG version and delivery
-    types.
-
-    It traverses through the hierarchy of SG entities that the SG version
-    belongs to and returns the first representation names found at the entity.
-
-    Args:
-        sg_version (dict): A dictionary representing a ShotGrid version.
-        delivery_types (list): A list of delivery types to search for.
-
-    Returns:
-        tuple: A tuple containing a list of representation names and the entity
-            where the representation names were found.
-    """
-    representation_names = []
-
-    sg = get_shotgrid_session()
-
-    # Assign the SG version to the prior_sg_entity variable used on the hierarchy
-    # traversal loop to query the next entity from the "prior" one
-    prior_sg_entity = sg_version
-
-    # Find the index on the hierarchy of the "prior" entity
-    prior_entity_index = list(SG_HIERARCHY_MAP.keys()).index("Version")
-    # Create two iterators with an offset of one so we can iterate over the hierarchy
-    # of entities while also finding the query field from the "prior" entity
-    # Example: In order to find "Sequence" entity, we need to query "sg_sequence" field
-    # on the "Shot"
-    prior_iterator = itertools.islice(
-        SG_HIERARCHY_MAP.items(), prior_entity_index, None
-    )
-    iterator = itertools.islice(
-        SG_HIERARCHY_MAP.items(), prior_entity_index + 1, None
-    )
-
-    # Create a list with all the representation names on the given SG version
-    entity = None
-    for entity, query_field in iterator:
-
-        query_fields = SG_DELIVERY_FIELDS.copy()
-        if query_field:
-            query_fields.append(query_field)
-
-        # Find the query field for the entity above
-        _, prior_query_field = next(prior_iterator, (None, None))
-
-        sg_entity = sg.find_one(
-            entity,
-            [["id", "is", prior_sg_entity[prior_query_field]["id"]]],
-            query_fields,
-        )
-        if not sg_entity:
-            logger.debug("No SG entity '%s' found" % entity)
-            continue
-
-        prior_sg_entity = sg_entity
-
-        entity_representation_names = get_sg_entity_representation_names(
-            sg_entity, delivery_types
-        )
-        # If there's some representation names set at that level of the SG
-        #  entity, we stop searching at the higher entity level
-        if entity_representation_names:
-            logger.info(
-                "Found output deliveries at entity %s: %s",
-                entity, entity_representation_names
-            )
-            representation_names = entity_representation_names
-            break
-
-    return representation_names, entity
-
-
-def get_sg_entity_representation_names(sg_entity, delivery_types):
-    """
-    Return a list of representation names for a given SG entity and delivery
-    types.
-
-    Args:
-        sg_entity (dict): A dictionary representing a ShotGrid entity.
-        delivery_types (list): A list of delivery types to search for.
-
-    Returns:
-        list: A list of representation names for the given ShotGrid entity and delivery
-            types.
-    """
-    representation_names = []
-    for delivery_type in delivery_types:
-        out_data_types = sg_entity.get(f"sg_{delivery_type}_output_type", {})
-        for out_data_type in out_data_types:
-            representation_name = "{}_{}".format(
-                out_data_type["name"].replace(" ", "").lower(),
-                delivery_type,
-            )
-            representation_names.append(representation_name)
-
-    return representation_names
-
-
-# TODO: All the functions that follow are copy/paste with slight modifications and
-# simplicitations of existing functions of OpenPype. We should abstract those functions
-# in the plugins so they can be reused elsewhere but that would require quite a big
-# refactor of those OpenPype plugins so for now we just copy pasted them here.
 
 
 def create_metadata_path(instance_data):
