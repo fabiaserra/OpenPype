@@ -56,6 +56,17 @@ SG_HIERARCHY_MAP = OrderedDict(
 def get_representation_names_from_overrides(
     delivery_overrides, delivery_types
 ):
+    """
+    Returns a list of representation names based on a dictionary of delivery overrides.
+
+    Args:
+        delivery_overrides (dict): A dictionary of delivery overrides.
+        delivery_types (list): A list of delivery types to search for.
+
+    Returns:
+        tuple: A tuple containing a list of representation names and the name of the
+            entity where the override was found.
+    """
     representation_names = []
     for entity in SG_HIERARCHY_MAP.keys():
         entity_overrides = delivery_overrides.get(entity)
@@ -81,6 +92,18 @@ def get_representation_names(
     entity_type,
     delivery_types,
 ):
+    """
+    Returns a list of representation names for a given SG entity and delivery types.
+
+    Args:
+        sg (shotgun_api3.Shotgun): A SG API instance.
+        entity_id (int): The ID of the SG entity to get representation names for.
+        entity_type (str): The type of the SG entity to get representation names for.
+        delivery_types (list): A list of delivery types to search for.
+
+    Returns:
+        list: A list of representation names for the given SG entity and delivery types.
+    """
     delivery_overrides = get_entity_hierarchy_overrides(
         sg,
         entity_id,
@@ -180,24 +203,26 @@ def get_entity_hierarchy_overrides(
     stop_when_found=False,
 ):
     """
-    Find the delivery overrides for the given Shotgrid project and Shot.
+    Find the whole hierarchy of delivery overrides for the given SG entity and delivery
+    types.
 
     Args:
-        context (dict): A dictionary containing the context information. It should have
-            the following keys:
-            - "shotgridSession": A Shotgrid session object.
-            - "shotgridEntity": A dictionary containing information about the Shotgrid
-                entity. It should have the following keys:
-                - "id": The ID of the Shotgrid entity.
-                - "type": The type of the Shotgrid entity.
+        sg (shotgun_api3.Shotgun): A SG API instance.
+        entity_id (int): The ID of the ShotGrid entity to start the search from.
+        entity_type (str): The type of the ShotGrid entity to start the search from.
+        delivery_types (list): A list of delivery types to search for.
+        query_delivery_names (bool): Whether to query delivery names.
+        query_representation_names (bool): Whether to query representation names.
+        query_extra_delivery_fields (bool): Whether to query extra delivery fields.
+        query_slate_fields (bool): Whether to query slate fields.
+        query_ffmpeg_args (bool): Whether to query ffmpeg arguments of the output types.
+        stop_when_found (bool): Whether to stop searching when a delivery override is
+            found.
 
     Returns:
-        dict: A dictionary containing the delivery overrides, if found. The keys are:
-            - "project": A dictionary with the keys "name" and "template", representing
-                the delivery name and template for the Shotgrid project.
-            - "asset": A dictionary with the keys "name" and "template", representing
-                the delivery name and template for the Shot.
-
+        dict: A dictionary containing the delivery overrides, if found. The keys are
+            the entity names and the values are dictionaries containing the delivery
+            overrides for each entity.
     """
     delivery_overrides = {}
 
