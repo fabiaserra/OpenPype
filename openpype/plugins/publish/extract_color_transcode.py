@@ -69,7 +69,7 @@ class ExtractOIIOTranscode(publish.Extractor):
         "colorspace": "",
         "display": "",
         "view": "",
-        "oiiotool_args": {"additional_command_args": []},
+        "oiiotool_args": {"additional_command_args": ["-v"]},
         "tags": [],
         "custom_tags": [],
     }
