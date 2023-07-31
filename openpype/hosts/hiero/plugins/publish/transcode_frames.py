@@ -43,11 +43,8 @@ class TranscodeFrames(publish.Extractor):
         "--colorconvert",
         "{src_colorspace}",
         "{dst_colorspace}",
-        "--oiioattrib",
-        "framesPerSecond",
-        "{fps}",
         "--sattrib",
-        "framesPerSecond",
+        "framesPerSecond",  # Required to fix 'missing compression attribute' error
         "{fps}",
         "--sattrib",
         "alkemy/ingest/colorspace",  # Ingest colorspace
