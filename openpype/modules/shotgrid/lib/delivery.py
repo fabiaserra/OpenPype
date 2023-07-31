@@ -123,9 +123,8 @@ def get_entity_overrides(
             # For the sg_review_lut field, we ignore it if it's set to the default
             # of True as otherwise we will be always saving overrides for all
             # entities
-            elif delivery_field == "sg_review_lut":
-                if override_value == True:
-                    continue
+            elif delivery_field == "sg_review_lut" and override_value:
+                continue
             overrides_exist = True
             delivery_overrides[delivery_field] = override_value
 
@@ -212,7 +211,7 @@ def get_entity_hierarchy_overrides(
 
     base_query_fields = []
 
-    if query_representation_names:
+    if query_representation_names or query_ffmpeg_args:
         base_query_fields.extend(SG_DELIVERY_OUTPUT_FIELDS)
 
     if query_delivery_names:

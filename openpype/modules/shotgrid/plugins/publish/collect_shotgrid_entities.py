@@ -68,6 +68,7 @@ class CollectShotgridEntities(pyblish.api.InstancePlugin):
             query_extra_delivery_fields=True,
             query_delivery_names=True,
             query_ffmpeg_args=True,
+            query_slate_fields=True,
         )
         self.log.debug(
             "Collected SG hierarchy overrides : {}".format(hierarchy_overrides)
