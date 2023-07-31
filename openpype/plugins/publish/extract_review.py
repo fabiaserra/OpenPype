@@ -263,7 +263,7 @@ class ExtractReview(pyblish.api.InstancePlugin):
 
                     sg_profiles[out_name] = self.profile_output_skeleton.copy()
                     sg_profiles[out_name]["ext"] = out_fields["sg_extension"]
-                    sg_profiles[out_name]["tags"] = ent_overrides.get(f"sg_{delivery_type}_tags")
+                    sg_profiles[out_name]["tags"] = ent_overrides.get(f"sg_{delivery_type}_tags") or []
                     sg_profiles[out_name]["fps"] = ent_overrides.get(f"sg_{delivery_type}_fps")
                     # Set final/review_colorspace tag so it uses the transcoded
                     # representations that have that tag
