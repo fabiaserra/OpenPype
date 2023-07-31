@@ -570,7 +570,7 @@ class ExtractReview(pyblish.api.InstancePlugin):
 
             # adding representation
             self.log.debug(
-                "Adding new representation: {}".format(new_repre)
+                "Adding new representation: {} - {}".format(new_repre["name"], new_repre)
             )
             instance.data["representations"].append(new_repre)
 

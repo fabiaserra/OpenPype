@@ -292,6 +292,10 @@ class ExtractOIIOTranscode(publish.Extractor):
                 if len(new_repre["files"]) == 1:
                     new_repre["files"] = new_repre["files"][0]
 
+                self.log.info(
+                    "Added new representation: %s - %s", new_repre["name"], new_repre
+                )
+
                 new_representations.append(new_repre)
                 added_representations = True
 
