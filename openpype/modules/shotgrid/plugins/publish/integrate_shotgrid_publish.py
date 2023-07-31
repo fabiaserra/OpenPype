@@ -31,11 +31,12 @@ class IntegrateShotgridPublish(pyblish.api.InstancePlugin):
                 instance, representation, False
             )
 
+            ### Starts Alkemy-X Override ###
+            # Remove condition to only integrate if tags don't exist
             # if representation.get("tags", []):
                 # continue
 
             code = os.path.basename(local_path)
-            ### Starts Alkemy-X Override ###
             # Extract and remove version number from code so Publishedfile versions are
             # grouped together. More info about this on:
             # https://developer.shotgridsoftware.com/tk-core/_modules/tank/util/shotgun/publish_creation.html
