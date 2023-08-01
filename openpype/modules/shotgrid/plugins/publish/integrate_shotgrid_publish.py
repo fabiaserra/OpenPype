@@ -102,7 +102,7 @@ class IntegrateShotgridPublish(pyblish.api.InstancePlugin):
         published_file_type = "Unknown"
 
         if ext in [".exr", ".jpg", ".jpeg", ".png", ".dpx", ".tif", ".tiff"]:
-            is_sequence = bool(representation["context"].get("frame"))
+            is_sequence = len(representation["files"]) > 1
             if is_sequence:
                 published_file_type = "Rendered Image"
             else:
