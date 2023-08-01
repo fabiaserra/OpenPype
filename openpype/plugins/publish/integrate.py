@@ -424,8 +424,8 @@ class IntegrateAsset(pyblish.api.InstancePlugin):
             p["representation"]["_id"]: p for p in prepared_representations
         }
 
-        self.log.info("Registered {} representations"
-                      "".format(len(prepared_representations)))
+        self.log.info("Registered {} representations: {}"
+                      "".format(len(prepared_representations), new_repre_names_low))
 
     def prepare_subset(self, instance, op_session, project_name):
         asset_doc = instance.data["assetEntity"]
