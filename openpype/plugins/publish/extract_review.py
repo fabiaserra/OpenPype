@@ -28,6 +28,7 @@ from openpype.pipeline.publish import (
     get_publish_instance_label,
 )
 from openpype.pipeline.publish.lib import add_repre_files_for_cleanup
+from openpype.modules.shotgrid.lib import delivery
 
 
 class ExtractReview(pyblish.api.InstancePlugin):
@@ -113,6 +114,15 @@ class ExtractReview(pyblish.api.InstancePlugin):
     ### Ends Alkemy-X Override ###
 
     def process(self, instance):
+
+        ### Starts Alkemy-X Override ###
+        # Skip execution if instance is marked to be processed in the farm
+        if instance.data.get("farm"):
+            self.log.info(
+                "Instance is marked to be processed on farm. Skipping")
+            return
+        ### Ends Alkemy-X Override ###
+
         self.log.debug(str(instance.data["representations"]))
         # Skip review when requested.
         if not instance.data.get("review", True):
@@ -150,14 +160,6 @@ class ExtractReview(pyblish.api.InstancePlugin):
 
         self.log.debug("Matching profile: \"{}\"".format(json.dumps(profile)))
 
-        ### Starts Alkemy-X Override ###
-        # Adds support to define review profiles from SG instead of OP settings
-        sg_outputs = self.get_sg_output_profiles(instance)
-        if sg_outputs:
-            self.log.info(
-                "Found some profiles on the Shotgrid instance: %s", sg_outputs
-            )
-
         subset_name = instance.data.get("subset")
         instance_families = self.families_from_instance(instance)
         filtered_outputs = self.filter_output_defs(
@@ -170,10 +172,29 @@ class ExtractReview(pyblish.api.InstancePlugin):
                 " subset name \"{}\"."
             ).format(str(instance_families), subset_name))
 
-        filtered_outputs.update(sg_outputs)
-        self.log.info(
-            "Added Shotgrid profiles to filtered outputs."
-        )
+        ### Starts Alkemy-X Override ###
+        # Grab which delivery types we are running by checking the families
+        delivery_types = []
+        if "client_review" in instance.data.get("families"):
+            self.log.debug("Adding 'review' as delivery type for SG outputs.")
+            delivery_types.append("review")
+
+        if "client_final" in instance.data.get("families"):
+            self.log.debug("Adding 'final' as delivery type for SG outputs.")
+            delivery_types.append("final")
+
+        # Adds support to define review profiles from SG instead of OP settings
+        sg_outputs, entity = self.get_sg_output_profiles(instance, delivery_types)
+        if sg_outputs:
+            self.log.debug(
+                "Found some profile overrides on the SG instance at the entity " \
+                "level '%s': %s", sg_outputs, entity
+            )
+            filtered_outputs.update(sg_outputs)
+            self.log.info(
+                "Added SG output definitions '%s' to filtered outputs.",
+                sg_outputs.keys()
+            )
         ### Ends Alkemy-X Override ###
 
         # Store `filename_suffix` to save arguments
@@ -185,64 +206,67 @@ class ExtractReview(pyblish.api.InstancePlugin):
         return profile_outputs
 
     ### Starts Alkemy-X Override ###
-    def get_sg_output_profiles(self, instance):
-        """Returns a dictionary of profiles based on delivery overrides set on
-        the SG instance.
+    def get_sg_output_profiles(self, instance, delivery_types):
+        """
+        Returns a dictionary of profiles based on delivery overrides set on the
+        SG instance.
 
         If there are delivery overrides set on the Shotgrid instance, this
         method returns a dictionary of output profiles that matches what OP
         profiles expect based on those overrides. Otherwise, it returns None.
 
         Args:
-            instance (Instance): The instance to get Shotgrid output profiles
-                for.
+            instance (Instance): The instance to get Shotgrid output profiles for.
+            delivery_types (list): A list of delivery types to search for.
 
         Returns:
-            dict: A dictionary of Shotgrid output profiles, or None if there
-                are no delivery overrides.
+            tuple: A tuple containing a dictionary of Shotgrid output profiles
+                and the name of the entity where the override was found.
         """
         # Check if there's any delivery overrides set on the SG instance
         # and use that instead of the profile output definitions if that's
         # the case
-        delivery_overrides_dict = instance.context.data.get("shotgridDeliveryOverrides")
+        delivery_overrides_dict = instance.context.data.get("shotgridOverrides")
         if not delivery_overrides_dict:
-            return None
+            return None, None
 
-        sg_profiles = {}
-        for hierarchy_level, override_entity in enumerate(["project", "shot"]):
-            ent_overrides = delivery_overrides_dict[override_entity]
-            for delivery_type in ["review", "final"]:
+        for entity in delivery.SG_SHOT_HIERARCHY_MAP.keys():
+            ent_overrides = delivery_overrides_dict.get(entity)
+            if not ent_overrides:
+                self.log.debug(
+                    "No SG delivery overrides found for 'ExtractReview' at the '%s' entity.",
+                    entity
+                )
+                continue
+
+            sg_profiles = {}
+
+            for delivery_type in delivery_types:
                 delivery_outputs = ent_overrides[f"sg_{delivery_type}_output_type"]
-                # If on the next run of the hierarchy loop there delivery
-                # outputs it means these should override the prior entity
-                # so we clear the sg_profiles entries for that delivery type
-                # i.e., if there's different output types on the shot than
-                # the project
-                if hierarchy_level > 0 and delivery_outputs:
-                    self.log.info(
-                        "There's '%s' delivery overrides on the SG entity '%s', " \
-                        "clearing '%s' overrides from parent entity.",
-                        delivery_type, override_entity, delivery_type
-                    )
-                    sg_profiles = {
-                        k: v for k, v in sg_profiles.items() if not k.endswith(delivery_type)
-                    }
 
                 for out_name, out_fields in delivery_outputs.items():
+                    # Add the delivery type to the output name so we can distinguish
+                    # final vs review outputs (i.e., prores_final vs prores_review)
+                    out_name = f"{out_name.lower().replace(' ', '')}_{delivery_type}"
+
                     # Only run extract review for the output types that are video
                     # extensions
                     if out_fields["sg_extension"] not in self.video_exts:
                         self.log.debug(
-                            "Skipping profile '%s' because it's not a video extension",
+                            "Skipping output '%s' because it's not a video extension.",
                             out_name
                         )
                         continue
+
+                    self.log.debug(
+                        "Found SG output definition '%s' at '%s' entity...",
+                        out_name, entity
+                    )
+
                     sg_profiles[out_name] = self.profile_output_skeleton.copy()
                     sg_profiles[out_name]["ext"] = out_fields["sg_extension"]
-                    sg_profiles[out_name]["tags"] = [
-                        tag["name"] for tag in ent_overrides[f"sg_{delivery_type}_tags"]
-                    ]
-                    sg_profiles[out_name]["fps"] = ent_overrides[f"sg_{delivery_type}_fps"]
+                    sg_profiles[out_name]["tags"] = ent_overrides.get(f"sg_{delivery_type}_tags") or []
+                    sg_profiles[out_name]["fps"] = ent_overrides.get(f"sg_{delivery_type}_fps")
                     # Set final/review_colorspace tag so it uses the transcoded
                     # representations that have that tag
                     sg_profiles[out_name]["filter"]["custom_tags"] = [
@@ -256,7 +280,11 @@ class ExtractReview(pyblish.api.InstancePlugin):
                         if ffmpeg_val:
                             sg_profiles[out_name]["ffmpeg_args"][ffmpeg_arg] = [ffmpeg_val]
 
-        return sg_profiles
+            # Found some overrides at the entity, return early
+            if sg_profiles:
+                return sg_profiles, entity
+
+        return None, None
 
     ### Ends Alkemy-X Override ###
     def _get_outputs_per_representations(self, instance, profile_outputs):
@@ -301,10 +329,10 @@ class ExtractReview(pyblish.api.InstancePlugin):
                 profile_outputs, custom_tags)
             if not outputs:
                 self.log.info((
-                    "Skipped representation. All output definitions from"
+                    "Skipped representation '%s'. All output definitions from"
                     " selected profile does not match to representation's"
                     " custom tags. \"{}\""
-                ).format(str(custom_tags)))
+                ).format(repre_name, str(custom_tags)))
                 continue
 
             outputs_per_representations.append((repre, outputs))
@@ -524,10 +552,10 @@ class ExtractReview(pyblish.api.InstancePlugin):
                     os.unlink(f)
 
             new_repre.update({
-                ### Starts Alkemy-X Override ###
                 # Grab FPS from SG delivery (i.e., review or final) if it
                 # exists, otherwise default to the project FPS
-                "fps": output_def.get("fps") or temp_data["fps"],
+                "fps": temp_data["fps"],
+                ### Starts Alkemy-X Override ###
                 "name": output_name,
                 ### Ends Alkemy-X Override ###
                 "outputName": output_name,
@@ -544,7 +572,7 @@ class ExtractReview(pyblish.api.InstancePlugin):
 
             # adding representation
             self.log.debug(
-                "Adding new representation: {}".format(new_repre)
+                "Adding new representation: {} - {}".format(new_repre["name"], new_repre)
             )
             instance.data["representations"].append(new_repre)
 
@@ -638,7 +666,11 @@ class ExtractReview(pyblish.api.InstancePlugin):
                 input_allow_bg = True
 
         return {
-            "fps": float(instance.data["fps"]),
+            ### Starts Alkemy-X Override ###
+            # Grab FPS from SG delivery (i.e., review or final) if it
+            # exists, otherwise default to the project FPS
+            "fps": float( output_def.get("fps") or instance.data["fps"]),
+            ### Ends Alkemy-X Override ###
             "frame_start": frame_start,
             "frame_end": frame_end,
             "handle_start": handle_start,

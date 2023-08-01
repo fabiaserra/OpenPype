@@ -43,6 +43,10 @@ class CollectNukeWrites(pyblish.api.InstancePlugin,
         if instance.data.get("client_review"):
             instance.data["families"].append("client_review")
 
+        # only append 'client_final' family if client_final checkbox is enabled
+        if instance.data.get("client_final"):
+            instance.data["families"].append("client_final")
+
         if publish_node.Class() == "Group":
             child_nodes = napi.get_instance_group_node_childs(instance)
             instance.data["transientData"]["childNodes"] = child_nodes
