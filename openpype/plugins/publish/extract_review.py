@@ -115,11 +115,13 @@ class ExtractReview(pyblish.api.InstancePlugin):
 
     def process(self, instance):
 
-        # Skip if we are requesting to process in the farm
+        ### Starts Alkemy-X Override ###
+        # Skip execution if instance is marked to be processed in the farm
         if instance.data.get("farm"):
             self.log.info(
                 "Instance is marked to be processed on farm. Skipping")
             return
+        ### Ends Alkemy-X Override ###
 
         self.log.debug(str(instance.data["representations"]))
         # Skip review when requested.

@@ -85,11 +85,13 @@ class ExtractOIIOTranscode(publish.Extractor):
 
     def process(self, instance):
 
-        # Instance should be process in the farm
+        ### Starts Alkemy-X Override ###
+        # Skip execution if instance is marked to be processed in the farm
         if instance.data.get("farm"):
             self.log.info(
                 "Instance is marked to be processed on farm. Skipping")
             return
+        ### Ends Alkemy-X Override ###
 
         if not self.profiles:
             self.log.debug("No profiles present for color transcode")
