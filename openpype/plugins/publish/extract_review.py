@@ -115,11 +115,13 @@ class ExtractReview(pyblish.api.InstancePlugin):
 
     def process(self, instance):
 
-        # Skip if we are requesting to process in the farm
+        ### Starts Alkemy-X Override ###
+        # Skip execution if instance is marked to be processed in the farm
         if instance.data.get("farm"):
             self.log.info(
                 "Instance is marked to be processed on farm. Skipping")
             return
+        ### Ends Alkemy-X Override ###
 
         self.log.debug(str(instance.data["representations"]))
         # Skip review when requested.
@@ -228,7 +230,7 @@ class ExtractReview(pyblish.api.InstancePlugin):
         if not delivery_overrides_dict:
             return None, None
 
-        for entity in delivery.SG_HIERARCHY_MAP.keys():
+        for entity in delivery.SG_SHOT_HIERARCHY_MAP.keys():
             ent_overrides = delivery_overrides_dict.get(entity)
             if not ent_overrides:
                 self.log.debug(
@@ -570,7 +572,7 @@ class ExtractReview(pyblish.api.InstancePlugin):
 
             # adding representation
             self.log.debug(
-                "Adding new representation: {}".format(new_repre)
+                "Adding new representation: {} - {}".format(new_repre["name"], new_repre)
             )
             instance.data["representations"].append(new_repre)
 

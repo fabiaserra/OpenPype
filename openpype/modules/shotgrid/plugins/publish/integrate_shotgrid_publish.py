@@ -23,17 +23,20 @@ class IntegrateShotgridPublish(pyblish.api.InstancePlugin):
 
         shotgrid_version = instance.data.get("shotgridVersion")
 
+        self.log.info("Integrating Shotgrid Published files...")
+
         for representation in instance.data.get("representations", []):
 
             local_path = get_publish_repre_path(
                 instance, representation, False
             )
 
-            if representation.get("tags", []):
-                continue
+            ### Starts Alkemy-X Override ###
+            # Remove condition to only integrate if tags don't exist
+            # if representation.get("tags", []):
+                # continue
 
             code = os.path.basename(local_path)
-            ### Starts Alkemy-X Override ###
             # Extract and remove version number from code so Publishedfile versions are
             # grouped together. More info about this on:
             # https://developer.shotgridsoftware.com/tk-core/_modules/tank/util/shotgun/publish_creation.html
@@ -64,7 +67,9 @@ class IntegrateShotgridPublish(pyblish.api.InstancePlugin):
                 "path": {"local_path": local_path},
                 ### Starts Alkemy-X Override ###
                 # Add file type and version number fields
-                "published_file_type": self._find_published_file_type(local_path),
+                "published_file_type": self._find_published_file_type(
+                    local_path, representation
+                ),
                 "version_number": version_number,
                 ### Ends Alkemy-X Override ###
             }
@@ -90,25 +95,37 @@ class IntegrateShotgridPublish(pyblish.api.InstancePlugin):
             instance.data["shotgridPublishedFile"] = published_file
 
     ### Starts Alkemy-X Override ###
-    def _find_published_file_type(self, filepath):
+    def _find_published_file_type(self, filepath, representation):
         """Given a filepath infer what type of published file type it is."""
 
         _, ext = os.path.splitext(filepath)
+        published_file_type = "Unknown"
 
-        published_file_type = "unknown"
-        if ext in [".ma", ".mb"]:
-            published_file_type = "maya_scene"
-        elif ext == ".nk":
-            published_file_type = "nuke_script"
+        if ext in [".exr", ".jpg", ".jpeg", ".png", ".dpx", ".tif", ".tiff"]:
+            is_sequence = bool(representation["context"].get("frame"))
+            if is_sequence:
+                published_file_type = "Rendered Image"
+            else:
+                published_file_type = "Image"
+        elif ext in [".mov", ".mp4"]:
+            published_file_type = "Movie"
         elif ext == ".abc":
-            published_file_type = "alembic_cache"
-        elif ext in [".exr", ".jpg", ".png"]:
-            published_file_type = "rendered_image"
+            published_file_type = "Alembic Cache"
         elif ext in [".bgeo", ".sc", ".gz"]:
-            published_file_type = "houdini_bgeo"
+            published_file_type = "Bgeo Geo"
+        elif ext in [".ma", ".mb"]:
+            published_file_type = "Maya Scene"
+        elif ext == ".nk":
+            published_file_type = "Nuke Script"
+        elif ext == ".hip":
+            published_file_type = "Houdini Scene"
+        elif ext in [".hda"]:
+            published_file_type = "HDA"
+        elif ext in [".fbx"]:
+            published_file_type = "FBX Geo"
 
         filters = [["code", "is", published_file_type]]
-        sg_published_file_type = self.sg.find_one("PublishedFile", filters=filters)
+        sg_published_file_type = self.sg.find_one("PublishedFileType", filters=filters)
         if not sg_published_file_type:
             # create a published file type on the fly
             sg_published_file_type = self.sg.create(

@@ -85,11 +85,13 @@ class ExtractOIIOTranscode(publish.Extractor):
 
     def process(self, instance):
 
-        # Instance should be process in the farm
+        ### Starts Alkemy-X Override ###
+        # Skip execution if instance is marked to be processed in the farm
         if instance.data.get("farm"):
             self.log.info(
                 "Instance is marked to be processed on farm. Skipping")
             return
+        ### Ends Alkemy-X Override ###
 
         if not self.profiles:
             self.log.debug("No profiles present for color transcode")
@@ -280,6 +282,11 @@ class ExtractOIIOTranscode(publish.Extractor):
                 if "shotgridreview" in new_repre["tags"]:
                     new_repre["tags"].remove("shotgridreview")
 
+                # Removing 'review' from new representations as we only want
+                # to generate review from the original representation
+                if "review" in new_repre["tags"]:
+                    new_repre["tags"].remove("review")
+
                 for tag in output_def["tags"]:
                     if tag not in new_repre["tags"]:
                         new_repre["tags"].append(tag)
@@ -291,6 +298,10 @@ class ExtractOIIOTranscode(publish.Extractor):
                 # string, cause that'll indicate that its not a sequence.
                 if len(new_repre["files"]) == 1:
                     new_repre["files"] = new_repre["files"][0]
+
+                self.log.info(
+                    "Added new representation: %s - %s", new_repre["name"], new_repre
+                )
 
                 new_representations.append(new_repre)
                 added_representations = True
@@ -333,7 +344,7 @@ class ExtractOIIOTranscode(publish.Extractor):
 
         # Iterate from more specific to more generic entity so as soon as we
         # find some values, we break the loop and return the profiles
-        for entity in delivery.SG_HIERARCHY_MAP.keys():
+        for entity in delivery.SG_SHOT_HIERARCHY_MAP.keys():
             ent_overrides = delivery_overrides_dict.get(entity)
             if not ent_overrides:
                 self.log.debug(
