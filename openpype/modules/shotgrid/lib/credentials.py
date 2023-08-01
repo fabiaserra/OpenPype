@@ -4,8 +4,12 @@ from urllib.parse import urlparse
 import shotgun_api3
 from shotgun_api3.shotgun import AuthenticationFault
 
+from openpype.lib import Logger
 from openpype.lib import OpenPypeSecureRegistry, OpenPypeSettingsRegistry
 from openpype.modules.shotgrid.lib.record import Credentials
+from openpype.modules.shotgrid.lib.settings import get_shotgrid_servers
+
+logger = Logger.get_logger(__name__)
 
 
 def _get_shotgrid_secure_key(hostname, key):
@@ -125,3 +129,36 @@ def check_credentials(
     except AuthenticationFault:
         return False
     return True
+
+
+### Starts Alkemy-X Override ###
+def get_shotgrid_session():
+    """Return a Shotgun API session object for the configured ShotGrid server.
+
+    The function reads the ShotGrid server settings from the OpenPype
+    configuration file and uses them to create a Shotgun API session object.
+
+    Returns:
+        A Shotgun API session object.
+    """
+    shotgrid_servers_settings = get_shotgrid_servers()
+
+    shotgrid_server_setting = shotgrid_servers_settings.get("alkemyx", {})
+    shotgrid_url = shotgrid_server_setting.get("shotgrid_url", "")
+
+    shotgrid_script_name = shotgrid_server_setting.get("shotgrid_script_name", "")
+    shotgrid_script_key = shotgrid_server_setting.get("shotgrid_script_key", "")
+    if not shotgrid_script_name and not shotgrid_script_key:
+        logger.error(
+            "No Shotgrid API credential found, please enter "
+            "script name and script key in OpenPype settings"
+        )
+
+    proxy = os.environ.get("HTTPS_PROXY", "").lstrip("https://")
+    return shotgun_api3.Shotgun(
+        shotgrid_url,
+        script_name=shotgrid_script_name,
+        api_key=shotgrid_script_key,
+        http_proxy=proxy,
+    )
+### Ends Alkemy-X Override ###

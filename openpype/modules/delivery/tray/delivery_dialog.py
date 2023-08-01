@@ -11,8 +11,8 @@ class DeliveryDialog(QtWidgets.QDialog):
     SIZE_H = 500
 
     DELIVERY_TYPES = [
-        "final",
-        "review",
+        "Final",
+        "Review",
     ]
 
     TEMPLATE_ROOT = "{yyyy}{mm}{dd}/{representation}/{asset}_{task[short]}"
@@ -26,7 +26,7 @@ class DeliveryDialog(QtWidgets.QDialog):
     def __init__(self, module, parent=None):
         super(DeliveryDialog, self).__init__(parent)
 
-        self.setWindowTitle("Deliver SG Playlist")
+        self.setWindowTitle("Deliver SG Entities")
 
         self._module = module
 
@@ -45,21 +45,28 @@ class DeliveryDialog(QtWidgets.QDialog):
         self.ui_init()
 
     def ui_init(self):
-        self.sg_playlist_id = QtWidgets.QLabel("SG Playlist id:")
+
+        main_layout = QtWidgets.QVBoxLayout(self)
+
+        #### COMMON ####
+        # Common input widgets for delivery and republish features
+        sg_input_widget = QtWidgets.QWidget(self)
+        sg_input_layout = QtWidgets.QFormLayout(sg_input_widget)
+        sg_input_layout.setContentsMargins(5, 5, 5, 5)
+
+        self.input_group = QtWidgets.QButtonGroup()
+        self.input_group.setExclusive(True)
+
         self.sg_playlist_id_input = QtWidgets.QLineEdit()
+        self.playlist_radio_btn = QtWidgets.QRadioButton("SG Playlist Id")
+        self.playlist_radio_btn.setChecked(True)
+        self.input_group.addButton(self.playlist_radio_btn)
+        sg_input_layout.addRow(self.playlist_radio_btn, self.sg_playlist_id_input)
 
-        input_widget = QtWidgets.QWidget(self)
-        input_layout = QtWidgets.QFormLayout(input_widget)
-        input_layout.setContentsMargins(10, 15, 5, 5)
-        input_layout.addRow(self.sg_playlist_id, self.sg_playlist_id_input)
-
-        self.delivery_template_inputs = {}
-        for key, delivery_template in self.DELIVERY_TEMPLATES.items():
-            label = QtWidgets.QLabel(f"{key} Template")
-            template_input = QtWidgets.QLineEdit(delivery_template)
-
-            self.delivery_template_inputs[key] = template_input
-            input_layout.addRow(label, template_input)
+        self.sg_version_id_input = QtWidgets.QLineEdit()
+        self.version_radio_btn = QtWidgets.QRadioButton("SG Version Id")
+        self.input_group.addButton(self.version_radio_btn)
+        sg_input_layout.addRow(self.version_radio_btn, self.sg_version_id_input)
 
         # Add combobox to choose which delivery type to do
         self.delivery_type_checkboxes = {}
@@ -70,22 +77,75 @@ class DeliveryDialog(QtWidgets.QDialog):
             self.delivery_type_checkboxes[delivery_type] = checkbox
             # TODO: if we want to add some control
             # checkbox.stateChanged.connect(self._update_delivery)
-            input_layout.addRow(delivery_type, checkbox)
+            sg_input_layout.addRow(delivery_type, checkbox)
 
-        deliver_button = QtWidgets.QPushButton("Deliver")
-        deliver_button.setToolTip("Deliver given SG playlist assets")
-        deliver_button.clicked.connect(self._on_delivery_clicked)
+        main_layout.addWidget(sg_input_widget)
 
+        # Add a stretch between sections
+        main_layout.addStretch(1)
+
+        #### DELIVERY ####
+        # Widgets related to delivery functionality
+        delivery_input_widget = QtWidgets.QWidget(self)
+        delivery_input_layout = QtWidgets.QFormLayout(delivery_input_widget)
+        delivery_input_layout.setContentsMargins(5, 5, 5, 5)
+
+        main_layout.addWidget(delivery_input_widget)
+
+        self.delivery_template_inputs = {}
+        for key, delivery_template in self.DELIVERY_TEMPLATES.items():
+            label = QtWidgets.QLabel(f"{key} Template")
+            template_input = QtWidgets.QLineEdit(delivery_template)
+
+            self.delivery_template_inputs[key] = template_input
+            delivery_input_layout.addRow(label, template_input)
+
+        deliver_btn = QtWidgets.QPushButton("Deliver")
+        deliver_btn.setToolTip("Deliver given SG entity assets")
+        deliver_btn.clicked.connect(self._on_delivery_clicked)
+
+        main_layout.addWidget(deliver_btn)
+
+        # Add a stretch between sections
+        main_layout.addStretch(1)
+
+        #### REPUBLISH ####
+        # Widgets related to republish functionality
+        republish_input_widget = QtWidgets.QWidget(self)
+        republish_input_layout = QtWidgets.QFormLayout(republish_input_widget)
+        republish_input_layout.setContentsMargins(5, 5, 5, 5)
+
+        # Add checkbox to choose whether we want to force the media to be
+        # regenerated or not
+        self.ensure_delivery_media_cb = QtWidgets.QCheckBox()
+        self.ensure_delivery_media_cb.setChecked(False)
+        self.ensure_delivery_media_cb.setToolTip(
+            "Whether we want to force the generation of the delivery media "\
+            "representations regardless if they already exist or not " \
+            "(i.e., need to create new slates)"
+        )
+        republish_input_layout.addRow(
+            "Force regeneration of media", self.ensure_delivery_media_cb
+        )
+
+        main_layout.addWidget(republish_input_widget)
+
+        republish_media_btn = QtWidgets.QPushButton("Republish delivery media")
+        republish_media_btn.setToolTip(
+            "Run the publish pipeline and ensure delivery media exists for all " \
+            "representations"
+        )
+        republish_media_btn.clicked.connect(self._on_republish_media_clicked)
+
+        main_layout.addWidget(republish_media_btn)
+
+        #### REPORT ####
         self.text_area = QtWidgets.QTextEdit()
         self.text_area.setReadOnly(True)
         self.text_area.setVisible(False)
-        self.text_area.setMinimumHeight(250)
 
-        layout = QtWidgets.QVBoxLayout(self)
-        layout.addWidget(input_widget)
-        layout.addStretch(1)
-        layout.addWidget(deliver_button)
-        layout.addWidget(self.text_area)
+        main_layout.addWidget(self.text_area)
+
 
     def _format_report(self, report_items, success):
         """Format final result and error details as html."""
@@ -107,7 +167,7 @@ class DeliveryDialog(QtWidgets.QDialog):
         delivery_types = []
         for delivery_type, checkbox in self.delivery_type_checkboxes.items():
             if checkbox.isChecked():
-                delivery_types.append(delivery_type)
+                delivery_types.append(delivery_type.lower())
 
         return delivery_types
 
@@ -123,26 +183,51 @@ class DeliveryDialog(QtWidgets.QDialog):
         delivery_types = self._get_selected_delivery_types()
         delivery_templates = self._get_delivery_templates()
 
-        report_items, success = sg_delivery.deliver_playlist(
-            self.sg_playlist_id_input.text(),
-            delivery_types=delivery_types,
-            delivery_templates=delivery_templates,
-        )
+        if self.playlist_radio_btn.isChecked():
+            report_items, success = sg_delivery.deliver_playlist_id(
+                self.sg_playlist_id_input.text(),
+                delivery_types=delivery_types,
+                delivery_templates=delivery_templates,
+            )
+        else:
+            report_items, success = sg_delivery.deliver_version_id(
+                self.sg_version_id_input.text(),
+                delivery_types=delivery_types,
+                delivery_templates=delivery_templates,
+            )
+
+        self.text_area.setText(self._format_report(report_items, success))
+        self.text_area.setVisible(True)
+
+    def _on_republish_media_clicked(self):
+        delivery_types = self._get_selected_delivery_types()
+
+        if self.playlist_radio_btn.isChecked():
+            report_items, success = sg_delivery.republish_playlist_id(
+                self.sg_playlist_id_input.text(),
+                delivery_types=delivery_types,
+                force=self.ensure_delivery_media_cb.isChecked(),
+            )
+        else:
+            report_items, success = sg_delivery.republish_version_id(
+                self.sg_version_id_input.text(),
+                delivery_types=delivery_types,
+                force=self.ensure_delivery_media_cb.isChecked(),
+            )
+
         self.text_area.setText(self._format_report(report_items, success))
         self.text_area.setVisible(True)
 
 
 def main():
-
     app_instance = QtWidgets.QApplication.instance()
     if app_instance is None:
         app_instance = QtWidgets.QApplication([])
 
     if platform.system().lower() == "windows":
         import ctypes
-        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(
-            u"traypublisher"
-        )
+
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("sg_delivery")
 
     window = DeliveryDialog()
     window.show()

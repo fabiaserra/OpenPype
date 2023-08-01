@@ -44,6 +44,9 @@ class TranscodeFrames(publish.Extractor):
         "{src_colorspace}",
         "{dst_colorspace}",
         "--sattrib",
+        "framesPerSecond",  # Required to fix 'missing compression attribute' error
+        "{fps}",
+        "--sattrib",
         "alkemy/ingest/colorspace",  # Ingest colorspace
         "{src_colorspace}",
         "--sattrib",
@@ -162,7 +165,8 @@ class TranscodeFrames(publish.Extractor):
                 input_path=input_path,
                 src_colorspace=src_colorspace,
                 dst_colorspace=self.dst_colorspace,
-                output_path=output_path
+                output_path=output_path,
+                fps=instance.data["fps"],
             )
             # NOTE: We use src frame start/end because oiiotool doesn't support
             # writing out a different frame range than input
