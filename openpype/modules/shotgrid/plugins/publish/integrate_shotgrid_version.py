@@ -21,11 +21,13 @@ class IntegrateShotgridVersion(pyblish.api.InstancePlugin):
     sg = None
 
     def process(self, instance):
-        # Instance should be integrated on a farm
+        ### Starts Alkemy-X Override ###
+        # Skip execution if instance is marked to be processed in the farm
         if instance.data.get("farm"):
             self.log.info(
                 "Instance is marked to be processed on farm. Skipping")
             return
+        ### Ends Alkemy-X Override ###
 
         context = instance.context
         self.sg = context.data.get("shotgridSession")

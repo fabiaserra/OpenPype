@@ -23,17 +23,20 @@ class IntegrateShotgridPublish(pyblish.api.InstancePlugin):
 
         shotgrid_version = instance.data.get("shotgridVersion")
 
+        self.log.info("Integrating Shotgrid Published files...")
+
         for representation in instance.data.get("representations", []):
 
             local_path = get_publish_repre_path(
                 instance, representation, False
             )
 
-            if representation.get("tags", []):
-                continue
+            ### Starts Alkemy-X Override ###
+            # Remove condition to only integrate if tags don't exist
+            # if representation.get("tags", []):
+                # continue
 
             code = os.path.basename(local_path)
-            ### Starts Alkemy-X Override ###
             # Extract and remove version number from code so Publishedfile versions are
             # grouped together. More info about this on:
             # https://developer.shotgridsoftware.com/tk-core/_modules/tank/util/shotgun/publish_creation.html

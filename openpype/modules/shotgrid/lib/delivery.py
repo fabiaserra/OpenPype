@@ -40,14 +40,24 @@ SG_OUTPUT_DATATYPE_FIELDS = [
     "sg_extension",
 ]
 
-# Map of SG entities hierarchy from more specific to more generic with the
-# field that we need to query the parent entity
-SG_HIERARCHY_MAP = OrderedDict(
+# Shot hierarchy of SG entities from more specific to more generic with the
+# corresponding field that we need to query its parent entity
+SG_SHOT_HIERARCHY_MAP = OrderedDict(
     [
         ("Version", "entity"),
         ("Shot", "sg_sequence"),
         ("Sequence", "episode"),
         ("Episode", "project"),
+        ("Project", None),
+    ]
+)
+
+# Asset hierarchy of SG entities from more specific to more generic with the
+# corresponding field that we need to query its parent entity
+SG_ASSET_HIERARCHY_MAP = OrderedDict(
+    [
+        ("Version", "entity"),
+        ("Asset", "project"),
         ("Project", None),
     ]
 )
@@ -68,7 +78,7 @@ def get_representation_names_from_overrides(
             entity where the override was found.
     """
     representation_names = []
-    for entity in SG_HIERARCHY_MAP.keys():
+    for entity in SG_SHOT_HIERARCHY_MAP.keys():
         entity_overrides = delivery_overrides.get(entity)
         if not entity_overrides:
             continue
@@ -227,12 +237,18 @@ def get_entity_hierarchy_overrides(
     delivery_overrides = {}
 
     # Find the index on the hierarchy of the current entity
-    entity_index = list(SG_HIERARCHY_MAP.keys()).index(entity_type)
-
-    # Create an iterator object starting at the current entity index
-    # We are also creating an iterator object so we can manually control
-    # its iterations within the for loop
-    iterator = itertools.islice(SG_HIERARCHY_MAP.items(), entity_index, None)
+    if entity_type == "Asset":
+        entity_index = list(SG_ASSET_HIERARCHY_MAP.keys()).index(entity_type)
+        # Create an iterator object starting at the current entity index
+        # We are also creating an iterator object so we can manually control
+        # its iterations within the for loop
+        iterator = itertools.islice(SG_ASSET_HIERARCHY_MAP.items(), entity_index, None)
+    else:
+        entity_index = list(SG_SHOT_HIERARCHY_MAP.keys()).index(entity_type)
+        # Create an iterator object starting at the current entity index
+        # We are also creating an iterator object so we can manually control
+        # its iterations within the for loop
+        iterator = itertools.islice(SG_SHOT_HIERARCHY_MAP.items(), entity_index, None)
 
     base_query_fields = []
 
