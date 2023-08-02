@@ -8,7 +8,6 @@ import requests
 import pyblish.api
 
 import nuke
-
 from openpype import AYON_SERVER_ENABLED
 from openpype.pipeline import legacy_io
 from openpype.pipeline.publish import (
