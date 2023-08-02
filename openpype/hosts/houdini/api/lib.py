@@ -175,7 +175,7 @@ def get_output_parameter(node):
     node_type = node.type().description()
     category = node.type().category().name()
 
-    #Figure out which type of node is being rendered
+    # Figure out which type of node is being rendered
     if node_type == "Geometry" or node_type == "Filmbox FBX" or (node_type == "ROP Output Driver" and category == "Sop"):
         return node.parm("sopoutput")
     elif node_type == "Composite":

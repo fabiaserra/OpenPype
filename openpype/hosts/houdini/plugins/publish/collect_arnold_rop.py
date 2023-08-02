@@ -38,6 +38,9 @@ class CollectArnoldROPRenderProducts(pyblish.api.InstancePlugin):
         default_prefix = evalParmNoFrame(rop, "ar_picture")
         render_products = []
 
+        export_job = evalParmNoFrame(rop, "ar_ass_export_enable")
+
+
         # Default beauty AOV
         beauty_product = self.get_render_product_name(prefix=default_prefix,
                                                       suffix=None)

@@ -1,5 +1,5 @@
 from openpype.hosts.houdini.api import plugin
-from openpype.lib import EnumDef
+from openpype.lib import EnumDef, BoolDef
 
 
 class CreateArnoldRop(plugin.HoudiniCreator):
@@ -10,9 +10,11 @@ class CreateArnoldRop(plugin.HoudiniCreator):
     family = "arnold_rop"
     icon = "magic"
     defaults = ["master"]
-
     # Default extension
     ext = "exr"
+
+    # Default to split export and render jobs
+    export_job = True
 
     def create(self, subset_name, instance_data, pre_create_data):
         import hou
@@ -46,8 +48,16 @@ class CreateArnoldRop(plugin.HoudiniCreator):
 
             # Arnold ROP settings
             "ar_picture": filepath,
-            "ar_exr_half_precision": 1           # half precision
+            "ar_exr_half_precision": 1,           # half precision
         }
+
+        if pre_create_data.get("export_job"):
+            ass_filepath = "{renders_dir}{subset_name}/{subset_name}.$F4.ass".format(
+                renders_dir=hou.text.expandString("$HIP/pyblish/ass/"),
+                subset_name=subset_name,
+            )
+            parms["ar_ass_export_enable"] = 1
+            parms["ar_ass_file"] = ass_filepath
 
         instance_node.setParms(parms)
 
@@ -64,6 +74,11 @@ class CreateArnoldRop(plugin.HoudiniCreator):
         ]
 
         return attrs + [
+            BoolDef(
+                "export_job",
+                label="Split export and render jobs",
+                default=self.export_job,
+            ),
             EnumDef("image_format",
                     image_format_enum,
                     default=self.ext,
