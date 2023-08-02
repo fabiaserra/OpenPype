@@ -301,7 +301,7 @@ def get_entity_hierarchy_overrides(
 
             # If parent entity is found, we break the while loop
             # otherwise we query the next one
-            sg_parent_entity = sg_entity[query_field]
+            sg_parent_entity = sg_entity.get(query_field)
             if sg_parent_entity:
                 entity_id = sg_parent_entity["id"]
                 break
