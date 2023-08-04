@@ -61,7 +61,7 @@ def create_interactive(creator_identifier, **kwargs):
     # TODO Use Qt instead
     result, variant = hou.ui.readInput('Define variant name',
                                        buttons=("Ok", "Cancel"),
-                                       initial_contents='Main',
+                                       initial_contents='main',
                                        title="Define variant",
                                        help="Set the variant for the "
                                             "publish instance",
