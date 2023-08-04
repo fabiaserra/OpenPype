@@ -152,6 +152,8 @@ def get_export_parameter(node):
         return node.parm("sgtk_soho_diskfile")
     elif node_type == "Shotgun Alembic" and node.parm("use_sop_path").eval():
         return node.parm("sop_path")
+    elif node.type().nameWithCategory() == "Driver/vray_renderer":
+        return node.parm("render_export_filepath")
 
     raise TypeError("Node type '%s' not supported" % node_type)
 
@@ -222,6 +224,8 @@ def get_output_parameter(node):
         inner_node = node.node(node.parm("source").eval())
         if inner_node:
             return get_output_parameter(inner_node)
+    elif node.type().nameWithCategory() == "Driver/vray_renderer":
+        return node.parm("SettingsOutput_img_file_path")
 
     raise TypeError("Node type '%s' not supported" % node_type)
 

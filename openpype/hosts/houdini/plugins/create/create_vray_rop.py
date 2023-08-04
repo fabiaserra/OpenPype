@@ -18,6 +18,9 @@ class CreateVrayROP(plugin.HoudiniCreator):
 
     ext = "exr"
 
+    # Default to split export and render jobs
+    export_job = True
+
     def create(self, subset_name, instance_data, pre_create_data):
 
         instance_data.pop("active", None)
@@ -53,6 +56,14 @@ class CreateVrayROP(plugin.HoudiniCreator):
             "trange": 1,
             "SettingsEXR_bits_per_channel": "16"   # half precision
         }
+
+        if pre_create_data.get("export_job"):
+            scene_filepath = "{export_dir}{subset_name}/{subset_name}.$F4.vrscene".format(
+                export_dir=hou.text.expandString("$HIP/pyblish/vrscene/"),
+                subset_name=subset_name,
+            )
+            parms["render_export_mode"] = 1
+            parms["render_export_filepath"] = scene_filepath
 
         if self.selected_nodes:
             # set up the render camera from the selected node
@@ -139,6 +150,11 @@ class CreateVrayROP(plugin.HoudiniCreator):
         ]
 
         return attrs + [
+            BoolDef(
+                "export_job",
+                label="Split export and render jobs",
+                default=self.export_job,
+            ),
             EnumDef("image_format",
                     image_format_enum,
                     default=self.ext,

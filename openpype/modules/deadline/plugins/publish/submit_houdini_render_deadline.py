@@ -20,6 +20,10 @@ class DeadlinePluginInfo():
     Version = attr.ib(default=None)
     IgnoreInputs = attr.ib(default=True)
 
+@attr.s
+class VrayPluginInfo():
+    InputFilename = attr.ib(default=None)
+
 
 class HoudiniSubmitDeadline(abstract_submit_deadline.AbstractSubmitDeadline):
     """Submit Solaris USD Render ROPs to Deadline.
