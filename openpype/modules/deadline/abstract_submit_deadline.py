@@ -11,7 +11,6 @@ import platform
 import getpass
 from functools import partial
 from collections import OrderedDict
-from openpype import AYON_SERVER_ENABLED
 
 import six
 import attr

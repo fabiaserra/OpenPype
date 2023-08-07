@@ -252,7 +252,6 @@ class CollectOtioSubsetResources(pyblish.api.InstancePlugin):
 
         if kwargs.get("trim") is True:
             representation_data["tags"] = ["trim"]
-
         return representation_data
 
     def get_template_name(self, instance):

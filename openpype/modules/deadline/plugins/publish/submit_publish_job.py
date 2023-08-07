@@ -13,12 +13,7 @@ from openpype import AYON_SERVER_ENABLED
 from openpype.client import (
     get_last_version_by_subset_name,
 )
-from openpype.pipeline import (
-    legacy_io,
-    publish,
-)
-from openpype import AYON_SERVER_ENABLED
-from openpype.pipeline import publish
+from openpype.pipeline import publish, legacy_io
 from openpype.lib import EnumDef, is_running_from_build
 from openpype.tests.lib import is_in_tests
 
@@ -184,38 +179,6 @@ class ProcessSubmittedJobOnFarm(pyblish.api.InstancePlugin,
 
     # poor man exclusion
     skip_integration_repre_list = []
-
-    def _create_metadata_path(self, instance):
-        ins_data = instance.data
-        # Ensure output dir exists
-        output_dir = ins_data.get(
-            "publishRenderMetadataFolder", ins_data["outputDir"])
-
-        try:
-            if not os.path.isdir(output_dir):
-                os.makedirs(output_dir)
-        except OSError:
-            # directory is not available
-            self.log.warning("Path is unreachable: `{}`".format(output_dir))
-
-        metadata_filename = "{}_{}_metadata.json".format(
-            ins_data["asset"], ins_data["subset"]
-        )
-
-        metadata_path = os.path.join(output_dir, metadata_filename)
-
-        # Convert output dir to `{root}/rest/of/path/...` with Anatomy
-        success, rootless_mtdt_p = self.anatomy.find_root_template_from_path(
-            metadata_path)
-        if not success:
-            # `rootless_path` is not set to `output_dir` if none of roots match
-            self.log.warning((
-                "Could not find root path for remapping \"{}\"."
-                " This may cause issues on farm."
-            ).format(output_dir))
-            rootless_mtdt_p = metadata_path
-
-        return metadata_path, rootless_mtdt_p
 
     def _submit_deadline_post_job(self, instance, job, instances):
         """Submit publish job to Deadline.
