@@ -20,15 +20,7 @@ class ExtractThumbnail(publish.Extractor):
         if "representations" not in instance.data:
             instance.data["representations"] = []
 
-        staging_dir = os.path.join(work_root(legacy_io.Session), "temp_transcode")
-
-        # Create staging dir if it doesn't exist
-        try:
-            if not os.path.isdir(staging_dir):
-                os.makedirs(render_dir, exist_ok=True)
-        except OSError:
-            # directory is not available
-            self.log.warning("Path is unreachable: `{}`".format(staging_dir))
+        staging_dir = self.staging_dir(instance)
 
         self.create_thumbnail(staging_dir, instance)
 

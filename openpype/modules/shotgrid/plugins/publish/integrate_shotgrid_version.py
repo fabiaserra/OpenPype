@@ -81,8 +81,6 @@ class IntegrateShotgridVersion(pyblish.api.InstancePlugin):
             )
             version_entity = "-"
         data_to_update["sg_op_instance_id"] = str(version_entity)
-
-
         ### Ends Alkemy-X Override ###
 
         for representation in instance.data.get("representations", []):

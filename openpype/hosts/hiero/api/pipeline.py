@@ -263,6 +263,8 @@ def launch_workfiles_app(*args):
 
 def publish(parent):
     """Shorthand to publish from within host"""
+    ### Starts Alkemy-X Override ###
+    # Add some logic to validate selection before showing publish dialog
     from qtpy import QtWidgets
 
     # Ensure that selection includes at least one OP Tag
@@ -301,7 +303,7 @@ def publish(parent):
             )
         if answer == QtWidgets.QMessageBox.StandardButton.No:
             return
-
+    ### Ends Alkemy-X Override ###
     return host_tools.show_publish(parent)
 
 
