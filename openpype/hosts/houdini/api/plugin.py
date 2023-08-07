@@ -168,6 +168,8 @@ class HoudiniCreator(NewCreator, HoudiniCreatorBase):
     """Base class for most of the Houdini creator plugins."""
     selected_nodes = []
 
+    default_variant = "Main"
+
     def create(self, subset_name, instance_data, pre_create_data):
         try:
             if pre_create_data.get("use_selection"):
