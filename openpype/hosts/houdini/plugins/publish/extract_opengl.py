@@ -30,7 +30,7 @@ class ExtractOpenGL(publish.Extractor):
 
         output = instance.data["frames"]
 
-        tags = ["review", "shotgridreview"]
+        tags = ["review"]
         if not instance.data.get("keepImages"):
             tags.append("delete")
 
