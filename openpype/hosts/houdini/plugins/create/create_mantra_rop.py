@@ -11,7 +11,6 @@ class CreateMantraROP(plugin.HoudiniCreator):
     label = "Mantra ROP"
     family = "mantra_rop"
     icon = "magic"
-    default_variants = ["master"]
 
     # Default to split export and render jobs
     export_job = True
@@ -24,7 +23,7 @@ class CreateMantraROP(plugin.HoudiniCreator):
         # Add chunk size attribute
         instance_data["chunkSize"] = 10
         # Submit for job publishing
-        instance_data["farm"] = True
+        instance_data["farm"] = pre_create_data.get("farm")
 
         instance = super(CreateMantraROP, self).create(
             subset_name,
@@ -88,11 +87,12 @@ class CreateMantraROP(plugin.HoudiniCreator):
         ]
 
         return attrs + [
-            BoolDef(
-                "export_job",
-                label="Split export and render jobs",
-                default=self.export_job,
-            ),
+            BoolDef("farm",
+                    label="Submitting to Farm",
+                    default=True),
+            BoolDef("export_job",
+                    label="Split export and render jobs",
+                    default=self.export_job),
             EnumDef("image_format",
                     image_format_enum,
                     default="exr",

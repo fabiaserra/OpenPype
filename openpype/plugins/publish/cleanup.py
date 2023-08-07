@@ -37,11 +37,12 @@ class CleanUp(pyblish.api.InstancePlugin):
         "shell"
     ]
     exclude_families = ["clip"]
+    optional = True
     active = True
 
     # Presets
     paterns = None  # list of regex patterns
-    remove_temp_renders = False
+    remove_temp_renders = True
 
     def process(self, instance):
         """Plugin entry point."""

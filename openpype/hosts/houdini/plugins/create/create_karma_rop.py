@@ -11,10 +11,6 @@ class CreateKarmaROP(plugin.HoudiniCreator):
     label = "Karma ROP"
     family = "karma_rop"
     icon = "magic"
-    default_variants = ["master"]
-
-    # Default to split export and render jobs
-    export_job = True
 
     def create(self, subset_name, instance_data, pre_create_data):
         import hou  # noqa
@@ -24,7 +20,7 @@ class CreateKarmaROP(plugin.HoudiniCreator):
         # Add chunk size attribute
         instance_data["chunkSize"] = 10
         # Submit for job publishing
-        instance_data["farm"] = True
+        instance_data["farm"] = pre_create_data.get("farm")
 
         instance = super(CreateKarmaROP, self).create(
             subset_name,
@@ -78,6 +74,7 @@ class CreateKarmaROP(plugin.HoudiniCreator):
             camera = None
             for node in self.selected_nodes:
                 if node.type().name() == "cam":
+                    camera = node.path()
                     has_camera = pre_create_data.get("cam_res")
                     if has_camera:
                         res_x = node.evalParm("resx")
@@ -107,11 +104,9 @@ class CreateKarmaROP(plugin.HoudiniCreator):
         ]
 
         return attrs + [
-            BoolDef(
-                "export_job",
-                label="Split export and render jobs",
-                default=self.export_job,
-            ),
+            BoolDef("farm",
+                    label="Submitting to Farm",
+                    default=True),
             EnumDef("image_format",
                     image_format_enum,
                     default="exr",

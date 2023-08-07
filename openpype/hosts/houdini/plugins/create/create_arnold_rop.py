@@ -9,7 +9,7 @@ class CreateArnoldRop(plugin.HoudiniCreator):
     label = "Arnold ROP"
     family = "arnold_rop"
     icon = "magic"
-    default_variants = ["master"]
+
     # Default extension
     ext = "exr"
 
@@ -26,7 +26,7 @@ class CreateArnoldRop(plugin.HoudiniCreator):
         # Add chunk size attribute
         instance_data["chunkSize"] = 1
         # Submit for job publishing
-        instance_data["farm"] = True
+        instance_data["farm"] = pre_create_data.get("farm")
 
         instance = super(CreateArnoldRop, self).create(
             subset_name,
@@ -48,7 +48,7 @@ class CreateArnoldRop(plugin.HoudiniCreator):
 
             # Arnold ROP settings
             "ar_picture": filepath,
-            "ar_exr_half_precision": 1,           # half precision
+            "ar_exr_half_precision": 1           # half precision
         }
 
         if pre_create_data.get("export_job"):
@@ -75,11 +75,12 @@ class CreateArnoldRop(plugin.HoudiniCreator):
         ]
 
         return attrs + [
-            BoolDef(
-                "export_job",
-                label="Split export and render jobs",
-                default=self.export_job,
-            ),
+            BoolDef("farm",
+                    label="Submitting to Farm",
+                    default=True),
+            BoolDef("export_job",
+                    label="Split export and render jobs",
+                    default=self.export_job),
             EnumDef("image_format",
                     image_format_enum,
                     default=self.ext,

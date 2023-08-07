@@ -1318,6 +1318,7 @@ def get_main_window():
                            widget.metaObject().className() == name)
         _CTX.parent_gui = main_window
     return _CTX.parent_gui
+### Starts Alkemy-X Override ###
 
 
 def parse_edl_events(path, color_edits_only=False):
@@ -1495,3 +1496,4 @@ def parse_cdl(path):
     }
 
     return cdl
+### Ends Alkemy-X Override ###
