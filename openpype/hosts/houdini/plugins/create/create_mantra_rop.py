@@ -11,7 +11,7 @@ class CreateMantraROP(plugin.HoudiniCreator):
     label = "Mantra ROP"
     family = "mantra_rop"
     icon = "magic"
-    defaults = ["master"]
+    default_variants = ["master"]
 
     # Default to split export and render jobs
     export_job = True

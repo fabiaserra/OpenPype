@@ -11,7 +11,7 @@ class CreateKarmaROP(plugin.HoudiniCreator):
     label = "Karma ROP"
     family = "karma_rop"
     icon = "magic"
-    defaults = ["master"]
+    default_variants = ["master"]
 
     # Default to split export and render jobs
     export_job = True
