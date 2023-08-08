@@ -29,7 +29,7 @@ from .vendor_bin_utils import (
     get_ffmpeg_tool_path,
     get_ffmpeg_tool_args,
     get_chrome_tool_path,
-    is_oiio_supported,,
+    is_oiio_supported,
 )
 
 from .attribute_definitions import (
