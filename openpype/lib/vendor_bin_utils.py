@@ -485,6 +485,32 @@ def get_ffmpeg_tool_path(tool="ffmpeg"):
     return tool_executable_path
 
 
+def get_ffmpeg_tool_args(tool_name, *extra_args):
+    """Arguments to launch FFmpeg tool.
+
+    Args:
+        tool_name (str): Tool name 'ffmpeg', 'ffprobe', exc.
+        *extra_args (str): Extra arguments to add to after tool arguments.
+
+    Returns:
+        list[str]: List of arguments.
+    """
+
+    extra_args = list(extra_args)
+
+    if AYON_SERVER_ENABLED:
+        args = _get_ayon_ffmpeg_tool_args(tool_name)
+        if args:
+            return args + extra_args
+
+    executable_path = get_ffmpeg_tool_path(tool_name)
+    if executable_path:
+        return [executable_path] + extra_args
+    raise ToolNotFoundError(
+        "FFmpeg '{}' tool not found.".format(tool_name)
+    )
+
+
 def _chrome_executable_validation(filepath):
     """Validate chrome tool executable if can be executed.
 
@@ -553,32 +579,6 @@ def get_chrome_tool_path(tool="chrome"):
 
     CachedToolPaths.cache_executable_path(tool, tool_executable_path)
     return tool_executable_path
-
-
-def get_ffmpeg_tool_args(tool_name, *extra_args):
-    """Arguments to launch FFmpeg tool.
-
-    Args:
-        tool_name (str): Tool name 'ffmpeg', 'ffprobe', exc.
-        *extra_args (str): Extra arguments to add to after tool arguments.
-
-    Returns:
-        list[str]: List of arguments.
-    """
-
-    extra_args = list(extra_args)
-
-    if AYON_SERVER_ENABLED:
-        args = _get_ayon_ffmpeg_tool_args(tool_name)
-        if args:
-            return args + extra_args
-
-    executable_path = get_ffmpeg_tool_path(tool_name)
-    if executable_path:
-        return [executable_path] + extra_args
-    raise ToolNotFoundError(
-        "FFmpeg '{}' tool not found.".format(tool_name)
-    )
 
 
 def is_oiio_supported():
