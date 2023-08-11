@@ -125,6 +125,7 @@ build-patch:
   rules:
     - if: $CI_COMMIT_TAG
       when: never
+    - when: always
   allow_failure: false
 
 deploy-patch:
@@ -141,6 +142,7 @@ deploy-patch:
   rules:
     - if: $CI_COMMIT_TAG
       when: never
+    - when: always
 
 patch-release:
   tags:
@@ -164,6 +166,7 @@ patch-release:
   rules:
     - if: $CI_COMMIT_TAG
       when: never
+    - when: always
 
 deploy-to-deadline:
   tags:
