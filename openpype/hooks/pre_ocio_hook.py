@@ -8,6 +8,7 @@ class OCIOEnvHook(PreLaunchHook):
     """Set OCIO environment variable for hosts that use OpenColorIO."""
 
     order = 0
+    launch_types = set()
 
     def execute(self):
         """Hook entry method."""

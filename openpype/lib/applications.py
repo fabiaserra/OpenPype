@@ -12,6 +12,10 @@ from abc import ABCMeta, abstractmethod
 import six
 
 from openpype import AYON_SERVER_ENABLED, PACKAGE_DIR
+from openpype.client import (
+    get_project,
+    get_asset_by_name,
+)
 from openpype.settings import (
     get_system_settings,
     get_project_settings,
@@ -1699,6 +1703,7 @@ def prepare_context_environments(data, env_group=None, modules_manager=None):
         data (EnvironmentPrepData): Dictionary where result and intermediate
             result will be stored.
     """
+
     from openpype.pipeline.template_data import get_template_data
     from openpype.pipeline.context_tools import get_hierarchy_env
 

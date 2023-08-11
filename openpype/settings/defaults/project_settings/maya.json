@@ -528,7 +528,6 @@
         },
         "CreateRender": {
             "enabled": true,
-            "default_variant": "Main",
             "default_variants": [
                 "Main"
             ]
@@ -638,63 +637,54 @@
         },
         "CreateMultiverseUsd": {
             "enabled": true,
-            "default_variant": "Main",
             "default_variants": [
                 "Main"
             ]
         },
         "CreateMultiverseUsdComp": {
             "enabled": true,
-            "default_variant": "Main",
             "default_variants": [
                 "Main"
             ]
         },
         "CreateMultiverseUsdOver": {
             "enabled": true,
-            "default_variant": "Main",
             "default_variants": [
                 "Main"
             ]
         },
         "CreateAssembly": {
             "enabled": true,
-            "default_variant": "Main",
             "default_variants": [
                 "Main"
             ]
         },
         "CreateCamera": {
             "enabled": true,
-            "default_variant": "Main",
             "default_variants": [
                 "Main"
             ]
         },
         "CreateLayout": {
             "enabled": true,
-            "default_variant": "Main",
             "default_variants": [
                 "Main"
             ]
         },
         "CreateMayaScene": {
             "enabled": true,
-            "default_variant": "Main",
             "default_variants": [
                 "Main"
             ]
         },
         "CreateRenderSetup": {
             "enabled": true,
-            "default_variant": "Main",
             "default_variants": [
                 "Main"
             ]
         },
         "CreateRig": {
             "enabled": true,
-            "default_variant": "Main",
             "default_variants": [
                 "Main",
                 "Sim",
@@ -703,7 +693,6 @@
         },
         "CreateSetDress": {
             "enabled": true,
-            "default_variant": "Main",
             "default_variants": [
                 "Main",
                 "Anim"
@@ -711,14 +700,12 @@
         },
         "CreateVRayScene": {
             "enabled": true,
-            "default_variant": "Main",
             "default_variants": [
                 "Main"
             ]
         },
         "CreateYetiRig": {
             "enabled": true,
-            "default_variant": "Main",
             "default_variants": [
                 "Main"
             ]
