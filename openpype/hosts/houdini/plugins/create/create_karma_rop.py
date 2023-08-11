@@ -57,14 +57,6 @@ class CreateKarmaROP(plugin.HoudiniCreator):
             "savetodirectory": usd_directory,
         }
 
-        if pre_create_data.get("export_job"):
-            ifd_filepath = "{export_dir}{subset_name}/{subset_name}.$F4.ifd".format(
-                export_dir=hou.text.expandString("$HIP/pyblish/usd/"),
-                subset_name=subset_name,
-            )
-            parms["soho_outputmode"] = 1
-            parms["soho_diskfile"] = ifd_filepath
-
         res_x = pre_create_data.get("res_x")
         res_y = pre_create_data.get("res_y")
 
