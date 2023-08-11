@@ -139,7 +139,7 @@ def get_transferable_representations(instance):
     to_transfer = []
 
     for representation in instance.data.get("representations", []):
-        if "publish_on_farm" not in representation.get("tags"):
+        if "publish_on_farm" not in representation.get("tags", []):
             continue
 
         trans_rep = representation.copy()
