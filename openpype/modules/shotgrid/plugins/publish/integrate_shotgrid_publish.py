@@ -1,6 +1,8 @@
 import os
-import pyblish.api
 import re
+
+import shotgun_api3
+import pyblish.api
 
 from openpype.pipeline.publish import get_publish_repre_path
 
@@ -73,26 +75,35 @@ class IntegrateShotgridPublish(pyblish.api.InstancePlugin):
                 "version_number": version_number,
                 ### Ends Alkemy-X Override ###
             }
-            if not published_file:
-                published_file = self._create_published(published_file_data)
-                self.log.info(
-                    "Create Shotgrid PublishedFile: {}".format(published_file)
-                )
-            else:
-                self.sg.update(
-                    published_file["type"],
-                    published_file["id"],
-                    published_file_data,
-                )
-                self.log.info(
-                    "Update Shotgrid PublishedFile: {}".format(published_file)
-                )
+            ### Starts Alkemy-X Override ###
+            # Catch exception so a SG error doesn't stop the publish process
+            try:
+                if not published_file:
+                    published_file = self._create_published(published_file_data)
+                    self.log.info(
+                        "Create Shotgrid PublishedFile: {}".format(published_file)
+                    )
+                else:
+                    self.sg.update(
+                        published_file["type"],
+                        published_file["id"],
+                        published_file_data,
+                    )
+                    self.log.info(
+                        "Update Shotgrid PublishedFile: {}".format(published_file)
+                    )
 
-            if instance.data["family"] == "image":
-                self.sg.upload_thumbnail(
-                    published_file["type"], published_file["id"], local_path
+                if instance.data["family"] == "image":
+                    self.sg.upload_thumbnail(
+                        published_file["type"], published_file["id"], local_path
+                    )
+                instance.data["shotgridPublishedFile"] = published_file
+            except shotgun_api3.shotgun.Fault:
+                self.log.warning(
+                    "Couldn't upload published file with path '%s' to Shotgrid.",
+                    local_path
                 )
-            instance.data["shotgridPublishedFile"] = published_file
+            ### Ends Alkemy-X Override ###
 
     ### Starts Alkemy-X Override ###
     def _find_published_file_type(self, filepath, representation):
@@ -125,7 +136,9 @@ class IntegrateShotgridPublish(pyblish.api.InstancePlugin):
             published_file_type = "FBX Geo"
 
         filters = [["code", "is", published_file_type]]
-        sg_published_file_type = self.sg.find_one("PublishedFileType", filters=filters)
+        sg_published_file_type = self.sg.find_one(
+            "PublishedFileType", filters=filters
+        )
         if not sg_published_file_type:
             # create a published file type on the fly
             sg_published_file_type = self.sg.create(
@@ -134,7 +147,7 @@ class IntegrateShotgridPublish(pyblish.api.InstancePlugin):
         return sg_published_file_type
     ### Ends Alkemy-X Override ###
 
-    ### Startss Alkemy-X Override ###
+    ### Starts Alkemy-X Override ###
     def _find_existing_publish(self, code, context, instance, shotgrid_version):
     ### Ends Alkemy-X Override ###
 
