@@ -34,6 +34,12 @@ class IntegrateShotgridCutInfo(pyblish.api.InstancePlugin):
     optional = True
 
     def process(self, instance):
+
+        if instance.data.get("farm"):
+            self.log.info(
+                "Instance is marked to be processed on farm. Skipping")
+            return
+
         context = instance.context
         self.sg = context.data.get("shotgridSession")
         shotgrid_version = instance.data.get("shotgridVersion")
