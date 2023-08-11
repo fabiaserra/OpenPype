@@ -521,7 +521,6 @@
             "enabled": true,
             "make_tx": true,
             "rs_tex": false,
-            "default_variant": "Main",
             "default_variants": [
                 "Main"
             ]
@@ -534,7 +533,6 @@
         },
         "CreateUnrealStaticMesh": {
             "enabled": true,
-            "default_variant": "",
             "default_variants": [
                 "",
                 "_Main"
@@ -549,7 +547,6 @@
         },
         "CreateUnrealSkeletalMesh": {
             "enabled": true,
-            "default_variant": "",
             "default_variants": [],
             "joint_hints": "jnt_org"
         },
@@ -562,7 +559,6 @@
             "write_face_sets": false,
             "include_parent_hierarchy": false,
             "include_user_defined_attributes": false,
-            "default_variant": "Main",
             "default_variants": [
                 "Main"
             ]
@@ -571,7 +567,6 @@
             "enabled": true,
             "write_color_sets": false,
             "write_face_sets": false,
-            "default_variant": "Main",
             "default_variants": [
                 "Main",
                 "Proxy",
@@ -583,7 +578,6 @@
             "write_color_sets": false,
             "write_face_sets": false,
             "include_user_defined_attributes": false,
-            "default_variant": "Main",
             "default_variants": [
                 "Main"
             ]
@@ -592,14 +586,12 @@
             "enabled": true,
             "write_color_sets": false,
             "write_face_sets": false,
-            "default_variant": "Main",
             "default_variants": [
                 "Main"
             ]
         },
         "CreateReview": {
             "enabled": true,
-            "default_variant": "Main",
             "default_variants": [
                 "Main"
             ],
@@ -607,7 +599,6 @@
         },
         "CreateAss": {
             "enabled": true,
-            "default_variant": "Main",
             "default_variants": [
                 "Main"
             ],
@@ -630,7 +621,6 @@
             "enabled": true,
             "vrmesh": true,
             "alembic": true,
-            "default_variant": "Main",
             "default_variants": [
                 "Main"
             ]

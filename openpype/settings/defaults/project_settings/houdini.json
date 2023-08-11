@@ -21,8 +21,9 @@
         },
         "CreateArnoldRop": {
             "enabled": true,
-            "default_variant": "master",
-            "default_variants": ["master"]
+            "default_variants": [
+                "Main"
+            ]
         },
         "CreateAlembicCamera": {
             "enabled": true,
@@ -55,6 +56,12 @@
             ]
         },
         "CreateReview": {
+            "enabled": true,
+            "default_variants": [
+                "Main"
+            ]
+        },
+        "CreateVDBCache": {
             "enabled": true,
             "default_variants": [
                 "Main"

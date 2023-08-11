@@ -394,11 +394,6 @@
                     "label": "Alembic"
                 },
                 {
-                    "type": "text",
-                    "key": "default_variant",
-                    "label": "Default variant"
-                },
-                {
                     "type": "list",
                     "key": "default_variants",
                     "label": "Default Variants",
