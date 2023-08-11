@@ -138,6 +138,9 @@ deploy-patch:
     - build-patch
   needs:
     - build-patch
+  rules:
+    - if: $CI_COMMIT_TAG
+      when: never
 
 patch-release:
   tags:
@@ -158,6 +161,9 @@ patch-release:
       fi
   needs:
     - deploy-patch
+  rules:
+    - if: $CI_COMMIT_TAG
+      when: never
 
 deploy-to-deadline:
   tags:
