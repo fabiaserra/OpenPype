@@ -52,13 +52,12 @@ class ExtractOTIOTrimmingVideo(publish.Extractor):
 
             # prepare new representation data
             repre_data = deepcopy(_repre)
-            # remove tags as we dont need them
-            print(repre_data["tags"], 'repre_data["tags"]repre_data["tags"]repre_data["tags"]')
+            # remove trim tag
             repre_data["tags"].remove("trim")
             repre_data["stagingDir"] = self.staging_dir
             repre_data["files"] = new_file
 
-            # romove `trim` tagged representation
+            # remove `trim` tagged representation
             representations.remove(_repre)
             representations.append(repre_data)
             self.log.debug(repre_data)
