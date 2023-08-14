@@ -491,7 +491,7 @@ class AbstractSubmitDeadline(pyblish.api.InstancePlugin,
         return self.submit(payload)
 
     @abstractmethod
-    def get_job_info(self, dependency_job_ids=None):
+    def get_job_info(self):
         """Return filled Deadline JobInfo.
 
         This is host/plugin specific implementation of how to fill data in.
@@ -506,7 +506,7 @@ class AbstractSubmitDeadline(pyblish.api.InstancePlugin,
         pass
 
     @abstractmethod
-    def get_plugin_info(self, job_type=False):
+    def get_plugin_info(self):
         """Return filled Deadline PluginInfo.
 
         This is host/plugin specific implementation of how to fill data in.
