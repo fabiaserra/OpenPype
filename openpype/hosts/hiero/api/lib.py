@@ -1405,7 +1405,7 @@ def parse_edl_events(path, color_edits_only=False):
         loc_value = ""
         tape_value = ""
         entry = {"clip_name": clip.name}
-        cdl = clip.metadata["cdl"]
+        cdl = clip.metadata.get("cdl")
         if cdl:
             entry.update(
                 {

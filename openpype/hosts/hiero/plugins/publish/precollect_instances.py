@@ -95,7 +95,11 @@ class PrecollectInstances(pyblish.api.ContextPlugin):
             # filtered by it and we can control when the submit publish job plugin
             # gets executed. We can do this because in Hiero we have decided to always
             # publish in the farm
-            family = "{}.farm".format(tag_data["family"])
+            submit_to_farm = tag_data["family"] == "plate"
+            if submit_to_farm:
+                family = "{}.farm".format(tag_data["family"])
+            else:
+                family = tag_data["family"]
             ### Ends Alkemy-X Override ###
             families = [str(f) for f in tag_data["families"]]
             families.insert(0, str(family))
@@ -124,7 +128,7 @@ class PrecollectInstances(pyblish.api.ContextPlugin):
                 "tags": phiero.get_track_item_tags(track_item),
                 "newAssetPublishing": True,
                 "toBeRenderedOn": "deadline",
-                "farm": True,
+                "farm": submit_to_farm,
             })
 
             # otio clip data
