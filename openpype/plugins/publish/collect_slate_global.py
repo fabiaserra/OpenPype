@@ -109,6 +109,8 @@ class CollectSlateGlobal(pyblish.api.InstancePlugin):
                 "Using default '%s'", resources_path
             )
 
+        filter_task_types = slate_settings["integrate_task_types"]
+
         slate_global = {
             "slate_template_path": template_path,
             "slate_resources_path": resources_path,
@@ -116,7 +118,7 @@ class CollectSlateGlobal(pyblish.api.InstancePlugin):
             "slate_common_data": slate_common_data,
             "slate_thumbnail": "",
             "slate_repre_data": {},
-            "slate_task_types": slate_settings["integrate_task_types"]
+            "slate_task_types": filter_task_types
         }
         instance.data["slateGlobal"] = slate_global
 
@@ -130,7 +132,8 @@ class CollectSlateGlobal(pyblish.api.InstancePlugin):
             instance.data["versionData"]["families"] = list()
 
         task_type = instance.data["anatomyData"]["task"]["type"]
-        if task_type in slate_settings["integrate_task_types"]:
+
+        if not filter_task_types or task_type in slate_settings["integrate_task_types"]:
 
             self.log.debug(
                 "Task: %s is enabled for Extract Slate Global workflow, "
@@ -138,6 +141,7 @@ class CollectSlateGlobal(pyblish.api.InstancePlugin):
             )
 
             instance.data["slate"] = True
+            self.log.debug("Appending 'slate' to families")
             instance.data["families"].append("slate")
             instance.data["versionData"]["families"].append("slate")
 
