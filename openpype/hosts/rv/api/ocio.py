@@ -2,7 +2,7 @@
 
 This tries to set the relevant OCIO settings on the group's look and render
 pipeline similar to what the OpenColorIO Basic Color Management package does in
-OpenRV through its `ocio_source_setup` python file.
+RV through its `ocio_source_setup` python file.
 
 This assumes that the OpenColorIO Basic Color Management package of RV is both
 installed and loaded.

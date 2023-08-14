@@ -2,8 +2,8 @@ import qtawesome
 import rv
 
 from openpype.client import get_representations, get_asset_by_name
-from openpype.hosts.openrv.api.pipeline import get_containers
-from openpype.hosts.openrv.api import lib
+from openpype.hosts.rv.api.pipeline import get_containers
+from openpype.hosts.rv.api import lib
 from openpype.pipeline import get_current_project_name
 
 from openpype.pipeline import (

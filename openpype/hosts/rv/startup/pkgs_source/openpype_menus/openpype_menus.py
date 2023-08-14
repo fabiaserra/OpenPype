@@ -14,13 +14,13 @@ from openpype.pipeline import (
     discover_loader_plugins,
     load_container
 )
-from openpype.hosts.openrv.api import OpenRVHost
+from openpype.hosts.rv.api import RVHost
 
 # TODO (Critical) Remove this temporary hack to avoid clash with PyOpenColorIO
 #   that is contained within OpenPype's venv
 # Ensure PyOpenColorIO is loaded from RV instead of from OpenPype lib by
 # moving all rv related paths to start of sys.path so RV libs are imported
-# We consider the `/openrv` folder the root to  `/openrv/bin/rv` executable
+# We consider the `/rv` folder the root to  `/rv/bin/rv` executable
 rv_root = os.path.normpath(os.path.dirname(os.path.dirname(sys.executable)))
 rv_paths = []
 non_rv_paths = []
@@ -36,7 +36,7 @@ importlib.reload(PyOpenColorIO)
 
 
 def install_openpype_to_host():
-    host = OpenRVHost()
+    host = RVHost()
     install_host(host)
 
 

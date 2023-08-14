@@ -7,7 +7,7 @@ import pyblish
 import rv
 
 from openpype.host import HostBase, ILoadHost, IWorkfileHost, IPublishHost
-from openpype.hosts.openrv import OPENRV_ROOT_DIR
+from openpype.hosts.rv import RV_ROOT_DIR
 from openpype.pipeline import (
     register_loader_plugin_path,
     register_inventory_action_path,
@@ -15,7 +15,7 @@ from openpype.pipeline import (
     AVALON_CONTAINER_ID,
 )
 
-PLUGINS_DIR = os.path.join(OPENRV_ROOT_DIR, "plugins")
+PLUGINS_DIR = os.path.join(RV_ROOT_DIR, "plugins")
 PUBLISH_PATH = os.path.join(PLUGINS_DIR, "publish")
 LOAD_PATH = os.path.join(PLUGINS_DIR, "load")
 CREATE_PATH = os.path.join(PLUGINS_DIR, "create")
@@ -25,16 +25,16 @@ OPENPYPE_ATTR_PREFIX = "openpype."
 JSON_PREFIX = "JSON:::"
 
 
-class OpenRVHost(HostBase, IWorkfileHost, ILoadHost, IPublishHost):
-    name = "openrv"
+class RVHost(HostBase, IWorkfileHost, ILoadHost, IPublishHost):
+    name = "rv"
 
     def __init__(self):
-        super(OpenRVHost, self).__init__()
+        super(RVHost, self).__init__()
         self._op_events = {}
 
     def install(self):
         pyblish.api.register_plugin_path(PUBLISH_PATH)
-        pyblish.api.register_host("openrv")
+        pyblish.api.register_host("rv")
 
         register_loader_plugin_path(LOAD_PATH)
         register_creator_plugin_path(CREATE_PATH)

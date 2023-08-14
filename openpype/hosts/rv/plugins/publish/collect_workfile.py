@@ -7,8 +7,8 @@ class CollectWorkfile(pyblish.api.InstancePlugin):
     """Inject the current working file into context"""
 
     order = pyblish.api.CollectorOrder - 0.01
-    label = "OpenRV Session Workfile"
-    hosts = ["openrv"]
+    label = "RV Session Workfile"
+    hosts = ["rv"]
     families = ["workfile"]
 
     def process(self, instance):
@@ -18,7 +18,7 @@ class CollectWorkfile(pyblish.api.InstancePlugin):
         current_file = host.get_current_workfile()
         if not current_file:
             self.log.error("No current filepath detected. "
-                           "Make sure to save your OpenRV session")
+                           "Make sure to save your RV session")
             current_file = ""
 
         folder, file = os.path.split(current_file)

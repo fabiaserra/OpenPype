@@ -5,7 +5,7 @@ from openpype.modules.interfaces import IHostAddon
 RV_ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 
-class RVAddon(PypeModule, IHostAddon):
+class RVAddon(OpenPypeModule, IHostAddon):
     name = "rv"
     host_name = "rv"
 

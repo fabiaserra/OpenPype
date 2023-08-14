@@ -4,13 +4,13 @@ import tempfile
 from pathlib import Path
 
 from openpype.lib import PreLaunchHook
-from openpype.hosts.openrv import OPENRV_ROOT_DIR
+from openpype.hosts.rv import RV_ROOT_DIR
 from openpype.lib.execute import run_subprocess
 
 
-class PreSetupOpenRV(PreLaunchHook):
-    """Pre-hook for openrv"""
-    app_groups = ["openrv"]
+class PreSetupRV(PreLaunchHook):
+    """Pre-hook for rv"""
+    app_groups = ["rv"]
 
     def execute(self):
 
@@ -22,7 +22,7 @@ class PreSetupOpenRV(PreLaunchHook):
         # We use the `rvpkg` executable next to the `rv` executable to
         # install and opt-in to the OpenPype plug-in packages
         rvpkg = Path(os.path.dirname(str(executable))) / "rvpkg"
-        packages_src_folder = Path(OPENRV_ROOT_DIR) / "startup" / "pkgs_source"
+        packages_src_folder = Path(RV_ROOT_DIR) / "startup" / "pkgs_source"
 
         # TODO: Are we sure we want to deploy the addons into a temporary
         #   RV_SUPPORT_PATH on each launch. This would create redundant temp
@@ -46,9 +46,9 @@ class PreSetupOpenRV(PreLaunchHook):
             shutil.make_archive(str(package_dest), "zip", str(package_src))
 
         # Install and opt-in the OpenPype RV packages
-        install_args = [rvpkg, "-only", op_support_path, "-install", "-force"]
+        install_args = [rvpkg.as_posix(), "-only", op_support_path.as_posix(), "-install", "-force"]
         install_args.extend(packages)
-        optin_args = [rvpkg, "-only", op_support_path, "-optin", "-force"]
+        optin_args = [rvpkg.as_posix(), "-only", op_support_path.as_posix(), "-optin", "-force"]
         optin_args.extend(packages)
         run_subprocess(install_args, logger=self.log)
         run_subprocess(optin_args, logger=self.log)

@@ -1,6 +1,6 @@
 import qtawesome
 
-from openpype.hosts.openrv.api.pipeline import (
+from openpype.hosts.rv.api.pipeline import (
     read, imprint
 )
 from openpype.client import get_asset_by_name
@@ -11,7 +11,7 @@ from openpype.pipeline import (
 )
 
 
-class OpenRVWorkfileCreator(AutoCreator):
+class RVWorkfileCreator(AutoCreator):
     identifier = "workfile"
     family = "workfile"
     label = "Workfile"

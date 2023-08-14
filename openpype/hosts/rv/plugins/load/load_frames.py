@@ -9,8 +9,8 @@ from openpype.pipeline import (
 from openpype.pipeline.load import get_representation_path_from_context
 from openpype.lib.transcoding import IMAGE_EXTENSIONS
 
-from openpype.hosts.openrv.api.pipeline import imprint_container
-from openpype.hosts.openrv.api.ocio import (
+from openpype.hosts.rv.api.pipeline import imprint_container
+from openpype.hosts.rv.api.ocio import (
     set_group_ocio_active_state,
     set_group_ocio_colorspace
 )
@@ -19,7 +19,7 @@ import rv
 
 
 class FramesLoader(load.LoaderPlugin):
-    """Load frames into OpenRV"""
+    """Load frames into RV"""
 
     label = "Load Frames"
     families = ["*"]
@@ -136,7 +136,7 @@ class FramesLoader(load.LoaderPlugin):
 
     def _format_path(self, context):
         """Format the path with correct frame range.
-        The openRV load command requires image sequences to be provided
+        The RV load command requires image sequences to be provided
         with `{start}-{end}#` for its frame numbers, for example:
             /path/to/sequence.1001-1010#.exr
         """
@@ -188,7 +188,7 @@ class FramesLoader(load.LoaderPlugin):
         if colorspace_data:
             colorspace = colorspace_data["colorspace"]
             # TODO: Confirm colorspace is valid in current OCIO config
-            #   otherwise errors will be spammed from OpenRV for invalid space
+            #   otherwise errors will be spammed from RV for invalid space
 
             self.log.info(f"Setting colorspace: {colorspace}")
             group = rv.commands.nodeGroup(node)

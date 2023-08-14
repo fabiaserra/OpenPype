@@ -2,8 +2,8 @@ from openpype.pipeline import (
     load,
     get_representation_context
 )
-from openpype.hosts.openrv.api.pipeline import imprint_container
-from openpype.hosts.openrv.api.ocio import (
+from openpype.hosts.rv.api.pipeline import imprint_container
+from openpype.hosts.rv.api.ocio import (
     set_group_ocio_active_state,
     set_group_ocio_colorspace
 )
@@ -12,7 +12,7 @@ import rv
 
 
 class MovLoader(load.LoaderPlugin):
-    """Load mov into OpenRV"""
+    """Load mov into RV"""
 
     label = "Load MOV"
     families = ["*"]
@@ -77,7 +77,7 @@ class MovLoader(load.LoaderPlugin):
         if colorspace_data:
             colorspace = colorspace_data["colorspace"]
             # TODO: Confirm colorspace is valid in current OCIO config
-            #   otherwise errors will be spammed from OpenRV for invalid space
+            #   otherwise errors will be spammed from RV for invalid space
 
             self.log.info(f"Setting colorspace: {colorspace}")
             group = rv.commands.nodeGroup(node)

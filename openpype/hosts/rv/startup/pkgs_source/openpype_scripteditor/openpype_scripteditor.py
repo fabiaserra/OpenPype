@@ -62,7 +62,7 @@ class OpenPypeMenus(MinorMode):
                 return
 
         widget = PythonInterpreterWidget(parent=self._parent)
-        widget.setWindowTitle("Python Script Editor - OpenRV")
+        widget.setWindowTitle("Python Script Editor - RV")
         widget.setWindowFlags(widget.windowFlags() |
                               QtCore.Qt.Dialog |
                               QtCore.Qt.WindowMinimizeButtonHint)

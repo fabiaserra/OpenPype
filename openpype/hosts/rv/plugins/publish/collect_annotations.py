@@ -2,17 +2,17 @@ import os
 import pyblish.api
 
 from openpype.pipeline import publish
-from openpype.hosts.openrv.api.review import (
+from openpype.hosts.rv.api.review import (
     get_path_annotated_frame,
     # extract_annotated_frame
 )
 
 
-class ExtractOpenRVAnnotatedFrames(publish.Extractor):
+class ExtractRVAnnotatedFrames(publish.Extractor):
 
     order = pyblish.api.ExtractorOrder
     label = "Extract Annotations from Session"
-    hosts = ["openrv"]
+    hosts = ["rv"]
     families = ["annotation"]
 
     def process(self, instance):
