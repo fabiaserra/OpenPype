@@ -238,7 +238,7 @@ class CollectOtioSubsetResources(pyblish.api.InstancePlugin):
             })
 
         ### Starts Alkemy-X Override ###
-        tags = []
+        representation_data["tags"] = []
         if self.family in ["reference", "plate"]:
             self.log.debug("Adding 'shotgridreview' to representation tags")
             tags.append("shotgridreview")
