@@ -350,7 +350,7 @@ class IngestMeta:
         if filename in self.metadata:
             del self.metadata[filename]
 
-    def get_main_grade(self, color_path=""):
+    def get_main_grade(self):
         """
         If main grade is out of line as in someone manually changed it then set
         all grades to False
@@ -433,7 +433,9 @@ class IngestMeta:
                 main_grade = sorted(original_grades, key=sort_by_descriptor)[0][1]
 
             else:
-                main_grade = color_path
+                # In the case that self.metadata is empty then main grade can't
+                # be determined through this method
+                main_grade = None
 
             return main_grade
 
@@ -523,7 +525,12 @@ class IntegrateColorFile(pyblish.api.InstancePlugin):
         # Create color ingest meta on disk
         ingest_meta = IngestMeta(ocio_directory)
 
-        main_grade = ingest_meta.get_main_grade(color_path)
+        main_grade = ingest_meta.get_main_grade()
+
+        # Regardless of ingest_meta.get_main_grade logic, if there are no grades
+        # in the ocio folder then color_path will be main grade
+        if not plate_grades:
+            main_grade = color_path
 
         # Make sure that backup grade is removed from ingest_meta before adding
         # grade
