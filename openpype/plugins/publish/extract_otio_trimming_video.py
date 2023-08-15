@@ -52,8 +52,10 @@ class ExtractOTIOTrimmingVideo(publish.Extractor):
 
             # prepare new representation data
             repre_data = deepcopy(_repre)
+            ### Starts Alkemy-X Override ###
             # remove trim tag
             repre_data["tags"].remove("trim")
+            ### Ends Alkemy-X Override ###
             repre_data["stagingDir"] = self.staging_dir
             repre_data["files"] = new_file
 
