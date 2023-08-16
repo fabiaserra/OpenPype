@@ -1,4 +1,5 @@
 import copy
+import datetime
 import attr
 import pyblish.api
 import os
@@ -868,7 +869,18 @@ def create_metadata_path(instance, anatomy):
         # directory is not available
         log.warning("Path is unreachable: `{}`".format(output_dir))
 
-    metadata_filename = "{}_metadata.json".format(ins_data["subset"])
+    ### Starts Alkemy-X Override ###
+    # Prefixing metadata file with timestamp and asset so the .json files are
+    # unique and not overwrite each other. This is necessary because in Hiero
+    # we use the same working directory to publish multiple subsets at once
+    # and when the subset was called the same, it was overwriting the same file
+    # over and over
+    metadata_filename = "{}_{}_{}_metadata.json".format(
+        datetime.now().strftime("%d%m%Y%H%M%S"),
+        ins_data["asset"],
+        ins_data["subset"]
+    )
+    ### Ends Alkemy-X Override ###
 
     metadata_path = os.path.join(output_dir, metadata_filename)
 
