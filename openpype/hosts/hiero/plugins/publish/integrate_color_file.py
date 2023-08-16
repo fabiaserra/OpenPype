@@ -333,7 +333,7 @@ class IngestMeta:
         for filename in self.metadata:
             # target_grade can be empty depending on if there was a main grade
             # set or not
-            if not filename == target_grade:
+            if not self.metadata[filename]["source_path"] == target_grade:
                 self.metadata[filename]["main_grade"] = False
             else:
                 self.metadata[filename]["main_grade"] = True
@@ -406,30 +406,37 @@ class IngestMeta:
         if set_grade:
             # Determine if Grade file is meant to be main grade or if it is an
             # element grade
-            original_grades = [
-                (f.rsplit(".", 1)[0], f) for f in self.metadata.keys()
-            ]
+            if self.metadata:
+                original_grades = [
+                    (f.rsplit(".", 1)[0], f) for f in self.metadata.keys()
+                ]
 
-            if len(original_grades) == 1:
-                main_grade = original_grades[0][1]
-                return main_grade
+                if len(original_grades) == 1:
+                    main_grade = original_grades[0][1]
+                    return main_grade
 
-            # Testing to see if there is a high chance that main grade is only
-            # shot name
-            possible_main = sorted(original_grades, key=lambda x: len(x[0]))[0]
-            for name, grade in original_grades:
-                # If a grades name is in the other grades name it is for sure
-                # the main grade
-                if name == possible_main[0]:
-                    continue
-                if not possible_main[0] in name:
-                    break
+                # Testing to see if there is a high chance that main grade is only
+                # shot name
+                possible_main = sorted(original_grades, key=lambda x: len(x[0]))[0]
+                for name, grade in original_grades:
+                    # If a grades name is in the other grades name it is for sure
+                    # the main grade
+                    if name == possible_main[0]:
+                        continue
+                    if not possible_main[0] in name:
+                        break
+                else:
+                    main_grade = possible_main[1]
+                    return possible_main[1]
+
+                # Use description sorting method
+                main_grade = sorted(original_grades, key=sort_by_descriptor)[0][1]
+
             else:
-                main_grade = possible_main[1]
-                return possible_main[1]
+                # In the case that self.metadata is empty then main grade can't
+                # be determined through this method
+                main_grade = None
 
-            # Use description sorting method
-            main_grade = sorted(original_grades, key=sort_by_descriptor)[0][1]
             return main_grade
 
 
@@ -519,6 +526,11 @@ class IntegrateColorFile(pyblish.api.InstancePlugin):
         ingest_meta = IngestMeta(ocio_directory)
 
         main_grade = ingest_meta.get_main_grade()
+
+        # Regardless of ingest_meta.get_main_grade logic, if there are no grades
+        # in the ocio folder then color_path will be main grade
+        if not plate_grades:
+            main_grade = color_path
 
         # Make sure that backup grade is removed from ingest_meta before adding
         # grade
