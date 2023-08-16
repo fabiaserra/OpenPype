@@ -238,20 +238,21 @@ class CollectOtioSubsetResources(pyblish.api.InstancePlugin):
             })
 
         ### Starts Alkemy-X Override ###
+        representation_data["tags"] = []
         if self.family in ["reference", "plate"]:
             self.log.debug("Adding 'shotgridreview' to representation tags")
-            tags = ["shotgridreview"]
+            representation_data["tags"].append("shotgridreview")
             # If the representation is not video format then make a review of it
             if not representation_data["ext"] in ["mov", "avi", "mp4"]:
                 self.log.debug("Adding 'review' to representation tags")
-                tags.append("review")
+                representation_data["tags"].append("review")
 
-            representation_data["tags"] = tags
             self.log.debug("Updated representation -> %s" % representation_data)
-        ### Ends Alkemy-X Override ###
 
         if kwargs.get("trim") is True:
-            representation_data["tags"] = ["trim"]
+            representation_data["tags"].append("trim")
+        ### Ends Alkemy-X Override ###
+
         return representation_data
 
     def get_template_name(self, instance):

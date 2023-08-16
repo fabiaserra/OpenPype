@@ -3,7 +3,6 @@ import re
 import logging
 import tempfile
 
-import opentimelineio as otio
 import pyblish.api
 from html2image import Html2Image
 
@@ -16,19 +15,41 @@ from openpype.lib import (
 from openpype.pipeline import publish
 
 
+# Could use opentimelineio.otio.opentime util functions but otio is not always
+# available on all DCCs and it's tricky to install it due to its
+# binary dependencies so because we only use it for timecode conversion it's
+# easier to just implement it here.
 def timecode_to_frames(timecode, framerate):
-    rt = otio.opentime.from_timecode(timecode, framerate)
-    return int(otio.opentime.to_frames(rt))
+    def _seconds(value):
+        if isinstance(value, str):
+            _zip_ft = zip((3600, 60, 1, 1 / framerate), value.split(':'))
+            return sum(f * float(t) for f, t in _zip_ft)
+        elif isinstance(value, (int, float)):
+            return value / framerate
+        return 0
+
+    def _frames(seconds):
+        return seconds * framerate
+
+    def tc_to_frames(_timecode, start=None):
+        return _frames(_seconds(_timecode) - _seconds(start))
+
+    if '+' in timecode:
+        timecode = timecode.replace('+', ':')
+    elif '#' in timecode:
+        timecode = timecode.replace('#', ':')
+
+    frames = int(round(tc_to_frames(timecode, start='00:00:00:00')))
+
+    return frames
 
 
 def frames_to_timecode(frames, framerate):
-    rt = otio.opentime.from_frames(frames, framerate)
-    return otio.opentime.to_timecode(rt)
-
-
-def frames_to_seconds(frames, framerate):
-    rt = otio.opentime.from_frames(frames, framerate)
-    return otio.opentime.to_seconds(rt)
+    return '{0:02d}:{1:02d}:{2:02d}:{3:02d}'.format(
+        int(frames / (3600 * framerate)),
+        int(frames / (60 * framerate) % 60),
+        int(frames / framerate % 60),
+        int(frames % framerate))
 
 
 class SlateCreator:

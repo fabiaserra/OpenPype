@@ -26,10 +26,11 @@ from .vendor_bin_utils import (
     find_executable,
     get_vendor_bin_path,
     get_oiio_tools_path,
+    get_oiio_tool_args,
     get_ffmpeg_tool_path,
     get_ffmpeg_tool_args,
     get_chrome_tool_path,
-    is_oiio_supported,,
+    is_oiio_supported,
 )
 
 from .attribute_definitions import (
@@ -198,8 +199,8 @@ __all__ = [
     "get_oiio_tools_path",
     "get_oiio_tool_args",
     "get_ffmpeg_tool_path",
-    "get_chrome_tool_path",
     "get_ffmpeg_tool_args",
+    "get_chrome_tool_path",
     "is_oiio_supported",
 
     "AbstractAttrDef",

@@ -176,7 +176,7 @@ class TranscodeFrames(publish.Extractor):
                 (src_frame_start, src_frame_end),
                 plugin="CommandLine",
                 args=oiio_args,
-                executable="/usr/openpype/3.15/vendor/bin/oiio/linux/bin/oiiotool",
+                executable="/usr/openpype/3.16/vendor/bin/oiio/linux/bin/oiiotool",
             )
 
         # Store output dir for unified publisher (filesequence)

@@ -55,7 +55,7 @@ class MaxSubmitDeadline(abstract_submit_deadline.AbstractSubmitDeadline,
                                          cls.use_published)
         cls.priority = settings.get("priority",
                                     cls.priority)
-        cls.chuck_size = settings.get("chunk_size", cls.chunk_size)
+        cls.chunk_size = settings.get("chunk_size", cls.chunk_size)
         cls.group = settings.get("group", cls.group)
 
     def get_job_info(self):
@@ -132,7 +132,7 @@ class MaxSubmitDeadline(abstract_submit_deadline.AbstractSubmitDeadline,
             job_info.EnvironmentKeyValue[key] = value
 
         # to recognize render jobs
-        job_info.add_render_job_env_var(job_info)
+        job_info.add_render_job_env_var()
         job_info.EnvironmentKeyValue["OPENPYPE_LOG_NO_COLORS"] = "1"
 
         # Add list of expected files to job
