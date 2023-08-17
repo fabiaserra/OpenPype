@@ -57,7 +57,7 @@ def add_tasks_to_sg_entities(project, sg_entities, entity_type):
 
 
 def populate_tasks(project_code):
-    """Populate default tasks for all episodes, sequences, and shots in the
+    """Populate default tasks for all episodes, sequences, shots and assets in the
         given SG project.
 
     Args:
@@ -69,17 +69,22 @@ def populate_tasks(project_code):
     # Find the project with the given code
     project = sg.find_one("Project", [["sg_code", "is", project_code]])
 
-    # Try add tasks to all episodes
+    # Try add tasks to all Episodes
     episodes = sg.find("Episode", [["project", "is", project]], ["id", "code"])
     if episodes:
         add_tasks_to_sg_entities(project, episodes, "Episode")
 
-    # Try add tasks to all episodes
+    # Try add tasks to all Sequences
     sequences = sg.find("Sequence", [["project", "is", project]], ["id", "code"])
     if sequences:
         add_tasks_to_sg_entities(project, sequences, "Sequence")
 
-    # Try add tasks to all shots
+    # Try add tasks to all Shots
     shots = sg.find("Shot", [["project", "is", project]], ["id", "code"])
     if shots:
         add_tasks_to_sg_entities(project, shots, "Shot")
+
+    # Try add tasks to all Assets
+    assets = sg.find("Asset", [["project", "is", project]], ["id", "code"])
+    if assets:
+        add_tasks_to_sg_entities(project, assets, "Asset")
