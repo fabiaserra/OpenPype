@@ -16,6 +16,16 @@ DEFAULT_TASKS = {
 
 
 def add_tasks_to_sg_entities(project, sg_entities, entity_type):
+    """Add default tasks to the given SG entities of the specified entity type.
+
+    Args:
+        project (dict): A dictionary representing the SG project to which the
+            tasks will be added.
+        sg_entities (list): A list of dictionaries representing the SG entities
+            to which the tasks will be added.
+        entity_type (str): A string representing the type of SG entity to which
+            the tasks will be added.
+    """
     sg = credentials.get_shotgrid_session()
 
     # Create list of dictionaries with the common data we will be using to
@@ -47,6 +57,13 @@ def add_tasks_to_sg_entities(project, sg_entities, entity_type):
 
 
 def populate_tasks(project_code):
+    """Populate default tasks for all episodes, sequences, and shots in the
+        given SG project.
+
+    Args:
+        project_code (str): A string representing the code name of the SG
+            project to which the tasks will be added.
+    """
     sg = credentials.get_shotgrid_session()
 
     # Find the project with the given code
