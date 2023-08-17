@@ -71,12 +71,15 @@ def populate_tasks(project_code):
 
     # Try add tasks to all episodes
     episodes = sg.find("Episode", [["project", "is", project]], ["id", "code"])
-    add_tasks_to_sg_entities(project, episodes, "Episode")
+    if episodes:
+        add_tasks_to_sg_entities(project, episodes, "Episode")
 
     # Try add tasks to all episodes
     sequences = sg.find("Sequence", [["project", "is", project]], ["id", "code"])
-    add_tasks_to_sg_entities(project, sequences, "Sequence")
+    if sequences:
+        add_tasks_to_sg_entities(project, sequences, "Sequence")
 
     # Try add tasks to all shots
     shots = sg.find("Shot", [["project", "is", project]], ["id", "code"])
-    add_tasks_to_sg_entities(project, shots, "Shot")
+    if shots:
+        add_tasks_to_sg_entities(project, shots, "Shot")
