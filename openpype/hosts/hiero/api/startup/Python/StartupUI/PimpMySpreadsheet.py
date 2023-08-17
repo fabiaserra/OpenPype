@@ -3,12 +3,16 @@ import glob
 import hiero
 import os
 import PyOpenColorIO
-from qtpy import QtWidgets *
-from qtpy import QtCore *
+import random
+from qtpy.QtWidgets import *
+from qtpy.QtCore import *
+from qtpy.QtGui import *
 
 
 from openpype.client import get_asset_by_name
 from openpype.pipeline.context_tools import get_current_project_name
+from openpype.hosts.hiero.api.lib import set_trackitem_openpype_tag, \
+                                        get_trackitem_openpype_tag
 
 
 def get_active_ocio_config():
@@ -191,7 +195,7 @@ def get_track_item_shot(track_item_name):
     """Validate if shot exists in DB and if so return shot name"""
     parents = get_asset_parents(track_item_name)
     if parents is None:
-        return "--"
+        return None
     else:
 
         return track_item_name
@@ -203,7 +207,7 @@ def get_track_item_episode(track_item_name):
 
     parents = get_asset_parents(track_item_name)
     if parents is None:
-        return "--"
+        return None
 
     # Parents will always start with shots or assets
     folder = parents[0]
@@ -213,7 +217,7 @@ def get_track_item_episode(track_item_name):
 
             return episode
 
-    return "--"
+    return None
 
 
 def get_track_item_sequence(track_item_name):
@@ -224,7 +228,7 @@ def get_track_item_sequence(track_item_name):
     parents = get_asset_parents(track_item_name)
     if parents is None:
 
-        return "--"
+        return None
 
     # Parents will always start with shots or assets
     folder = parents[0]
@@ -234,7 +238,7 @@ def get_track_item_sequence(track_item_name):
 
             return sequence
 
-    return "--"
+    return None
 
 
 # Set to True, if you wat "Set Status" right-click menu, False if not
@@ -319,7 +323,7 @@ class CustomSpreadsheetColumns(QObject):
     # This is the list of Columns available
     # readonly implies QLabel
     # dropdown implies QCombo
-    # c implies QEditText
+    # c implies QTextEdit
     # These are namely used for generic column items that don't need much configeration
     gCustomColumnList = [
         {
@@ -383,15 +387,31 @@ class CustomSpreadsheetColumns(QObject):
             "cellType": "readonly"
         },
         {
-            "name": "Cut In",
+            "name": "cut_in",
             "cellType": "text"
         },
         {
-            "name": "Head Handles",
+            "name": "head_handles",
             "cellType": "text"
         },
         {
-            "name": "Tail Handles",
+            "name": "tail_handles",
+            "cellType": "text"
+        },
+        {
+            "name": "op_frame_start",
+            "cellType": "text"
+        },
+        {
+            "name": "op_family",
+            "cellType": "text"
+        },
+        {
+            "name": "op_handle_end",
+            "cellType": "text"
+        },
+        {
+            "name": "op_handle_start",
             "cellType": "text"
         },
     ]
@@ -431,8 +451,6 @@ class CustomSpreadsheetColumns(QObject):
 
     def getData(self, row, column, item):
         """Return the data in a cell"""
-        print(column, 'column getData')
-        print(item, 'item getData')
         currentColumn = self.gCustomColumnList[column]
         if currentColumn["name"] == "Tags":
             return self.getTagsString(item)
@@ -461,33 +479,21 @@ class CustomSpreadsheetColumns(QObject):
                 fileType = M.value("media.input.filereader")
             return fileType
 
-        if currentColumn["name"] == "Shot Status":
-            status = item.status()
-            if not status:
-                status = "--"
-            return str(status)
-
         if currentColumn["name"] == "MediaType":
             M = item.mediaType()
             return str(M).split("MediaType")[-1].replace(".k", "")
-
-        # if currentColumn["name"] == "Thumbnail":
-        #     return str(item.eventNumber())
 
         if currentColumn["name"] == "WidthxHeight":
             return f"{str(item.source().format().width())}x{str(item.source().format().height())}"
 
         if currentColumn["name"] == "Episode":
-            return get_track_item_episode(item.name())
+            return get_track_item_episode(item.name()) or "--"
 
         if currentColumn["name"] == "Sequence":
-            return get_track_item_sequence(item.name())
+            return get_track_item_sequence(item.name()) or "--"
 
         if currentColumn["name"] == "Shot":
-            return get_track_item_shot(item.name())
-
-        # if currentColumn["name"] == "Height":
-        #     return str(item.source().format().height())
+            return get_track_item_shot(item.name()) or "--"
 
         if currentColumn["name"] == "Pixel Aspect":
             return str(item.source().format().pixelAspect())
@@ -506,27 +512,22 @@ class CustomSpreadsheetColumns(QObject):
             else:
                 return "--"
 
+        elif currentColumn["name"] in ["cut_in", "head_handles", "tail_handles"]:
+            tag_key = currentColumn["name"]
+            current_tag_text = item.cut_tag().get(f"tag.{tag_key}", "--")
 
-        elif currentColumn["name"] == "Cut In":
-            current_tag_text = item.cut_tag["cut_in"]
-            if current_tag_text:
-                return current_tag_text
-            else:
-                return "--"
+            return current_tag_text
 
-        elif currentColumn["name"] == "Head Handles":
-            current_text = item.cut_tag["head_handles"]
-            if current_tag_text:
-                return current_tag_text
-            else:
-                return "--"
+        elif currentColumn["name"] in [
+                "op_frame_start",
+                "op_family",
+                "op_handle_end",
+                "op_handle_start"
+            ]:
+            instance_key = currentColumn["name"]
+            current_tag_text = item.openpype_instance().get(f"{instance_key.split('op_')[-1]}", '--')
 
-        elif currentColumn["name"] == "Tail Handles":
-            current_text = item.cut_tag["tail_handles"]
-            if current_tag_text:
-                return current_tag_text
-            else:
-                return "--"
+            return current_tag_text
 
         return ""
 
@@ -673,11 +674,6 @@ class CustomSpreadsheetColumns(QObject):
         """Create an editing widget for a custom cell"""
         self.currentView = view
         currentColumn = self.gCustomColumnList[column]
-        print(column, 'column')
-        print(view, 'view')
-        print(item, 'item')
-
-        # Have option to set default widgeteditor option?
 
         if currentColumn["cellType"] == "readonly":
             # readonly is done by removing visiblity and useability of the
@@ -689,61 +685,34 @@ class CustomSpreadsheetColumns(QObject):
             return edit_widget
 
         elif currentColumn["name"] == "Colorspace":
-            self.gColorSpaces
             ocio_config = get_active_ocio_config()
             edit_widget = Colorspace_Widget(ocio_config)
             edit_widget.root_menu.triggered.connect(self.colorspaceChanged)
             return edit_widget
 
-        elif currentColumn["name"] == "Cut In":
-            current_text = item.cut_tag["cut_in"]
-            edit_widget = QEditText(current_text)
-            edit_widget.setObjectName("cut_in")
-            edit_widget.editFinished.connect(self.cut_info_changed)
+        elif currentColumn["name"] in ["cut_in", "head_handles", "tail_handles"]:
+            tag_key = currentColumn["name"]
+            current_text = item.cut_tag().get(f"tag.{tag_key}")
+            edit_widget = QLineEdit(current_text)
+            edit_widget.setObjectName(tag_key)
+            edit_widget.returnPressed.connect(self.cut_info_changed)
 
             return edit_widget
 
-        elif currentColumn["name"] == "Head Handles":
-            current_text = item.cut_tag["head_handles"]
-            edit_widget = QEditText(current_text)
-            edit_widget.setObjectName("head_handles")
-            edit_widget.editFinished.connect(self.cut_info_changed)
+        elif currentColumn["name"] in [
+                "op_frame_start",
+                "op_family",
+                "op_handle_end",
+                "op_handle_start"
+            ]:
+
+            instance_key = currentColumn["name"].split('op_')[-1]
+            current_text = item.cut_tag().get(f"tag.{instance_key}")
+            edit_widget = QLineEdit(current_text)
+            edit_widget.setObjectName(instance_key)
+            edit_widget.returnPressed.connect(self.openpype_instance_changed)
 
             return edit_widget
-
-        elif currentColumn["name"] == "Tail Handles":
-            current_text = item.cut_tag["tail_handles"]
-            edit_widget = QEditText(current_text)
-            edit_widget.setObjectName("tail_handles")
-            edit_widget.editFinished.connect(self.cut_info_changed)
-
-            return edit_widget
-
-        # if currentColumn["name"] == "Colorspace":
-        #     cb = QComboBox()
-        #     for colorspace in self.gColorSpaces:
-        #         cb.addItem(colorspace)
-        #     cb.currentIndexChanged.connect(self.colorspaceChanged)
-        #     return cb
-
-        # if currentColumn["name"] == "Shot Status":
-        #     cb = QComboBox()
-        #     cb.addItem("")
-        #     for key in gStatusTags.keys():
-        #         cb.addItem(QIcon(gStatusTags[key]), key)
-        #     cb.addItem("--")
-        #     cb.currentIndexChanged.connect(self.statusChanged)
-
-        #     return cb
-
-        # if currentColumn["name"] == "Artist":
-        #     cb = QComboBox()
-        #     cb.addItem("")
-        #     for artist in gArtistList:
-        #         cb.addItem(artist["artistName"])
-        #     cb.addItem("--")
-        #     cb.currentIndexChanged.connect(self.artistNameChanged)
-        #     return cb
 
         return None
 
@@ -771,24 +740,52 @@ class CustomSpreadsheetColumns(QObject):
             for trackItem in items:
                 trackItem.setSourceMediaColourTransform(colorspace)
 
-    # def colorspaceChanged(self, index):
-    #     """
-    #   This method is called when Colorspace widget changes index.
-    # """
-    #     index = self.sender().currentIndex()
-    #     colorspace = self.gColorSpaces[index]
-    #     selection = self.currentView.selection()
-    #     project = selection[0].project()
-    #     with project.beginUndo("Set Colorspace"):
-    #         items = [
-    #             item for item in selection
-    #             if (item.mediaType() == hiero.core.TrackItem.MediaType.kVideo)
-    #         ]
-    #         for trackItem in items:
-    #             trackItem.setSourceMediaColourTransform(colorspace)
+    def cut_info_changed(self):
+        sender = self.sender()
+        key = sender.objectName()
+        value = sender.text()
 
-    def cut_info_changed(self, widget):
-        widget.objectName()
+        # Only pass on edit if user unintentially erased value from column
+        if value not in ["--", ""] and not value.isdigit():
+            return
+        else:
+            # Remove preceding zeros
+            value = value.strip().lstrip("0")
+
+        view = hiero.ui.activeView()
+        selection = view.selection()
+        if value != "--" and value:
+            for track_item in selection:
+                track_item.set_cut_tag(key, value)
+        else:
+            # Double check that the other cut info tag values don't exist
+            cut_info_keys = ["cut_in", "head_handles", "tail_handles"]
+            cut_info_keys.remove(key)
+            for track_item in selection:
+                track_itemTags = track_item.tags()
+                for tag in track_itemTags:
+                    if tag.name() == "Cut Info":
+                        for cut_key in cut_info_keys:
+                            if tag.metadata().hasKey(f"tag.{cut_key}"):
+                                break
+                        else:
+                            track_item.removeTag(tag)
+                            break
+
+    def openpype_instance_changed(self):
+        sender = self.sender()
+        key = sender.objectName()
+        value = sender.text()
+
+        view = hiero.ui.activeView()
+        selection = view.selection()
+        if value.strip() == "":
+            return
+        else:
+            for track_item in selection:
+                track_item.set_openpype_instance({key:value})
+
+
 
     def statusChanged(self, arg):
         """This method is called when Shot Status widget changes index."""
@@ -828,7 +825,27 @@ class CustomSpreadsheetColumns(QObject):
                             trackItem.removeTag(tag)
                             break
 
+
+def create_unique_tag(tag_name):
+    """hiero.core.Tag object will load metadata from previously created tag if
+    the string arg is the same as a previously created tag. In order to ensure
+    that the metadata is empty on creation this random number is added and then
+    removed after creation
+
+    Double check the stability of this approach. May cause Hiero crashes
+    """
+    unique_tag_number = random.randint(99999999, 1000000000)
+    tag = hiero.core.Tag(f"{tag_name} {unique_tag_number}")
+    tag.metadata().setValue('tag.label', tag_name)
+    tag.setName(tag_name)
+
+    return tag
+
+
 def _set_cut_tag(self, key, value):
+    if not key:
+        return
+
     # Cut tag can be set from a variety of columns
     # Need to logic for each case
     tags = self.tags()
@@ -837,16 +854,22 @@ def _set_cut_tag(self, key, value):
         if not tag.name() == "Cut Info":
             continue
 
-        cut_tag = dict(tag.metadata())
+        cut_tag = tag
         break
 
     if not cut_tag:
-        cut_tag = hiero.core.Tag("Cut Info")
+        cut_tag = create_unique_tag("Cut Info")
+        cut_tag.metadata().setValue('tag.label', "Cut Info")
+        cut_tag.setName("Cut Info")
+
         # Have yet to find icon for cut info
-        # cut_tag.setIcon(gcut_tags[status])
+        cut_tag.setIcon("icons:TagKeylight.png")
         # Do i need this duplicate code?
-        # cut_tag.metadata().setValue(f"tag.{key}", value)
+        cut_tag.metadata().setValue(f"tag.{key}", value)
+        self.sequence().editFinished()
         self.addTag(cut_tag)
+        self.sequence().editFinished()
+        return
 
     # Have yet to find icon for cut info
     # cut_tag.setIcon(gcut_tags[status])
@@ -858,15 +881,15 @@ def _set_cut_tag(self, key, value):
 
 def _cut_tag(self):
     tags = self.tags()
-    tag = {}
+    cut_tag = {}
     for tag in tags:
-        if not tag.name() == "cut_info":
+        if not tag.name() == "Cut Info":
             continue
 
-        tag = dict(tag.metadata())
+        cut_tag = tag.metadata().dict()
         break
 
-    return tag
+    return cut_tag
 
 
 # Inject cut tag getter and setter methods into hiero.core.TrackItem
@@ -874,335 +897,192 @@ hiero.core.TrackItem.set_cut_tag = _set_cut_tag
 hiero.core.TrackItem.cut_tag = _cut_tag
 
 
-
-def _getArtistFromID(self, artistID):
-    """getArtistFromID -> returns an artist dictionary, by their given ID"""
-    global gArtistList
-    artist = [
-        element for element in gArtistList
-        if element["artistID"] == int(artistID)
-    ]
-    if not artist:
-        return None
-
-    return artist[0]
+def default_handle_length():
+    return 10
 
 
-def _getArtistFromName(self, artistName):
-    """getArtistFromID -> returns an artist dictionary, by their given ID """
-    global gArtistList
-    artist = [
-        element for element in gArtistList
-        if element["artistName"] == artistName
-    ]
-    if not artist:
-        return None
-    return artist[0]
+def get_shot_entities(shot_name):
+    episode = ""
+    sequence = ""
+    parents = get_asset_parents(shot_name)
+    # Parents will always start with shots or assets
+    folder = parents[0]
+    shot = shot_name
+    if folder == "shots":
+        if len(parents) > 1:
+            sequence = parents[-1]
+        if len(parents) > 2:
+            episode = parents[-2]
+        if len(parents) == 4:
+            season = parents[-3]
+
+    shot_entities = {"folder": folder, "episode": episode, "sequence": sequence, "shot": shot}
+
+    return shot_entities
 
 
-def _artist(self):
-    """_artist -> Returns the artist dictionary assigned to this shot"""
-    artist = None
-    tags = self.tags()
-    for tag in tags:
-        if tag.metadata().hasKey("tag.artistID"):
-            artistID = tag.metadata().value("tag.artistID")
-            artist = self.getArtistFromID(artistID)
-    return artist
+def get_hierarchy_data(shot_name, track_name):
+    hierarchy_data = get_shot_entities(shot_name)
+    hierarchy_data["track"] = track_name
+
+    return hierarchy_data
 
 
-def _updateArtistTag(self, artistDict):
-    # A shot will only have one artist assigned. Check if one exists and set accordingly
+def get_hierarchy_path(hierarchy_data):
+    # Don't change ui_inputs - this is needed for next iterations
+    if hierarchy_data.get("season"):
+        new_subpath = "{folder}/{season}/{episode}/{sequence}"
+    elif hierarchy_data.get("episode"):
+        new_subpath = "{folder}/{episode}/{sequence}"
+    elif hierarchy_data.get("sequence"):
+        new_subpath = "{folder}/{sequence}"
+    else:
+        new_subpath = "{folder}"
 
-    artistTag = None
-    tags = self.tags()
-    for tag in tags:
-        if tag.metadata().hasKey("tag.artistID"):
-            artistTag = tag
-            break
+    hierarchy_path = new_subpath.format(**hierarchy_data)
 
-    if not artistTag:
-        artistTag = hiero.core.Tag("Artist")
-        artistTag.setIcon(artistDict["artistIcon"])
-        artistTag.metadata().setValue("tag.artistID",
-                                      str(artistDict["artistID"]))
-        artistTag.metadata().setValue("tag.artistName",
-                                      str(artistDict["artistName"]))
-        artistTag.metadata().setValue("tag.artistDepartment",
-                                      str(artistDict["artistDepartment"]))
-        self.sequence().editFinished()
-        self.addTag(artistTag)
-        self.sequence().editFinished()
+    return hierarchy_path
+
+
+def get_hierarchy_parents(hierarchy_data):
+    parents = []
+    parents_types = ["folder", "episode", "sequence"]
+    for key, value in hierarchy_data.items():
+        if key in parents_types:
+            entity = {"entity_type" : key, "entity_name" : value}
+            parents.append(entity)
+
+    return parents
+
+
+def _set_openpype_instance(self, new_data):
+    """
+    """
+
+    if not new_data:
         return
 
-    artistTag.setIcon(artistDict["artistIcon"])
-    artistTag.metadata().setValue("tag.artistID", str(artistDict["artistID"]))
-    artistTag.metadata().setValue("tag.artistName",
-                                  str(artistDict["artistName"]))
-    artistTag.metadata().setValue("tag.artistDepartment",
-                                  str(artistDict["artistDepartment"]))
-    self.sequence().editFinished()
-    return
+    frame_start = new_data.get("frame_start", "0")
+    handle_start = new_data.get("handle_start", "0")
+    handle_end = new_data.get("handle_end", "0")
 
-
-def _setArtistByName(self, artistName):
-    """setArtistByName(artistName) -> sets the artist tag on a TrackItem by a given artistName string"""
-    global gArtistList
-
-    artist = self.getArtistFromName(artistName)
-    if not artist:
-        print((
-            "Artist name: {} was not found in "
-            "the gArtistList.").format(artistName))
+    # Validate values
+    if new_data.get("family", "plate") not in ["plate", "reference"]:
+        print('retuened family')
         return
 
-    # Do the update.
-    self.updateArtistTag(artist)
-
-
-def _setArtistByID(self, artistID):
-    """setArtistByID(artistID) -> sets the artist tag on a TrackItem by a given artistID integer"""
-    global gArtistList
-
-    artist = self.getArtistFromID(artistID)
-    if not artist:
-        print("Artist name: {} was not found in the gArtistList.".format(
-            artistID))
+    if not (frame_start.isdigit() and handle_start.isdigit() and handle_end.isdigit()):
+        print('returned isdigit')
         return
 
-    # Do the update.
-    self.updateArtistTag(artist)
+    convert_keys = {
+        "frame_start" : "workfileFrameStart",
+        "handle_start" : "handleStart",
+        "handle_end" : "handleEnd",
+    }
+    # Convert data from column names into OP instance names
+    converted_new_data = {}
+    for key, value in new_data.items():
+        if key in convert_keys:
+            converted_new_data[convert_keys[key]] = value
+            # new_data[convert_keys[key]] = value
+        else:
+            converted_new_data[key] = value
 
-
-# Inject status getter and setter methods into hiero.core.TrackItem
-hiero.core.TrackItem.artist = _artist
-hiero.core.TrackItem.setArtistByName = _setArtistByName
-hiero.core.TrackItem.setArtistByID = _setArtistByID
-hiero.core.TrackItem.getArtistFromName = _getArtistFromName
-hiero.core.TrackItem.getArtistFromID = _getArtistFromID
-hiero.core.TrackItem.updateArtistTag = _updateArtistTag
-
-
-def _status(self):
-    """status -> Returns the Shot status. None if no Status is set."""
-
-    status = None
+    # Cut tag can be set from a variety of columns
+    # Need to logic for each case
     tags = self.tags()
+    instance_tag = {}
     for tag in tags:
-        if tag.metadata().hasKey("tag.status"):
-            status = tag.metadata().value("tag.status")
-    return status
+        if not "openpypeData_" in tag.name():
+            continue
 
+        instance_tag = tag
+        break
 
-def _setStatus(self, status):
-    """setShotStatus(status) -> Method to set the Status of a Shot.
-  Adds a special kind of status Tag to a TrackItem
-  Example: myTrackItem.setStatus("Final")
+    track_item_name = self.name()
+    track_name = self.parentTrack().name()
+    asset_name = get_track_item_shot(track_item_name)
+    # Check if asset has valid name
+    # if not don't create instance
+    if not asset_name:
+        if instance_tag:
+            print("Tag tack name no longer valid. Removing Openpype tag")
+            self.removeTag(instance_tag)
+        else:
+            print("Track item name not found in DB!")
 
-  @param status - a string, corresponding to the Status name
-  """
-    global gStatusTags
-
-    # Get a valid Tag object from the Global list of statuses
-    if not status in gStatusTags.keys():
-        print("Status requested was not a valid Status string.")
         return
 
-    # A shot should only have one status. Check if one exists and set accordingly
-    statusTag = None
-    tags = self.tags()
-    for tag in tags:
-        if tag.metadata().hasKey("tag.status"):
-            statusTag = tag
-            break
+    instance_data = {}
+    if not instance_tag:
+        # First fill default instance if no tag found and then update with data perameter
+        if "ref" in track_name:
+            family = "reference"
+        else:
+            family = "plate"
 
-    if not statusTag:
-        statusTag = hiero.core.Tag("Status")
-        statusTag.setIcon(gStatusTags[status])
-        statusTag.metadata().setValue("tag.status", status)
-        self.addTag(statusTag)
+        handle = default_handle_length()
 
-    statusTag.setIcon(gStatusTags[status])
-    statusTag.metadata().setValue("tag.status", status)
+        instance_data["family"] = family
+        instance_data["handleEnd"] = handle
+        instance_data["handleStart"] = handle
+        # instance_data["label"] = openpypeData_d88a8ae8
 
-    self.sequence().editFinished()
-    return
+        # Constents
+        instance_data["audio"] = "False"
+        instance_data["heroTrack"] = "True"
+        instance_data["families"] = "['clip']"
+        instance_data["id"] = "pyblish.avalon.instance"
+        # instance_data["note"] = "OpenPype data container"
+        instance_data["publish"] = "True"
+        instance_data["reviewTrack"] = "None"
+        instance_data["sourceResolution"] = "False"
+        instance_data["variant"] = "Main"
+        instance_data["workfileFrameStart"] = "1001"
 
+    # This force update on change is not working. need to register as columns
+    # Always update for name changes and such
+    hierarchy_data = get_hierarchy_data(track_item_name, track_name)
+    hierarchy_path = get_hierarchy_path(hierarchy_data)
+    hierarchy_parents = get_hierarchy_parents(hierarchy_data)
 
-# Inject status getter and setter methods into hiero.core.TrackItem
-hiero.core.TrackItem.setStatus = _setStatus
-hiero.core.TrackItem.status = _status
+    instance_data["hierarchyData"] = hierarchy_data
+    instance_data["hierarchy"] = hierarchy_path
+    instance_data["parents"] = hierarchy_parents
+    instance_data["asset"] = get_track_item_shot(track_item_name)
+    hierarchy_data["track"] = track_name
+    instance_data["subset"] = track_name
 
+    instance_data.update(converted_new_data)
 
-# This is a convenience method for returning QActions with a triggered method based on the title string
-def titleStringTriggeredAction(title, method, icon=None):
-    action = QAction(title, None)
-    action.setIcon(QIcon(icon))
-
-    # We do this magic, so that the title string from the action is used to set the status
-    def methodWrapper():
-        method(title)
-
-    action.triggered.connect(methodWrapper)
-    return action
-
-
-# Menu which adds a Set Status Menu to Timeline and Spreadsheet Views
-class SetStatusMenu(QMenu):
-    def __init__(self):
-        QMenu.__init__(self, "Set Status", None)
-
-        global gStatusTags
-        self.statuses = gStatusTags
-        self._statusActions = self.createStatusMenuActions()
-
-        # Add the Actions to the Menu.
-        for act in self.menuActions:
-            self.addAction(act)
-
-        hiero.core.events.registerInterest("kShowContextMenu/kTimeline",
-                                           self.eventHandler)
-        hiero.core.events.registerInterest("kShowContextMenu/kSpreadsheet",
-                                           self.eventHandler)
-
-    def createStatusMenuActions(self):
-        self.menuActions = []
-        for status in self.statuses:
-            self.menuActions += [
-                titleStringTriggeredAction(
-                    status,
-                    self.setStatusFromMenuSelection,
-                    icon=gStatusTags[status])
-            ]
-
-    def setStatusFromMenuSelection(self, menuSelectionStatus):
-        selectedShots = [
-            item for item in self._selection
-            if (isinstance(item, hiero.core.TrackItem))
-        ]
-        selectedTracks = [
-            item for item in self._selection
-            if (isinstance(item, (hiero.core.VideoTrack,
-                                  hiero.core.AudioTrack)))
-        ]
-
-        # If we have a Track Header Selection, no shots could be selected, so create shotSelection list
-        if len(selectedTracks) >= 1:
-            for track in selectedTracks:
-                selectedShots += [
-                    item for item in track.items()
-                    if (isinstance(item, hiero.core.TrackItem))
-                ]
-
-        # It's possible no shots exist on the Track, in which case nothing is required
-        if len(selectedShots) == 0:
-            return
-
-        currentProject = selectedShots[0].project()
-
-        with currentProject.beginUndo("Set Status"):
-            # Shots selected
-            for shot in selectedShots:
-                shot.setStatus(menuSelectionStatus)
-
-    # This handles events from the Project Bin View
-    def eventHandler(self, event):
-        if not hasattr(event.sender, "selection"):
-            # Something has gone wrong, we should only be here if raised
-            # by the Timeline/Spreadsheet view which gives a selection.
-            return
-
-        # Set the current selection
-        self._selection = event.sender.selection()
-
-        # Return if there's no Selection. We won't add the Menu.
-        if len(self._selection) == 0:
-            return
-
-        event.menu.addMenu(self)
+    set_trackitem_openpype_tag(self, instance_data)
 
 
-# Menu which adds a Set Status Menu to Timeline and Spreadsheet Views
-class AssignArtistMenu(QMenu):
-    def __init__(self):
-        QMenu.__init__(self, "Assign Artist", None)
+def _openpype_instance(self):
+    instance_tag = get_trackitem_openpype_tag(self)
+    instance_data = {}
+    if instance_tag:
+        tag_data = instance_tag.metadata().dict()
+        # Convert data from column names into OP instance names
+        convert_keys = {
+            "tag.workfileFrameStart" : "frame_start",
+            "tag.handleStart" : "handle_start",
+            "tag.handleEnd" : "handle_end",
+        }
+        for key, value in tag_data.items():
 
-        global gArtistList
-        self.artists = gArtistList
-        self._artistsActions = self.createAssignArtistMenuActions()
+            if key in convert_keys:
+                instance_data[convert_keys[key]] = value
+            else:
+                instance_data[key.split("tag.")[-1]] = value
 
-        # Add the Actions to the Menu.
-        for act in self.menuActions:
-            self.addAction(act)
-
-        hiero.core.events.registerInterest("kShowContextMenu/kTimeline",
-                                           self.eventHandler)
-        hiero.core.events.registerInterest("kShowContextMenu/kSpreadsheet",
-                                           self.eventHandler)
-
-    def createAssignArtistMenuActions(self):
-        self.menuActions = []
-        for artist in self.artists:
-            self.menuActions += [
-                titleStringTriggeredAction(
-                    artist["artistName"],
-                    self.setArtistFromMenuSelection,
-                    icon=artist["artistIcon"])
-            ]
-
-    def setArtistFromMenuSelection(self, menuSelectionArtist):
-        selectedShots = [
-            item for item in self._selection
-            if (isinstance(item, hiero.core.TrackItem))
-        ]
-        selectedTracks = [
-            item for item in self._selection
-            if (isinstance(item, (hiero.core.VideoTrack,
-                                  hiero.core.AudioTrack)))
-        ]
-
-        # If we have a Track Header Selection, no shots could be selected, so create shotSelection list
-        if len(selectedTracks) >= 1:
-            for track in selectedTracks:
-                selectedShots += [
-                    item for item in track.items()
-                    if (isinstance(item, hiero.core.TrackItem))
-                ]
-
-        # It's possible no shots exist on the Track, in which case nothing is required
-        if len(selectedShots) == 0:
-            return
-
-        currentProject = selectedShots[0].project()
-
-        with currentProject.beginUndo("Assign Artist"):
-            # Shots selected
-            for shot in selectedShots:
-                shot.setArtistByName(menuSelectionArtist)
-
-    # This handles events from the Project Bin View
-    def eventHandler(self, event):
-        if not hasattr(event.sender, "selection"):
-            # Something has gone wrong, we should only be here if raised
-            # by the Timeline/Spreadsheet view which gives a selection.
-            return
-
-        # Set the current selection
-        self._selection = event.sender.selection()
-
-        # Return if there's no Selection. We won't add the Menu.
-        if len(self._selection) == 0:
-            return
-
-        event.menu.addMenu(self)
+    return instance_data
 
 
-# Add the "Set Status" context menu to Timeline and Spreadsheet
-# if kAddStatusMenu:
-#     setStatusMenu = SetStatusMenu()
+hiero.core.TrackItem.set_openpype_instance = _set_openpype_instance
+hiero.core.TrackItem.openpype_instance = _openpype_instance
 
-# if kAssignArtistMenu:
-#     assignArtistMenu = AssignArtistMenu()
 
 # Register our custom columns
 hiero.ui.customColumn = CustomSpreadsheetColumns()
