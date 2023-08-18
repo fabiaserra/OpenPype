@@ -12,13 +12,11 @@ from qtpy.QtGui import *
 import hiero
 
 from openpype.client import get_asset_by_name, get_project
+from openpype.hosts.hiero.api.constants import OPENPYPE_TAG_NAME
+from openpype.hosts.hiero.api.lib import (set_trackitem_openpype_tag)
 from openpype.pipeline.context_tools import (
     get_current_project_name,
     get_hierarchy_env,
-)
-from openpype.hosts.hiero.api.lib import (
-    set_trackitem_openpype_tag,
-    get_trackitem_openpype_tag,
 )
 from openpype.settings import get_project_settings
 
@@ -447,7 +445,7 @@ class CustomSpreadsheetColumns(QObject):
             "tail_handles",
         ]:
             tag_key = current_column["name"]
-            current_tag_text = item.cut_tag().get(f"tag.{tag_key}", "--")
+            current_tag_text = item.cut_info().get(tag_key, "--")
 
             return current_tag_text
 
@@ -694,7 +692,7 @@ class CustomSpreadsheetColumns(QObject):
             "tail_handles",
         ]:
             tag_key = current_column["name"]
-            current_text = item.cut_tag().get(f"tag.{tag_key}")
+            current_text = item.cut_info().get(tag_key)
             edit_widget = QLineEdit(current_text)
             edit_widget.setObjectName(tag_key)
             edit_widget.returnPressed.connect(self.cut_info_changed)
@@ -714,27 +712,18 @@ class CustomSpreadsheetColumns(QObject):
                 readonly_widget.setVisible(False)
                 return readonly_widget
 
-            tags = item.tags()
-            instance_tag = {}
-            for tag in tags:
-                if not "openpypeData_" in tag.name():
-                    continue
-                else:
-                    instance_tag = tag
-                    break
-
+            instance_tag = item.openpype_instance_tag()
             if not instance_tag:
-                if "ref" in item.parentTrack().name():
-                    family = "reference"
-                else:
-                    family = "plate"
-                combo_text = family
+                combo_text = '--'
             else:
                 combo_text = instance_tag.metadata().value("family")
 
             instance_key = current_column["name"].split("op_")[-1]
             combo_widget = QComboBox()
             combo_widget.setObjectName(instance_key)
+            # Since trigger is on index change. Need to make sure valid options
+            # will also be a change of index
+            combo_widget.addItem("--")
             combo_widget.addItem("plate")
             combo_widget.addItem("reference")
             combo_widget.setCurrentText(combo_text)
@@ -758,33 +747,26 @@ class CustomSpreadsheetColumns(QObject):
 
                 return readonly_widget
 
-            tags = item.tags()
-            instance_tag = {}
-            for tag in tags:
-                if not "openpypeData_" in tag.name():
-                    continue
-                else:
-                    instance_tag = tag
-                    break
-
+            instance_tag = item.openpype_instance_tag()
             if not instance_tag:
-                check_state = "False"
+                check_state = "--"
             else:
                 # For Openpype tags already made they won't have use nuke
                 # instance data
                 try:
                     check_state = instance_tag.metadata().value("use_nuke")
                 except RuntimeError:
-                    check_state = False
+                    check_state = "--"
 
             instance_key = current_column["name"].split("op_")[-1]
             combo_widget = QComboBox()
             combo_widget.setObjectName(instance_key)
+            # Since trigger is on index change. Need to make sure valid options
+            # will also be a change of index
+            combo_widget.addItem("--")
             combo_widget.addItem("True")
             combo_widget.addItem("False")
-            combo_widget.setCurrentText(
-                "True" if check_state == "True" else "False"
-            )
+            combo_widget.setCurrentText(check_state)
             combo_widget.currentIndexChanged.connect(
                 self.openpype_instance_changed
             )
@@ -810,7 +792,7 @@ class CustomSpreadsheetColumns(QObject):
                 return readonly_widget
 
             instance_key = current_column["name"].split("op_")[-1]
-            current_text = item.cut_tag().get(f"tag.{instance_key}")
+            current_text = item.cut_info().get(f"tag.{instance_key}")
             edit_widget = QLineEdit(current_text)
             edit_widget.setObjectName(instance_key)
             edit_widget.returnPressed.connect(self.openpype_instance_changed)
@@ -858,19 +840,19 @@ class CustomSpreadsheetColumns(QObject):
 
         view = hiero.ui.activeView()
         selection = view.selection()
-        if value != "--":
-            for track_item in selection:
-                track_item.set_cut_tag(key, value)
+        project = selection[0].project()
+        with project.beginUndo("Set Cut Info"):
+            if value != "--":
+                for track_item in selection:
+                    track_item.set_cut_info_tag(key, value)
 
-        # If value is -- this is used as an easy to remove Cut Info tag
-        else:
-            for track_item in selection:
-                track_item_tags = track_item.tags()
-                for tag in track_item_tags:
-                    if tag.name() == "Cut Info":
+            # If value is -- this is used as an easy to remove Cut Info tag
+            else:
+                for track_item in selection:
+                    cut_info_tag = track_item.cut_info_tag()
+                    if cut_info_tag:
                         print(f"{track_item.name()}: Removing 'Cut Info' tag")
-                        track_item.removeTag(tag)
-                        break
+                        track_item.removeTag(cut_info_tag)
 
     def openpype_instance_changed(self):
         sender = self.sender()
@@ -882,30 +864,26 @@ class CustomSpreadsheetColumns(QObject):
 
         view = hiero.ui.activeView()
         selection = view.selection()
-        if value.strip() == "":
-            return
-        else:
-            for track_item in selection:
-                track_item.set_openpype_instance(key, value)
+        project = selection[0].project()
+        with project.beginUndo("Set Openpype Instance"):
+            # If value is -- this is used as an easy to remove openpype tag
+            if value.strip() == "--":
+                for track_item in selection:
+                    openpype_instance_tag = track_item.openpype_instance_tag()
+                    if openpype_instance_tag:
+                        print(f"{track_item.name()}: Removing 'Cut Info' tag")
+                        track_item.removeTag(openpype_instance_tag)
+            else:
+                for track_item in selection:
+                    track_item.set_openpype_instance(key, value)
 
-
-def _set_cut_tag(self, key, value):
+def _set_cut_info_tag(self, key, value):
     """Empty value is allowed incase editor wants to create a cut tag with
     default values
     """
-    if not key:
-        return
-
     # Cut tag can be set from a variety of columns
     # Need to logic for each case
-    tags = self.tags()
-    cut_tag = {}
-    for tag in tags:
-        if not tag.name() == "Cut Info":
-            continue
-
-        cut_tag = tag
-        break
+    cut_tag = self.cut_info_tag()
 
     if not cut_tag:
         # get default handles
@@ -916,10 +894,11 @@ def _set_cut_tag(self, key, value):
         frame_start, handle_start, handle_end = openpype_setting_defaults()
 
         frame_offset = frame_start + handle_start
-        if key == "cut_in":
-            frame_offset = int(value)
-        elif key == "cut_out":
-            frame_offset = int(value) - self.duration() + 1
+        if value:
+            if key == "cut_in":
+                frame_offset = int(value)
+            elif key == "cut_out":
+                frame_offset = int(value) - self.duration() + 1
 
         cut_data = {}
         cut_data["cut_in"] = frame_offset
@@ -937,29 +916,36 @@ def _set_cut_tag(self, key, value):
 
         self.sequence().editFinished()
         self.addTag(cut_tag)
-        self.sequence().editFinished()
-
-        return
 
     if value:
         cut_tag.metadata().setValue(f"tag.{key}", value)
 
     self.sequence().editFinished()
 
-    return
+
+def _cut_info(self):
+    cut_info_tag = self.cut_info_tag()
+    cut_info = {}
+
+    if cut_info_tag:
+        cut_info_data = cut_info_tag.metadata().dict()
+        for key, value in cut_info_data.items():
+            cut_info[key.split("tag.")[-1]] = value
+
+    return cut_info
 
 
-def _cut_tag(self):
+def _cut_info_tag(self):
     tags = self.tags()
-    cut_tag = {}
+    cut_info_tag = None
     for tag in tags:
         if not tag.name() == "Cut Info":
             continue
 
-        cut_tag = tag.metadata().dict()
+        cut_info_tag = tag
         break
 
-    return cut_tag
+    return cut_info_tag
 
 
 def openpype_setting_defaults():
@@ -1053,19 +1039,34 @@ def get_hierarchy_parents(hierarchy_data):
     return parents
 
 
+def _openpype_instance_tag(self):
+    tags = self.tags()
+    instance_tag = None
+    for tag in tags:
+        if not OPENPYPE_TAG_NAME in tag.name():
+            continue
+
+        instance_tag = tag
+        break
+
+    return instance_tag
+
+
 def _set_openpype_instance(self, key, value):
     """
     Only one key of the tag can be modified at a time for items that already
     have a tag.
     """
-    value = value if value == "0" else value.lstrip("0")
+    value = value if value == "0" else value.strip().lstrip("0")
 
     # Validate key value
     # No need to validate family as it's a prefilled combobox
     if key in ["frame_start", "handle_start", "handle_end"]:
-        if not value.isdigit():
-            print(f"{self.name()}: {key} must be a valid number")
-            return
+        # Skip validation if user simply wants to create default tag
+        if value:
+            if not value.isdigit():
+                print(f"{self.name()}: {key} must be a valid number")
+                return
 
     convert_keys = {
         "frame_start": "workfileFrameStart",
@@ -1076,17 +1077,7 @@ def _set_openpype_instance(self, key, value):
     if key in convert_keys:
         key = convert_keys[key]
 
-    # Cut tag can be set from a variety of columns
-    # Need to logic for each case
-    tags = self.tags()
-    instance_tag = {}
-    for tag in tags:
-        if not "openpypeData_" in tag.name():
-            continue
-
-        instance_tag = tag
-        break
-
+    instance_tag = self.openpype_instance_tag()
     track_item_name = self.name()
     track_name = self.parentTrack().name()
     valid_asset = is_valid_asset(track_item_name)
@@ -1125,8 +1116,10 @@ def _set_openpype_instance(self, key, value):
         instance_data["subset"] = track_name
         instance_data["family"] = family
         instance_data["workfileFrameStart"] = frame_start
-        instance_data["handleStart"] = handle_start if family == "plate" else "0"
-        instance_data["handleEnd"] = handle_end if family == "plate" else "0"
+        instance_data["handleStart"] = handle_start \
+            if family == "plate" else "0"
+        instance_data["handleEnd"] = handle_end \
+            if family == "plate" else "0"
 
         # Constants
         instance_data["audio"] = "False"
@@ -1139,13 +1132,16 @@ def _set_openpype_instance(self, key, value):
         instance_data["variant"] = "Main"
         instance_data["use_nuke"] = "False"
 
-    instance_data.update({key: value})
+    if value:
+        instance_data.update({key: value})
 
     set_trackitem_openpype_tag(self, instance_data)
 
+    self.sequence().editFinished()
+
 
 def _openpype_instance(self):
-    instance_tag = get_trackitem_openpype_tag(self)
+    instance_tag = self.openpype_instance_tag()
     instance_data = {}
     if instance_tag:
         tag_data = instance_tag.metadata().dict()
@@ -1175,14 +1171,7 @@ def _update_op_instance_asset(event):
                     track_items.append(item)
 
     for track_item in track_items:
-        tags = track_item.tags()
-        instance_tag = {}
-        for tag in tags:
-            if not "openpypeData_" in tag.name():
-                continue
-
-            instance_tag = tag
-            break
+        instance_tag = track_item.openpype_instance_tag()
         if not instance_tag:
             continue
 
@@ -1227,12 +1216,14 @@ def _update_op_instance_asset(event):
 
 
 # Inject cut tag getter and setter methods into hiero.core.TrackItem
-hiero.core.TrackItem.set_cut_tag = _set_cut_tag
-hiero.core.TrackItem.cut_tag = _cut_tag
+hiero.core.TrackItem.set_cut_info_tag = _set_cut_info_tag
+hiero.core.TrackItem.cut_info_tag = _cut_info_tag
+hiero.core.TrackItem.cut_info = _cut_info
 
 
 # Add openpype_instance methods to track item object
 hiero.core.TrackItem.set_openpype_instance = _set_openpype_instance
+hiero.core.TrackItem.openpype_instance_tag = _openpype_instance_tag
 hiero.core.TrackItem.openpype_instance = _openpype_instance
 
 
