@@ -470,6 +470,13 @@ class CustomSpreadsheetColumns(QObject):
         if current_column["name"] == "Notes":
             return str(self.getNotes(item))
 
+        if current_column["name"] == "valid_entity":
+            tooltip = (
+                "Whether this track items name is found as a valid"
+                " entity in Avalon DB",
+            )
+            return tooltip
+
         return ""
 
     def getFont(self, row, column, item):
@@ -595,7 +602,7 @@ class CustomSpreadsheetColumns(QObject):
 
         elif current_column["name"] == "op_family":
             if not is_valid_asset(item.name()):
-                QMessageBox.Warning(
+                QMessageBox.warning(
                     hiero.ui.mainWindow(),
                     "Critical",
                     "Can't assign data to invalid entity",
@@ -636,7 +643,7 @@ class CustomSpreadsheetColumns(QObject):
 
         elif current_column["name"] == "op_use_nuke":
             if not is_valid_asset(item.name()):
-                QMessageBox.Warning(
+                QMessageBox.warning(
                     hiero.ui.mainWindow(),
                     "Critical",
                     "Can't assign data to invalid entity",
@@ -683,7 +690,7 @@ class CustomSpreadsheetColumns(QObject):
             "op_handle_start",
         ]:
             if not is_valid_asset(item.name()):
-                QMessageBox.Warning(
+                QMessageBox.warning(
                     hiero.ui.mainWindow(),
                     "Critical",
                     "Can't assign data to invalid entity",
