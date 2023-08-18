@@ -326,8 +326,9 @@ class CustomSpreadsheetColumns(QObject):
         {"name": "Episode", "cellType": "readonly"},
         {"name": "Sequence", "cellType": "readonly"},
         {"name": "Shot", "cellType": "readonly"},
-        {"name": "cut_in", "cellType": "text"},
         {"name": "head_handles", "cellType": "text"},
+        {"name": "cut_in", "cellType": "text"},
+        {"name": "cut_out", "cellType": "text"},
         {"name": "tail_handles", "cellType": "text"},
         {
             "name": "valid_entity",
@@ -441,6 +442,7 @@ class CustomSpreadsheetColumns(QObject):
 
         elif current_column["name"] in [
             "cut_in",
+            "cut_out",
             "head_handles",
             "tail_handles",
         ]:
@@ -502,49 +504,56 @@ class CustomSpreadsheetColumns(QObject):
         if current_column["name"] == "cut_in":
             tooltip = (
                 "Shot 'cut in' frame. This is meant to be ground truth and can"
-                " be used to sync to SG"
+                " be used to sync to SG."
+            )
+            return tooltip
+
+        if current_column["name"] == "cut_out":
+            tooltip = (
+                "Shot 'cut out' frame. This is meant to be ground truth and can"
+                " be used to sync to SG."
             )
             return tooltip
 
         if current_column["name"] == "head_handles":
             tooltip = (
                 "Shot 'head handle' duration. This is meant to be ground truth"
-                " and can be used to sync to SG"
+                " and can be used to sync to SG."
             )
             return tooltip
 
         if current_column["name"] == "tail_handles":
             tooltip = (
                 "Shot 'tail handle' duration. This is meant to be ground truth"
-                " and can be used to sync to SG"
+                " and can be used to sync to SG."
             )
             return tooltip
 
         if current_column["name"] == "valid_entity":
             tooltip = (
                 "Whether this track items name is found as a valid"
-                " entity in Avalon DB"
+                " entity in Avalon DB."
             )
             return tooltip
 
         if current_column["name"] == "op_frame_start":
             tooltip = (
-                "Ingest first frame"
+                "Ingest first frame."
             )
             return tooltip
 
         if current_column["name"] == "op_family":
-            tooltip = "Ingest first frame"
+            tooltip = "Ingest first frame."
 
             return tooltip
 
         if current_column["name"] == "op_handle_start":
-            tooltip = "Ingest head handle duration"
+            tooltip = "Ingest head handle duration."
 
             return tooltip
 
         if current_column["name"] == "op_handle_end":
-            tooltip = "Ingest tail handle duration"
+            tooltip = "Ingest tail handle duration."
 
             return tooltip
 
@@ -680,6 +689,7 @@ class CustomSpreadsheetColumns(QObject):
 
         elif current_column["name"] in [
             "cut_in",
+            "cut_out",
             "head_handles",
             "tail_handles",
         ]:
@@ -773,7 +783,7 @@ class CustomSpreadsheetColumns(QObject):
             combo_widget.addItem("True")
             combo_widget.addItem("False")
             combo_widget.setCurrentText(
-                True if check_state == "True" else "False"
+                "True" if check_state == "True" else "False"
             )
             combo_widget.currentIndexChanged.connect(
                 self.openpype_instance_changed
@@ -848,23 +858,19 @@ class CustomSpreadsheetColumns(QObject):
 
         view = hiero.ui.activeView()
         selection = view.selection()
-        if value != "--" and value:
+        if value != "--":
             for track_item in selection:
                 track_item.set_cut_tag(key, value)
+
+        # If value is -- this is used as an easy to remove Cut Info tag
         else:
-            # Double check that the other cut info tag values don't exist
-            cut_info_keys = ["cut_in", "head_handles", "tail_handles"]
-            cut_info_keys.remove(key)
             for track_item in selection:
                 track_item_tags = track_item.tags()
                 for tag in track_item_tags:
                     if tag.name() == "Cut Info":
-                        for cut_key in cut_info_keys:
-                            if tag.metadata().hasKey(f"tag.{cut_key}"):
-                                break
-                        else:
-                            track_item.removeTag(tag)
-                            break
+                        print(f"{track_item.name()}: Removing 'Cut Info' tag")
+                        track_item.removeTag(tag)
+                        break
 
     def openpype_instance_changed(self):
         sender = self.sender()
@@ -883,27 +889,10 @@ class CustomSpreadsheetColumns(QObject):
                 track_item.set_openpype_instance(key, value)
 
 
-def create_unique_tag(tag_name):
-    """Create a unique Hiero Tag object with the specified tag name.
-
-    A random number is added to the tag name to ensure that metadata is empty
-    on creation. The added number is then removed after creation.
-
-    Args:
-        tag_name (str): The name of the tag.
-
-    Returns:
-        hiero.core.Tag: The created Hiero Tag object.
-    """
-    unique_tag_number = random.randint(99999999, 1000000000)
-    tag = hiero.core.Tag(f"{tag_name} {unique_tag_number}")
-    tag.metadata().setValue("tag.label", tag_name)
-    tag.setName(tag_name)
-
-    return tag
-
-
 def _set_cut_tag(self, key, value):
+    """Empty value is allowed incase editor wants to create a cut tag with
+    default values
+    """
     if not key:
         return
 
@@ -919,21 +908,41 @@ def _set_cut_tag(self, key, value):
         break
 
     if not cut_tag:
-        cut_tag = create_unique_tag("Cut Info")
-        cut_tag.metadata().setValue("tag.label", "Cut Info")
-        cut_tag.setName("Cut Info")
-
-        # Have yet to find icon for cut info
+        # get default handles
+        cut_tag = hiero.core.Tag("Cut Info")
         cut_tag.setIcon("icons:TagKeylight.png")
+
         # Do i need this duplicate code?
-        cut_tag.metadata().setValue(f"tag.{key}", value)
+        frame_start, handle_start, handle_end = openpype_setting_defaults()
+
+        frame_offset = frame_start + handle_start
+        if key == "cut_in":
+            frame_offset = int(value)
+        elif key == "cut_out":
+            frame_offset = int(value) - self.duration() + 1
+
+        cut_data = {}
+        cut_data["cut_in"] = frame_offset
+        cut_data["cut_out"] = frame_offset + self.duration() - 1
+        cut_data["head_handles"] = handle_start
+        cut_data["tail_handles"] = handle_end
+
+        if value:
+            cut_data.update({key: value})
+
+        for key, value in cut_data.items():
+            if not isinstance(value, str):
+                value = str(value)
+            cut_tag.metadata().setValue(f"tag.{key}", value)
+
         self.sequence().editFinished()
         self.addTag(cut_tag)
         self.sequence().editFinished()
 
         return
 
-    cut_tag.metadata().setValue(f"tag.{key}", value)
+    if value:
+        cut_tag.metadata().setValue(f"tag.{key}", value)
 
     self.sequence().editFinished()
 
@@ -1055,7 +1064,7 @@ def _set_openpype_instance(self, key, value):
     # No need to validate family as it's a prefilled combobox
     if key in ["frame_start", "handle_start", "handle_end"]:
         if not value.isdigit():
-            print(f"{key} must be a valid number")
+            print(f"{self.name()}: {key} must be a valid number")
             return
 
     convert_keys = {
@@ -1085,10 +1094,11 @@ def _set_openpype_instance(self, key, value):
     # if not don't create instance
     if not valid_asset:
         if instance_tag:
-            print("Tag tack name no longer valid. Removing Openpype tag")
+            print(f"{self.name()}: Tag tack name no longer valid. "
+                  "Removing Openpype tag")
             self.removeTag(instance_tag)
         else:
-            print("Track item name not found in DB!")
+            print(f"{self.name()}: Track item name not found in DB!")
 
         return
     else:
