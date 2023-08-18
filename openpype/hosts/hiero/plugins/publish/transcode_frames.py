@@ -4,12 +4,42 @@ import json
 import getpass
 import requests
 import pyblish.api
+import PyOpenColorIO
 
 import hiero
 
 from openpype.lib import is_running_from_build
 from openpype.pipeline import publish, legacy_io
 from openpype.hosts.hiero.api import work_root
+
+
+def get_role_colorspace(env_ocio_path, track_item):
+    """Get the role and colorspace based on the active OCIO configuration and media color transform.
+
+    Args:
+        track_item: The track item containing information about the media color transform.
+
+    Returns:
+        tuple or None: A tuple containing the role and colorspace if found, or None if not found.
+    """
+    ocio_config = PyOpenColorIO.Config.CreateFromFile(env_ocio_path)
+
+    media_color_transform = track_item.sourceMediaColourTransform()
+    role_colorspace = [role for role in ocio_config.getRoles() if role[0] == media_color_transform]
+    if role_colorspace:
+        role, colorspace = role_colorspace[0]
+
+        return role, colorspace
+    else:
+        # Media color transform must be a colorspace if is not role
+        # Regardless test if the colorspace can be found in the config and if not produce a warning
+        colorspace_search = ocio_config.getColorSpace(media_color_transform).getName()
+
+        # Search doesn't require exact match
+        if colorspace_search != media_color_transform:
+            print("Warning: Track Item media color transform not found in OCIO config!")
+
+        return None, media_color_transform
 
 
 class TranscodeFrames(publish.Extractor):
@@ -33,8 +63,6 @@ class TranscodeFrames(publish.Extractor):
         "--frames",
         "<STARTFRAME>-<ENDFRAME>",
         "\"{input_path}\"",  # Escape input path in case there's whitespaces
-        "-v",
-        "--info",
         "--compression",
         "zips",
         "-d",
@@ -47,11 +75,14 @@ class TranscodeFrames(publish.Extractor):
         "framesPerSecond",  # Required to fix 'missing compression attribute' error
         "{fps}",
         "--sattrib",
-        "alkemy/ingest/colorspace",  # Ingest colorspace
-        "{src_colorspace}",
+        "alkemy/ingest/colorspace",
+        "{src_color}",
         "--sattrib",
-        "input/filename",  # Ingest input filename
-        "\"{input_path}\"",  # Escape input path in case there's whitespaces
+        "alkemy/ingest/role",
+        "{src_role}",
+        "--sattrib",
+        "alkemy/ingest/colorconfig",
+        "{ocio_path}",
         "-o",
         "{output_path}",
     ]
@@ -113,6 +144,9 @@ class TranscodeFrames(publish.Extractor):
 
         # Determine color transformation
         src_colorspace = track_item.sourceMediaColourTransform()
+        # Define extra metadata variables
+        ocio_path = os.getenv('OCIO')
+        src_role, src_color = get_role_colorspace(ocio_path, track_item)
 
         # TODO: skip transcoding if source colorspace matches destination
         # if src_colorspace == self.dst_colorspace:
@@ -132,11 +166,11 @@ class TranscodeFrames(publish.Extractor):
         self.log.info("Output path: %s", output_path)
         self.log.info("Output ext: %s", self.output_ext)
         self.log.info("Source ext: %s", source_ext.lower())
-
         # If either source or output is a video format, transcode using Nuke
         if (self.output_ext.lower() in self.movie_extensions or
                 source_ext.lower() in self.movie_extensions or
-                source_ext.lower() in self.nuke_specific_extensions):
+                source_ext.lower() in self.nuke_specific_extensions) or \
+                instance.data.get("use_nuke", False):
             # No need to raise error as Nuke raises an error exit value if something went wrong
             self.log.info("Submitting Nuke transcode")
 
@@ -167,6 +201,9 @@ class TranscodeFrames(publish.Extractor):
                 dst_colorspace=self.dst_colorspace,
                 output_path=output_path,
                 fps=instance.data["fps"],
+                src_color=src_color,
+                src_role=src_role,
+                ocio_path=ocio_path,
             )
             # NOTE: We use src frame start/end because oiiotool doesn't support
             # writing out a different frame range than input
