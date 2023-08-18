@@ -30,7 +30,7 @@ def get_active_ocio_config():
     Returns:
         PyOpenColorIO.Config: The active OCIO configuration.
     """
-    env_ocio_path = os.getenv('OCIO')
+    env_ocio_path = os.getenv("OCIO")
 
     if env_ocio_path:
         ocio_path = env_ocio_path
@@ -40,7 +40,7 @@ def get_active_ocio_config():
 
     # If not OCIO found in envion then check project OCIO
     active_seq = hiero.ui.activeSequence()
-    configs_path = __file__.split('plugins')[0] + "plugins/OCIOConfigs/configs"
+    configs_path = __file__.split("plugins")[0] + "plugins/OCIOConfigs/configs"
     if active_seq:
         project = active_seq.project()
         if project.ocioConfigPath():
@@ -48,7 +48,7 @@ def get_active_ocio_config():
             # Use default config path from sw
         elif project.ocioConfigName():
             hiero_configs = glob.glob(
-                configs_path + '/**/*.ocio', recursive=True)
+                configs_path + "/**/*.ocio", recursive=True)
             for config in hiero_configs:
                 config_name = pathlib.Path(config).parent.name
                 if project.ocioConfigName() == config_name:
@@ -57,7 +57,7 @@ def get_active_ocio_config():
     # Else statement is a catch for when the spreadsheet runs without sequence
     # loaded
     else:
-        ocio_path = os.path.join(configs_path, 'nuke-default/config.ocio')
+        ocio_path = os.path.join(configs_path, "nuke-default/config.ocio")
 
     ocio_config = PyOpenColorIO.Config.CreateFromFile(ocio_path)
 
@@ -87,7 +87,7 @@ class Colorspace_Widget(QMainWindow):
 
         # Create menu_dict which stores the hierarchy and associated colorspace
         for name, family in color_spaces:
-            parts = family.split('/')
+            parts = family.split("/")
             current_dict = menu_dict
             for part in parts:
                 current_dict = current_dict.setdefault(part, {})
@@ -409,7 +409,7 @@ class CustomSpreadsheetColumns(QObject):
         tags = item.tags()
         for tag in tags:
             tag_names += [tag.name()]
-        tag_name_string = ','.join(tag_names)
+        tag_name_string = ",".join(tag_names)
 
         return tag_name_string
 
@@ -424,7 +424,7 @@ class CustomSpreadsheetColumns(QObject):
             if not "openpypeData" in tag.name():
                 note = tag.note()
                 if len(note) > 0:
-                    notes += tag.note() + ', '
+                    notes += tag.note() + ", "
 
         return notes[:-2]
 
@@ -507,7 +507,7 @@ class CustomSpreadsheetColumns(QObject):
             ]:
             instance_key = current_column["name"]
             current_tag_text = item.openpype_instance().get(
-                f"{instance_key.split('op_')[-1]}", '--'
+                f"{instance_key.split('op_')[-1]}", "--"
             )
 
             return current_tag_text
@@ -539,6 +539,13 @@ class CustomSpreadsheetColumns(QObject):
         """Return the background color for a cell"""
         if not item.source().mediaSource().isMediaPresent():
             return QColor(80, 20, 20)
+
+        column_name = self.column_list[column]["name"]
+        if column_name.startswith("op_") or column_name == "valid_entity":
+            if row % 2 == 0:
+                return QColor(61, 61, 66)
+            else:
+                return QColor(53, 53, 57)
         return None
 
     def getForeground(self, row, column, item):
@@ -639,10 +646,11 @@ class CustomSpreadsheetColumns(QObject):
 
         elif current_column["name"] == "op_family":
             if not is_valid_asset(item.name()):
+                QMessageBox.Warning(hiero.ui.mainWindow(), "Critical", "Can't assign data to invalid entity")
+
                 readonly_widget = QLabel()
                 readonly_widget.setEnabled(False)
                 readonly_widget.setVisible(False)
-
                 return readonly_widget
 
             tags = item.tags()
@@ -663,7 +671,7 @@ class CustomSpreadsheetColumns(QObject):
             else:
                 combo_text = instance_tag.metadata().value("family")
 
-            instance_key = current_column["name"].split('op_')[-1]
+            instance_key = current_column["name"].split("op_")[-1]
             combo_widget = QComboBox()
             combo_widget.setObjectName(instance_key)
             combo_widget.addItem("plate")
@@ -675,6 +683,8 @@ class CustomSpreadsheetColumns(QObject):
 
         elif current_column["name"] == "op_use_nuke":
             if not is_valid_asset(item.name()):
+                QMessageBox.Warning(hiero.ui.mainWindow(), "Critical", "Can't assign data to invalid entity")
+
                 readonly_widget = QLabel()
                 readonly_widget.setEnabled(False)
                 readonly_widget.setVisible(False)
@@ -700,7 +710,7 @@ class CustomSpreadsheetColumns(QObject):
                 except RuntimeError:
                     check_state = False
 
-            instance_key = current_column["name"].split('op_')[-1]
+            instance_key = current_column["name"].split("op_")[-1]
             combo_widget = QComboBox()
             combo_widget.setObjectName(instance_key)
             combo_widget.addItem("True")
@@ -716,13 +726,15 @@ class CustomSpreadsheetColumns(QObject):
                 "op_handle_start"
             ]:
             if not is_valid_asset(item.name()):
+                QMessageBox.Warning(hiero.ui.mainWindow(), "Critical", "Can't assign data to invalid entity")
+
                 readonly_widget = QLabel()
                 readonly_widget.setEnabled(False)
                 readonly_widget.setVisible(False)
 
                 return readonly_widget
 
-            instance_key = current_column["name"].split('op_')[-1]
+            instance_key = current_column["name"].split("op_")[-1]
             current_text = item.cut_tag().get(f"tag.{instance_key}")
             edit_widget = QLineEdit(current_text)
             edit_widget.setObjectName(instance_key)
@@ -820,7 +832,7 @@ def create_unique_tag(tag_name):
     """
     unique_tag_number = random.randint(99999999, 1000000000)
     tag = hiero.core.Tag(f"{tag_name} {unique_tag_number}")
-    tag.metadata().setValue('tag.label', tag_name)
+    tag.metadata().setValue("tag.label", tag_name)
     tag.setName(tag_name)
 
     return tag
@@ -843,7 +855,7 @@ def _set_cut_tag(self, key, value):
 
     if not cut_tag:
         cut_tag = create_unique_tag("Cut Info")
-        cut_tag.metadata().setValue('tag.label', "Cut Info")
+        cut_tag.metadata().setValue("tag.label", "Cut Info")
         cut_tag.setName("Cut Info")
 
         # Have yet to find icon for cut info
