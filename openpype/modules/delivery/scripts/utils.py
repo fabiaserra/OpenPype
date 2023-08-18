@@ -6,6 +6,7 @@ quite a bit of refactoring. In the future we should abstract those functions
 in the plugins so they can be reused elsewhere.
 """
 import clique
+import datetime
 import getpass
 import os
 import requests
@@ -30,8 +31,10 @@ def create_metadata_path(instance_data):
         # directory is not available
         logger.warning("Path is unreachable: `{}`".format(output_dir))
 
-    metadata_filename = "{}_{}_metadata.json".format(
-        instance_data["asset"], instance_data["subset"]
+    metadata_filename = "{}_{}_{}_metadata.json".format(
+        datetime.now().strftime("%d%m%Y%H%M%S"),
+        instance_data["asset"],
+        instance_data["subset"]
     )
 
     return os.path.join(output_dir, metadata_filename)

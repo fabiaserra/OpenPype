@@ -221,7 +221,15 @@ class ProcessSubmittedJobOnFarm(pyblish.api.InstancePlugin,
 
         environment = {
             "AVALON_PROJECT": instance.context.data["projectName"],
-            "AVALON_ASSET": instance.context.data["asset"],
+            ### Starts Alkemy-X Override ###
+            # Grab context from instance instead of context.data for the
+            # cases where we use a generic context to publish to other contexts
+            # (e.g. when ingesting in Hiero we use a high level context and we
+            # need each individual publish to have the AVALON_ASSET pointing
+            # to the final destination context)
+            # "AVALON_ASSET": instance.context.data["asset"],
+            "AVALON_ASSET": instance.data["asset"],
+            ### Ends Alkemy-X Override ###
             "AVALON_TASK": instance.context.data["task"],
             "OPENPYPE_USERNAME": instance.context.data["user"],
             "OPENPYPE_LOG_NO_COLORS": "1",
