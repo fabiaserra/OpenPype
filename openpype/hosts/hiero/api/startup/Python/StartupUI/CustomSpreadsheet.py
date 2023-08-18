@@ -372,12 +372,12 @@ class CustomSpreadsheetColumns(QObject):
             "size" : QSize(10, 10)
         },
         {
-            "name": "op_handle_end",
+            "name": "op_handle_start",
             "cellType": "text",
             "size" : QSize(10, 10)
         },
         {
-            "name": "op_handle_start",
+            "name": "op_handle_end",
             "cellType": "text",
             "size" : QSize(10, 10)
         },
