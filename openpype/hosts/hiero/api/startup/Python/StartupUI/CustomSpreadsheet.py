@@ -1125,8 +1125,8 @@ def _set_openpype_instance(self, key, value):
         instance_data["subset"] = track_name
         instance_data["family"] = family
         instance_data["workfileFrameStart"] = frame_start
-        instance_data["handleStart"] = handle_start
-        instance_data["handleEnd"] = handle_end
+        instance_data["handleStart"] = handle_start if family == "plate" else "0"
+        instance_data["handleEnd"] = handle_end if family == "plate" else "0"
 
         # Constants
         instance_data["audio"] = "False"
