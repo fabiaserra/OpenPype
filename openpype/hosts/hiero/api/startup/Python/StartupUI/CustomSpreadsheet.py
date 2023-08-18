@@ -51,7 +51,9 @@ def get_active_ocio_config():
             ocio_path = project.ocioConfigPath()
             # Use default config path from sw
         elif project.ocioConfigName():
-            hiero_configs = glob.glob(configs_path + "/**/*.ocio", recursive=True)
+            hiero_configs = glob.glob(
+                configs_path + "/**/*.ocio", recursive=True
+            )
             for config in hiero_configs:
                 config_name = pathlib.Path(config).parent.name
                 if project.ocioConfigName() == config_name:
@@ -81,7 +83,9 @@ class Colorspace_Widget(QMainWindow):
         color_roles = [f"{x[0]} ({x[1]})" for x in ocio_config.getRoles()]
         color_spaces = []
         for color_space in ocio_config.getColorSpaces():
-            color_spaces.append((color_space.getName(), color_space.getFamily()))
+            color_spaces.append(
+                (color_space.getName(), color_space.getFamily())
+            )
 
         for role in color_roles:
             role_action = QAction(role, self.root_menu)
@@ -129,7 +133,9 @@ class Colorspace_Widget(QMainWindow):
 
         if menu_actions:
             # Sort menus alphabetically
-            index = bisect.bisect_left([x[0].text() for x in menu_actions], menu_text)
+            index = bisect.bisect_left(
+                [x[0].text() for x in menu_actions], menu_text
+            )
             if index == len(menu_actions):
                 if normal_actions:
                     action_index = actions.index(normal_actions[0])
@@ -202,7 +208,9 @@ class Colorspace_Widget(QMainWindow):
         for key, value in menu_data.items():
             if value is None:
                 action = QAction(key, menu)
-                target_action, insert_index = self.action_insert_target(prev_items, key)
+                target_action, insert_index = self.action_insert_target(
+                    prev_items, key
+                )
                 if target_action:
                     menu.insertAction(target_action, action)
                     prev_items.insert(insert_index, (action, False))
@@ -218,7 +226,9 @@ class Colorspace_Widget(QMainWindow):
                 )
                 if target_submenu:
                     menu.insertMenu(target_submenu, submenu)
-                    prev_items.insert(insert_index, (submenu.menuAction(), True))
+                    prev_items.insert(
+                        insert_index, (submenu.menuAction(), True)
+                    )
                 else:
                     menu.addMenu(submenu)
                     prev_items.append((submenu.menuAction(), True))
@@ -464,16 +474,92 @@ class CustomSpreadsheetColumns(QObject):
     def getTooltip(self, row, column, item):
         """Return the tooltip for a cell"""
         current_column = self.column_list[column]
+
         if current_column["name"] == "Tags":
             return str([item.name() for item in item.tags()])
 
         if current_column["name"] == "Notes":
             return str(self.getNotes(item))
 
+        if current_column["name"] == "Episode":
+            tooltip = (
+                "Episode name of current track item if valid otherwise --"
+            )
+            return tooltip
+
+        if current_column["name"] == "Sequence":
+            tooltip = (
+                "Sequence name of current track item if valid otherwise --"
+            )
+            return tooltip
+
+        if current_column["name"] == "Shot":
+            tooltip = (
+                "Shot name of current track item if valid otherwise --"
+            )
+            return tooltip
+
+        if current_column["name"] == "cut_in":
+            tooltip = (
+                "Shot 'cut in' frame. This is meant to be ground truth and can"
+                " be used to sync to SG"
+            )
+            return tooltip
+
+        if current_column["name"] == "head_handles":
+            tooltip = (
+                "Shot 'head handle' duration. This is meant to be ground truth"
+                " and can be used to sync to SG"
+            )
+            return tooltip
+
+        if current_column["name"] == "tail_handles":
+            tooltip = (
+                "Shot 'tail handle' duration. This is meant to be ground truth"
+                " and can be used to sync to SG"
+            )
+            return tooltip
+
         if current_column["name"] == "valid_entity":
             tooltip = (
                 "Whether this track items name is found as a valid"
-                " entity in Avalon DB",
+                " entity in Avalon DB"
+            )
+            return tooltip
+
+        if current_column["name"] == "op_frame_start":
+            tooltip = (
+                "Ingest first frame"
+            )
+            return tooltip
+
+        if current_column["name"] == "op_family":
+            tooltip = "Ingest first frame"
+
+            return tooltip
+
+        if current_column["name"] == "op_handle_start":
+            tooltip = "Ingest head handle duration"
+
+            return tooltip
+
+        if current_column["name"] == "op_handle_end":
+            tooltip = "Ingest tail handle duration"
+
+            return tooltip
+
+        if current_column["name"] == "op_subset":
+            tooltip = (
+                "Subset is the ingest descriptor\nExample: "
+                "{trackItemName}_{subset}_{version}"
+            )
+            return tooltip
+
+        if current_column["name"] == "op_use_nuke":
+            tooltip = (
+                "Ingest can use two different methods depending on media type "
+                "Nuke or OIIO. If you need to force a Nuke ingest toggle "
+                "use_nuke to True"
             )
             return tooltip
 
@@ -492,9 +578,12 @@ class CustomSpreadsheetColumns(QObject):
         column_name = self.column_list[column]["name"]
         if column_name.startswith("op_") or column_name == "valid_entity":
             if row % 2 == 0:
+                # For reference default even row is 61, 61, 61
                 return QColor(61, 61, 66)
             else:
+                # For reference default even row is 53, 53, 53
                 return QColor(53, 53, 57)
+
         return None
 
     def getForeground(self, row, column, item):
@@ -559,7 +648,9 @@ class CustomSpreadsheetColumns(QObject):
                         tag_metadata.hasKey("tag.status")
                         or tag_metadata.hasKey("tag.artistID")
                     ):
-                        QIcon(tag.icon()).paint(painter, rectangle, Qt.AlignLeft)
+                        QIcon(tag.icon()).paint(
+                            painter, rectangle, Qt.AlignLeft
+                        )
                         rectangle.translate(rectangle.width() + 2, 0)
                 painter.restore()
                 return True
@@ -637,7 +728,9 @@ class CustomSpreadsheetColumns(QObject):
             combo_widget.addItem("plate")
             combo_widget.addItem("reference")
             combo_widget.setCurrentText(combo_text)
-            combo_widget.currentIndexChanged.connect(self.openpype_instance_changed)
+            combo_widget.currentIndexChanged.connect(
+                self.openpype_instance_changed
+            )
 
             return combo_widget
 
@@ -679,8 +772,12 @@ class CustomSpreadsheetColumns(QObject):
             combo_widget.setObjectName(instance_key)
             combo_widget.addItem("True")
             combo_widget.addItem("False")
-            combo_widget.setCurrentText(True if check_state == "True" else "False")
-            combo_widget.currentIndexChanged.connect(self.openpype_instance_changed)
+            combo_widget.setCurrentText(
+                True if check_state == "True" else "False"
+            )
+            combo_widget.currentIndexChanged.connect(
+                self.openpype_instance_changed
+            )
 
             return combo_widget
 
@@ -1130,6 +1227,8 @@ hiero.core.TrackItem.openpype_instance = _openpype_instance
 
 
 # Register openpype instance update event
-hiero.core.events.registerInterest("kSelectionChanged", _update_op_instance_asset)
+hiero.core.events.registerInterest(
+    "kSelectionChanged", _update_op_instance_asset
+)
 # Register our custom columns
 hiero.ui.customColumn = CustomSpreadsheetColumns()
