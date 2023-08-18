@@ -12,10 +12,14 @@ from qtpy.QtGui import *
 import hiero
 
 from openpype.client import get_asset_by_name, get_project
-from openpype.pipeline.context_tools import get_current_project_name, \
-                                            get_hierarchy_env
-from openpype.hosts.hiero.api.lib import set_trackitem_openpype_tag, \
-                                         get_trackitem_openpype_tag
+from openpype.pipeline.context_tools import (
+    get_current_project_name,
+    get_hierarchy_env,
+)
+from openpype.hosts.hiero.api.lib import (
+    set_trackitem_openpype_tag,
+    get_trackitem_openpype_tag,
+)
 from openpype.settings import get_project_settings
 
 
@@ -47,8 +51,7 @@ def get_active_ocio_config():
             ocio_path = project.ocioConfigPath()
             # Use default config path from sw
         elif project.ocioConfigName():
-            hiero_configs = glob.glob(
-                configs_path + "/**/*.ocio", recursive=True)
+            hiero_configs = glob.glob(configs_path + "/**/*.ocio", recursive=True)
             for config in hiero_configs:
                 config_name = pathlib.Path(config).parent.name
                 if project.ocioConfigName() == config_name:
@@ -78,8 +81,7 @@ class Colorspace_Widget(QMainWindow):
         color_roles = [f"{x[0]} ({x[1]})" for x in ocio_config.getRoles()]
         color_spaces = []
         for color_space in ocio_config.getColorSpaces():
-            color_spaces.append(
-                (color_space.getName(), color_space.getFamily()))
+            color_spaces.append((color_space.getName(), color_space.getFamily()))
 
         for role in color_roles:
             role_action = QAction(role, self.root_menu)
@@ -127,8 +129,7 @@ class Colorspace_Widget(QMainWindow):
 
         if menu_actions:
             # Sort menus alphabetically
-            index = bisect.bisect_left(
-                [x[0].text() for x in menu_actions], menu_text)
+            index = bisect.bisect_left([x[0].text() for x in menu_actions], menu_text)
             if index == len(menu_actions):
                 if normal_actions:
                     action_index = actions.index(normal_actions[0])
@@ -173,9 +174,9 @@ class Colorspace_Widget(QMainWindow):
         if normal_actions:
             # Sort actions alphabetically
             index = bisect.bisect_left(
-                [x[0].text() for x in normal_actions], action_text)
+                [x[0].text() for x in normal_actions], action_text
+            )
             if index == len(normal_actions):
-
                 return (None, None)
             else:
                 action_index = actions.index(normal_actions[index])
@@ -201,8 +202,7 @@ class Colorspace_Widget(QMainWindow):
         for key, value in menu_data.items():
             if value is None:
                 action = QAction(key, menu)
-                target_action, insert_index = self.action_insert_target(
-                    prev_items, key)
+                target_action, insert_index = self.action_insert_target(prev_items, key)
                 if target_action:
                     menu.insertAction(target_action, action)
                     prev_items.insert(insert_index, (action, False))
@@ -214,11 +214,11 @@ class Colorspace_Widget(QMainWindow):
                 # Need to place submenu at beginning of current submenu
                 submenu = self.build_menu(value, key)
                 target_submenu, insert_index = self.menu_insertion_target(
-                    prev_items, key)
+                    prev_items, key
+                )
                 if target_submenu:
                     menu.insertMenu(target_submenu, submenu)
-                    prev_items.insert(
-                        insert_index, (submenu.menuAction(), True))
+                    prev_items.insert(insert_index, (submenu.menuAction(), True))
                 else:
                     menu.addMenu(submenu)
                     prev_items.append((submenu.menuAction(), True))
@@ -259,11 +259,9 @@ def get_asset_envs(asset_name):
     if not asset_doc:
         return {}
 
-
     entity_env = get_hierarchy_env(project_doc, asset_doc)
 
     return entity_env
-
 
 
 def get_track_item_shot(track_item_name):
@@ -309,86 +307,28 @@ class CustomSpreadsheetColumns(QObject):
     # dropdown implies QCombo
     # text implies QTextEdit
     column_list = [
-        {
-            "name": "Tags",
-            "cellType": "readonly"
-        },
-        {
-            "name": "Colorspace",
-            "cellType": "dropdown"
-        },
-        {
-            "name": "Notes",
-            "cellType": "readonly"
-        },
-        {
-            "name": "FileType",
-            "cellType": "readonly"
-        },
-        {
-            "name": "WidthxHeight",
-            "cellType": "readonly"
-        },
-        {
-            "name": "Pixel Aspect",
-            "cellType": "readonly"
-        },
-        {
-            "name": "Episode",
-            "cellType": "readonly"
-        },
-        {
-            "name": "Sequence",
-            "cellType": "readonly"
-        },
-        {
-            "name": "Shot",
-            "cellType": "readonly"
-        },
-        {
-            "name": "cut_in",
-            "cellType": "text"
-        },
-        {
-            "name": "head_handles",
-            "cellType": "text"
-        },
-        {
-            "name": "tail_handles",
-            "cellType": "text"
-        },
+        {"name": "Tags", "cellType": "readonly"},
+        {"name": "Colorspace", "cellType": "dropdown"},
+        {"name": "Notes", "cellType": "readonly"},
+        {"name": "FileType", "cellType": "readonly"},
+        {"name": "WidthxHeight", "cellType": "readonly"},
+        {"name": "Pixel Aspect", "cellType": "readonly"},
+        {"name": "Episode", "cellType": "readonly"},
+        {"name": "Sequence", "cellType": "readonly"},
+        {"name": "Shot", "cellType": "readonly"},
+        {"name": "cut_in", "cellType": "text"},
+        {"name": "head_handles", "cellType": "text"},
+        {"name": "tail_handles", "cellType": "text"},
         {
             "name": "valid_entity",
             "cellType": "readonly",
         },
-        {
-            "name": "op_frame_start",
-            "cellType": "text",
-            "size" : QSize(40, 20)
-        },
-        {
-            "name": "op_family",
-            "cellType": "dropdown",
-            "size" : QSize(10, 10)
-        },
-        {
-            "name": "op_handle_start",
-            "cellType": "text",
-            "size" : QSize(10, 10)
-        },
-        {
-            "name": "op_handle_end",
-            "cellType": "text",
-            "size" : QSize(10, 10)
-        },
-        {
-            "name": "op_subset",
-            "cellType": "readonly"
-        },
-        {
-            "name": "op_use_nuke",
-            "cellType": "checkbox"
-        },
+        {"name": "op_frame_start", "cellType": "text", "size": QSize(40, 20)},
+        {"name": "op_family", "cellType": "dropdown", "size": QSize(10, 10)},
+        {"name": "op_handle_start", "cellType": "text", "size": QSize(10, 10)},
+        {"name": "op_handle_end", "cellType": "text", "size": QSize(10, 10)},
+        {"name": "op_subset", "cellType": "readonly"},
+        {"name": "op_use_nuke", "cellType": "checkbox"},
     ]
 
     def numColumns(self):
@@ -490,21 +430,23 @@ class CustomSpreadsheetColumns(QObject):
                 return "--"
 
         elif current_column["name"] in [
-                "cut_in", "head_handles", "tail_handles"
-            ]:
+            "cut_in",
+            "head_handles",
+            "tail_handles",
+        ]:
             tag_key = current_column["name"]
             current_tag_text = item.cut_tag().get(f"tag.{tag_key}", "--")
 
             return current_tag_text
 
         elif current_column["name"] in [
-                "op_frame_start",
-                "op_family",
-                "op_handle_end",
-                "op_handle_start",
-                "op_use_nuke",
-                "op_subset",
-            ]:
+            "op_frame_start",
+            "op_family",
+            "op_handle_end",
+            "op_handle_start",
+            "op_use_nuke",
+            "op_subset",
+        ]:
             instance_key = current_column["name"]
             current_tag_text = item.openpype_instance().get(
                 f"{instance_key.split('op_')[-1]}", "--"
@@ -551,13 +493,13 @@ class CustomSpreadsheetColumns(QObject):
     def getForeground(self, row, column, item):
         """Return the text color for a cell"""
         if self.column_list[column]["name"] in [
-                "op_family",
-                "op_frame_start",
-                "op_handle_end",
-                "op_handle_start",
-                "op_use_nuke",
-                "op_subset"
-            ]:
+            "op_family",
+            "op_frame_start",
+            "op_handle_end",
+            "op_handle_start",
+            "op_use_nuke",
+            "op_subset",
+        ]:
             if not is_valid_asset(item.name()):
                 return QColor(255, 60, 30)
 
@@ -594,19 +536,23 @@ class CustomSpreadsheetColumns(QObject):
             if option.state & QStyle.State_Selected:
                 painter.fillRect(option.rect, option.palette.highlight())
             iconSize = 20
-            rectangle = QRect(option.rect.x(),
-                      option.rect.y() + (option.rect.height() - iconSize) / 2,
-                      iconSize, iconSize)
+            rectangle = QRect(
+                option.rect.x(),
+                option.rect.y() + (option.rect.height() - iconSize) / 2,
+                iconSize,
+                iconSize,
+            )
             tags = item.tags()
             if len(tags) > 0:
                 painter.save()
                 painter.setClipRect(option.rect)
                 for tag in item.tags():
                     tag_metadata = tag.metadata()
-                    if not (tag_metadata.hasKey("tag.status")
-                            or tag_metadata.hasKey("tag.artistID")):
-                        QIcon(tag.icon()).paint(
-                            painter, rectangle, Qt.AlignLeft)
+                    if not (
+                        tag_metadata.hasKey("tag.status")
+                        or tag_metadata.hasKey("tag.artistID")
+                    ):
+                        QIcon(tag.icon()).paint(painter, rectangle, Qt.AlignLeft)
                         rectangle.translate(rectangle.width() + 2, 0)
                 painter.restore()
                 return True
@@ -635,7 +581,10 @@ class CustomSpreadsheetColumns(QObject):
             return edit_widget
 
         elif current_column["name"] in [
-            "cut_in", "head_handles", "tail_handles"]:
+            "cut_in",
+            "head_handles",
+            "tail_handles",
+        ]:
             tag_key = current_column["name"]
             current_text = item.cut_tag().get(f"tag.{tag_key}")
             edit_widget = QLineEdit(current_text)
@@ -646,7 +595,11 @@ class CustomSpreadsheetColumns(QObject):
 
         elif current_column["name"] == "op_family":
             if not is_valid_asset(item.name()):
-                QMessageBox.Warning(hiero.ui.mainWindow(), "Critical", "Can't assign data to invalid entity")
+                QMessageBox.Warning(
+                    hiero.ui.mainWindow(),
+                    "Critical",
+                    "Can't assign data to invalid entity",
+                )
 
                 readonly_widget = QLabel()
                 readonly_widget.setEnabled(False)
@@ -683,7 +636,11 @@ class CustomSpreadsheetColumns(QObject):
 
         elif current_column["name"] == "op_use_nuke":
             if not is_valid_asset(item.name()):
-                QMessageBox.Warning(hiero.ui.mainWindow(), "Critical", "Can't assign data to invalid entity")
+                QMessageBox.Warning(
+                    hiero.ui.mainWindow(),
+                    "Critical",
+                    "Can't assign data to invalid entity",
+                )
 
                 readonly_widget = QLabel()
                 readonly_widget.setEnabled(False)
@@ -721,12 +678,16 @@ class CustomSpreadsheetColumns(QObject):
             return combo_widget
 
         elif current_column["name"] in [
-                "op_frame_start",
-                "op_handle_end",
-                "op_handle_start"
-            ]:
+            "op_frame_start",
+            "op_handle_end",
+            "op_handle_start",
+        ]:
             if not is_valid_asset(item.name()):
-                QMessageBox.Warning(hiero.ui.mainWindow(), "Critical", "Can't assign data to invalid entity")
+                QMessageBox.Warning(
+                    hiero.ui.mainWindow(),
+                    "Critical",
+                    "Can't assign data to invalid entity",
+                )
 
                 readonly_widget = QLabel()
                 readonly_widget.setEnabled(False)
@@ -745,7 +706,6 @@ class CustomSpreadsheetColumns(QObject):
         return None
 
     def setModelData(self, row, column, item, editor):
-
         return False
 
     def dropMimeData(self, row, column, item, data, items):
@@ -763,7 +723,8 @@ class CustomSpreadsheetColumns(QObject):
         project = selection[0].project()
         with project.beginUndo("Set Colorspace"):
             items = [
-                item for item in selection
+                item
+                for item in selection
                 if (item.mediaType() == hiero.core.TrackItem.MediaType.kVideo)
             ]
             for track_item in items:
@@ -892,8 +853,8 @@ def openpype_setting_defaults():
     project_name = get_current_project_name()
     project_settings = get_project_settings(project_name)
 
-    create_shot_clip_defaults = project_settings["hiero"]["create"][
-        "CreateShotClip"]
+    create_settings = project_settings["hiero"]["create"]
+    create_shot_clip_defaults = create_settings["CreateShotClip"]
     frame_start_default = create_shot_clip_defaults["workfileFrameStart"]
     handle_start_default = create_shot_clip_defaults["handleStart"]
     handle_end_default = create_shot_clip_defaults["handleEnd"]
@@ -963,9 +924,7 @@ def get_hierarchy_data(asset_name, track_name):
 
 def get_hierarchy_path(asset_doc):
     """Asset path is always the joining of the asset parents"""
-    hierarchy_path = os.sep.join(
-        asset_doc["data"]["parents"]
-    )
+    hierarchy_path = os.sep.join(asset_doc["data"]["parents"])
 
     return hierarchy_path
 
@@ -975,7 +934,7 @@ def get_hierarchy_parents(hierarchy_data):
     parents_types = ["folder", "episode", "sequence"]
     for key, value in hierarchy_data.items():
         if key in parents_types:
-            entity = {"entity_type" : key, "entity_name" : value}
+            entity = {"entity_type": key, "entity_name": value}
             parents.append(entity)
 
     return parents
@@ -996,9 +955,9 @@ def _set_openpype_instance(self, key, value):
             return
 
     convert_keys = {
-        "frame_start" : "workfileFrameStart",
-        "handle_start" : "handleStart",
-        "handle_end" : "handleEnd",
+        "frame_start": "workfileFrameStart",
+        "handle_start": "handleStart",
+        "handle_end": "handleEnd",
     }
     # Convert data from column names into OP instance names
     if key in convert_keys:
@@ -1066,7 +1025,7 @@ def _set_openpype_instance(self, key, value):
         instance_data["variant"] = "Main"
         instance_data["use_nuke"] = "False"
 
-    instance_data.update({key : value})
+    instance_data.update({key: value})
 
     set_trackitem_openpype_tag(self, instance_data)
 
@@ -1078,12 +1037,11 @@ def _openpype_instance(self):
         tag_data = instance_tag.metadata().dict()
         # Convert data from column names into OP instance names
         convert_keys = {
-            "tag.workfileFrameStart" : "frame_start",
-            "tag.handleStart" : "handle_start",
-            "tag.handleEnd" : "handle_end",
+            "tag.workfileFrameStart": "frame_start",
+            "tag.handleStart": "handle_start",
+            "tag.handleEnd": "handle_end",
         }
         for key, value in tag_data.items():
-
             if key in convert_keys:
                 instance_data[convert_keys[key]] = value
             else:
@@ -1136,8 +1094,10 @@ def _update_op_instance_asset(event):
         for key, value in instance_data.items():
             current_value = instance_tag.metadata().value(f"tag.{key}")
             # Need to compare objects in true form
-            if f"{current_value[0]}{current_value[-1]}" in ["{}", "[]", "()"] \
-                or current_value == "None":
+            if (
+                f"{current_value[0]}{current_value[-1]}" in ["{}", "[]", "()"]
+                or current_value == "None"
+            ):
                 current_value = ast.literal_eval(current_value)
 
             if current_value != value:
