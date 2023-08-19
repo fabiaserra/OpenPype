@@ -52,7 +52,7 @@ class TranscodeFrames(publish.Extractor):
     movie_extensions = {"mov", "mp4", "mxf"}
     nuke_specific_extensions = {"braw"}
     output_ext = "exr"
-    dst_colorspace = "scene_linear"
+    dst_media_color_transform = "scene_linear"
 
     # TODO: Replace these with published Templates workflow
     nuke_transcode_py = "/pipe/hiero/templates/nuke_transcode.py"
@@ -63,26 +63,34 @@ class TranscodeFrames(publish.Extractor):
         "--frames",
         "<STARTFRAME>-<ENDFRAME>",
         "\"{input_path}\"",  # Escape input path in case there's whitespaces
+        "-v",
+        "--nosoftwareattrib",
         "--compression",
         "zips",
         "-d",
         "half",
         "--scanline",
         "--colorconvert",
-        "{src_colorspace}",
-        "{dst_colorspace}",
+        "\"{src_media_color_transform}\"",
+        "\"{dst_media_color_transform}\"",
         "--sattrib",
         "framesPerSecond",  # Required to fix 'missing compression attribute' error
         "{fps}",
         "--sattrib",
+        "input/filename",
+        "\"{input_path}\"",
+        "--sattrib",
         "alkemy/ingest/colorspace",
-        "{src_color}",
+        "\"{src_colorspace}\"",
         "--sattrib",
         "alkemy/ingest/role",
-        "{src_role}",
+        "\"{src_role}\"",
         "--sattrib",
         "alkemy/ingest/colorconfig",
         "{ocio_path}",
+        "--sattrib",
+        "software",
+        "\"{{command}}\"",
         "-o",
         "{output_path}",
     ]
@@ -143,13 +151,13 @@ class TranscodeFrames(publish.Extractor):
         output_dir = os.path.dirname(output_template)
 
         # Determine color transformation
-        src_colorspace = track_item.sourceMediaColourTransform()
+        src_media_color_transform = track_item.sourceMediaColourTransform()
         # Define extra metadata variables
         ocio_path = os.getenv('OCIO')
-        src_role, src_color = get_role_colorspace(ocio_path, track_item)
+        src_role, src_colorspace = get_role_colorspace(ocio_path, track_item)
 
         # TODO: skip transcoding if source colorspace matches destination
-        # if src_colorspace == self.dst_colorspace:
+        # if src_media_color_transform == self.dst_media_color_transform:
 
         src_frame_start, src_frame_end = instance.data["srcFrameRange"]
         out_frame_start, out_frame_end = instance.data["outFrameRange"]
@@ -183,8 +191,8 @@ class TranscodeFrames(publish.Extractor):
             extra_env["_AX_TRANSCODE_READTYPE"] = self.output_ext.lower()
             extra_env["_AX_TRANSCODE_READPATH"] = input_path
             extra_env["_AX_TRANSCODE_WRITEPATH"] = output_path
-            extra_env["_AX_TRANSCODE_READCOLORSPACE"] = src_colorspace
-            extra_env["_AX_TRANSCODE_TARGETCOLORSPACE"] = self.dst_colorspace
+            extra_env["_AX_TRANSCODE_READCOLORSPACE"] = src_media_color_transform
+            extra_env["_AX_TRANSCODE_TARGETCOLORSPACE"] = self.dst_media_color_transform
 
             response = self.payload_submit(
                 instance,
@@ -197,14 +205,19 @@ class TranscodeFrames(publish.Extractor):
             self.log.info("Submitting OIIO transcode")
             oiio_args = " ".join(self.oiio_args).format(
                 input_path=input_path,
-                src_colorspace=src_colorspace,
-                dst_colorspace=self.dst_colorspace,
+                src_media_color_transform=src_media_color_transform,
+                dst_media_color_transform=self.dst_media_color_transform,
                 output_path=output_path,
                 fps=instance.data["fps"],
-                src_color=src_color,
+                src_colorspace=src_colorspace,
                 src_role=src_role,
                 ocio_path=ocio_path,
             )
+            print(oiio_args, 'oiio_args')
+            # Add command as we are getting rid of Software in favor of software
+            # There's a better way to do this but it works. It's late....
+            oiio_args = oiio_args.format(command=oiio_args.replace('"', '\"')).replace(' --sattrib software "{command}"', "")
+
             # NOTE: We use src frame start/end because oiiotool doesn't support
             # writing out a different frame range than input
             response = self.payload_submit(
