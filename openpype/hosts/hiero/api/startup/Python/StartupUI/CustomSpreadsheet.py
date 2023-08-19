@@ -14,11 +14,15 @@ import hiero
 from openpype.client import get_asset_by_name, get_project
 from openpype.hosts.hiero.api.constants import OPENPYPE_TAG_NAME
 from openpype.hosts.hiero.api.lib import (set_trackitem_openpype_tag)
+from openpype.lib import Logger
 from openpype.pipeline.context_tools import (
     get_current_project_name,
     get_hierarchy_env,
 )
 from openpype.settings import get_project_settings
+
+
+log = Logger.get_logger(__name__)
 
 
 def get_active_ocio_config():
@@ -40,14 +44,14 @@ def get_active_ocio_config():
         # Returning now. No need to search other places for config
         return ocio_config
 
-    # If not OCIO found in envion then check project OCIO
+    # If not OCIO found in environ then check project OCIO
     active_seq = hiero.ui.activeSequence()
     configs_path = __file__.split("plugins")[0] + "plugins/OCIOConfigs/configs"
     if active_seq:
         project = active_seq.project()
         if project.ocioConfigPath():
             ocio_path = project.ocioConfigPath()
-            # Use default config path from sw
+        # Use default config path from sw
         elif project.ocioConfigName():
             hiero_configs = glob.glob(
                 configs_path + "/**/*.ocio", recursive=True
@@ -167,12 +171,9 @@ class Colorspace_Widget(QMainWindow):
             tuple: A tuple containing the action to insert before and its
                             index.
         """
-        menu_actions = []
         normal_actions = []
         for action, is_menu in actions:
-            if is_menu:
-                menu_actions.append((action, is_menu))
-            else:
+            if not is_menu:
                 normal_actions.append((action, is_menu))
 
         if normal_actions:
@@ -234,7 +235,7 @@ class Colorspace_Widget(QMainWindow):
         return menu
 
 
-def is_valid_asset(asset_name):
+def is_valid_asset(track_item):
     """Check if the given asset name is valid for the current project.
 
     Args:
@@ -243,15 +244,20 @@ def is_valid_asset(asset_name):
     Returns:
         dict: The asset document if found, otherwise an empty dictionary.
     """
+    # Track item may not have ran through callback to is valid attr
+    if "valid_avalon_track_item" in track_item.__dir__():
+
+        return track_item.valid_avalon_track_item
+
     project_name = get_current_project_name()
-    asset_doc = get_asset_by_name(project_name, asset_name)
+    asset_doc = get_asset_by_name(project_name, track_item.name())
     if asset_doc:
-        return asset_doc
+        return True
     else:
-        return {}
+        return False
 
 
-def get_asset_envs(asset_name):
+def get_track_item_envs(asset_name):
     """
     Get the asset environment from an asset stored in the Avalon database.
 
@@ -267,38 +273,9 @@ def get_asset_envs(asset_name):
     if not asset_doc:
         return {}
 
-    entity_env = get_hierarchy_env(project_doc, asset_doc)
+    hierarchy_env = get_hierarchy_env(project_doc, asset_doc)
 
-    return entity_env
-
-
-def get_track_item_shot(track_item_name):
-    """Validate if shot exists in DB and if so return shot name"""
-    asset_envs = get_asset_envs(track_item_name)
-    if asset_envs is None:
-        return None
-    else:
-        return asset_envs.get("SHOT")
-
-
-def get_track_item_episode(track_item_name):
-    """Validate if shot exists in DB and if so return episode name"""
-    asset_envs = get_asset_envs(track_item_name)
-    if asset_envs is None:
-        return None
-    else:
-        return asset_envs.get("EPISODE")
-
-
-def get_track_item_sequence(track_item_name):
-    """
-    Validate if shot exists in DB and if so return sequence name
-    """
-    asset_envs = get_asset_envs(track_item_name)
-    if asset_envs is None:
-        return None
-    else:
-        return asset_envs.get("SEQ")
+    return hierarchy_env
 
 
 # The Custom Spreadsheet Columns
@@ -350,7 +327,7 @@ class CustomSpreadsheetColumns(QObject):
 
         return self.column_list[column]["name"]
 
-    def getTagsString(self, item):
+    def get_tags_string(self, item):
         """Convenience method for returning all the Notes in a Tag as a
         string
         """
@@ -362,41 +339,34 @@ class CustomSpreadsheetColumns(QObject):
 
         return tag_name_string
 
-    def getNotes(self, item):
+    def get_notes(self, item):
         """Convenience method for returning all the Notes in a Tag as a
         string
         """
-        notes = ""
-        tags = item.tags()
-        for tag in tags:
-            # Remove OpenPype Note from note field
-            if not "openpypeData" in tag.name():
-                note = tag.note()
-                if len(note) > 0:
-                    notes += tag.note() + ", "
+        notes = []
+        for tag in item.tags():
+            # Skip OpenPype notes
+            if "openpypeData" in tag.name():
+                continue
+            note = tag.note()
+            if note:
+                notes.append(note)
 
-        return notes[:-2]
+        return ", ".join(notes)
 
     def getData(self, row, column, item):
         """Return the data in a cell"""
         current_column = self.column_list[column]
         if current_column["name"] == "Tags":
-            return self.getTagsString(item)
+            return self.get_tags_string(item)
 
         elif current_column["name"] == "Colorspace":
-            column_transform = item.sourceMediaColourTransform()
-            try:
-                column_transform = item.sourceMediaColourTransform()
-            except:
-                column_transform = "--"
-            return column_transform
+
+            return item.sourceMediaColourTransform()
 
         elif current_column["name"] == "Notes":
-            try:
-                note = self.getNotes(item)
-            except:
-                note = ""
-            return note
+
+            return self.get_notes(item)
 
         elif current_column["name"] == "FileType":
             fileType = "--"
@@ -413,15 +383,22 @@ class CustomSpreadsheetColumns(QObject):
             return f"{width}x{height}"
 
         elif current_column["name"] == "Episode":
-            return get_track_item_episode(item.name()) or "--"
+            track_item_episode = get_track_item_envs(item.name()).get("EPISODE")
+
+            return track_item_episode or "--"
 
         elif current_column["name"] == "Sequence":
-            return get_track_item_sequence(item.name()) or "--"
+            track_item_sequence = get_track_item_envs(item.name()).get("SEQ")
+
+            return track_item_sequence or "--"
 
         elif current_column["name"] == "Shot":
-            return get_track_item_shot(item.name()) or "--"
+            track_item_shot = get_track_item_envs(item.name()).get("SHOT")
+
+            return track_item_shot or "--"
 
         elif current_column["name"] == "Pixel Aspect":
+
             return str(item.source().format().pixelAspect())
 
         elif current_column["name"] == "Artist":
@@ -449,14 +426,7 @@ class CustomSpreadsheetColumns(QObject):
 
             return current_tag_text
 
-        elif current_column["name"] in [
-            "op_frame_start",
-            "op_family",
-            "op_handle_end",
-            "op_handle_start",
-            "op_use_nuke",
-            "op_subset",
-        ]:
+        elif "op_" in current_column["name"]:
             instance_key = current_column["name"]
             current_tag_text = item.openpype_instance().get(
                 f"{instance_key.split('op_')[-1]}", "--"
@@ -478,97 +448,81 @@ class CustomSpreadsheetColumns(QObject):
         if current_column["name"] == "Tags":
             return str([item.name() for item in item.tags()])
 
-        if current_column["name"] == "Notes":
-            return str(self.getNotes(item))
+        elif current_column["name"] == "Notes":
+            return str(self.get_notes(item))
 
-        if current_column["name"] == "Episode":
-            tooltip = (
+        elif current_column["name"] == "Episode":
+            return (
                 "Episode name of current track item if valid otherwise --"
             )
-            return tooltip
 
-        if current_column["name"] == "Sequence":
-            tooltip = (
+        elif current_column["name"] == "Sequence":
+            return (
                 "Sequence name of current track item if valid otherwise --"
             )
-            return tooltip
 
-        if current_column["name"] == "Shot":
-            tooltip = (
+        elif current_column["name"] == "Shot":
+            return (
                 "Shot name of current track item if valid otherwise --"
             )
-            return tooltip
 
-        if current_column["name"] == "cut_in":
-            tooltip = (
+        elif current_column["name"] == "cut_in":
+            return (
                 "Shot 'cut in' frame. This is meant to be ground truth and can"
                 " be used to sync to SG."
             )
-            return tooltip
 
-        if current_column["name"] == "cut_out":
-            tooltip = (
+        elif current_column["name"] == "cut_out":
+            return (
                 "Shot 'cut out' frame. This is meant to be ground truth and can"
                 " be used to sync to SG."
             )
-            return tooltip
 
-        if current_column["name"] == "head_handles":
-            tooltip = (
+        elif current_column["name"] == "head_handles":
+            return (
                 "Shot 'head handle' duration. This is meant to be ground truth"
                 " and can be used to sync to SG."
             )
-            return tooltip
 
-        if current_column["name"] == "tail_handles":
-            tooltip = (
+        elif current_column["name"] == "tail_handles":
+            return (
                 "Shot 'tail handle' duration. This is meant to be ground truth"
                 " and can be used to sync to SG."
             )
-            return tooltip
 
-        if current_column["name"] == "valid_entity":
-            tooltip = (
+        elif current_column["name"] == "valid_entity":
+            return (
                 "Whether this track items name is found as a valid"
                 " entity in Avalon DB."
             )
-            return tooltip
 
-        if current_column["name"] == "op_frame_start":
-            tooltip = (
-                "Ingest first frame."
-            )
-            return tooltip
+        elif current_column["name"] == "op_frame_start":
+            return "Ingest first frame."
 
-        if current_column["name"] == "op_family":
-            tooltip = "Ingest first frame."
+        elif current_column["name"] == "op_family":
+            return "Ingest family."
 
-            return tooltip
 
-        if current_column["name"] == "op_handle_start":
-            tooltip = "Ingest head handle duration."
+        elif current_column["name"] == "op_handle_start":
+            return "Ingest head handle duration."
 
-            return tooltip
 
-        if current_column["name"] == "op_handle_end":
-            tooltip = "Ingest tail handle duration."
+        elif current_column["name"] == "op_handle_end":
+            return "Ingest tail handle duration."
 
-            return tooltip
 
-        if current_column["name"] == "op_subset":
-            tooltip = (
+        elif current_column["name"] == "op_subset":
+            return (
                 "Subset is the ingest descriptor\nExample: "
                 "{trackItemName}_{subset}_{version}"
             )
-            return tooltip
 
-        if current_column["name"] == "op_use_nuke":
-            tooltip = (
+        elif current_column["name"] == "op_use_nuke":
+            return (
                 "Ingest can use two different methods depending on media type "
                 "Nuke or OIIO. If you need to force a Nuke ingest toggle "
                 "use_nuke to True"
             )
-            return tooltip
 
         return ""
 
@@ -603,7 +557,8 @@ class CustomSpreadsheetColumns(QObject):
             "op_use_nuke",
             "op_subset",
         ]:
-            if not is_valid_asset(item.name()):
+
+            if not is_valid_asset(item):
                 return QColor(255, 60, 30)
 
         return None
@@ -614,8 +569,8 @@ class CustomSpreadsheetColumns(QObject):
         if current_column["name"] == "Colorspace":
             return QIcon("icons:LUT.png")
 
-        if current_column["name"] == "valid_entity":
-            if is_valid_asset(item.name()):
+        elif current_column["name"] == "valid_entity":
+            if is_valid_asset(item):
                 icon_name = "icons:status/TagFinal.png"
             else:
                 icon_name = "icons:status/TagOmitted.png"
@@ -626,9 +581,8 @@ class CustomSpreadsheetColumns(QObject):
 
     def getSizeHint(self, row, column, item):
         """Return the size hint for a cell"""
-        current_columnSize = self.column_list[column].get("size", None)
 
-        return current_columnSize
+        return self.column_list[column].get("size", None)
 
     def paintCell(self, row, column, item, painter, option):
         """Paint a custom cell. Return True if the cell was painted, or False
@@ -681,7 +635,7 @@ class CustomSpreadsheetColumns(QObject):
         elif current_column["name"] == "Colorspace":
             ocio_config = get_active_ocio_config()
             edit_widget = Colorspace_Widget(ocio_config)
-            edit_widget.root_menu.triggered.connect(self.colorspaceChanged)
+            edit_widget.root_menu.triggered.connect(self.colorspace_changed)
 
             return edit_widget
 
@@ -700,7 +654,7 @@ class CustomSpreadsheetColumns(QObject):
             return edit_widget
 
         elif current_column["name"] == "op_family":
-            if not is_valid_asset(item.name()):
+            if not is_valid_asset(item):
                 QMessageBox.warning(
                     hiero.ui.mainWindow(),
                     "Critical",
@@ -714,7 +668,7 @@ class CustomSpreadsheetColumns(QObject):
 
             instance_tag = item.openpype_instance_tag()
             if not instance_tag:
-                combo_text = '--'
+                combo_text = "--"
             else:
                 combo_text = instance_tag.metadata().value("family")
 
@@ -734,7 +688,7 @@ class CustomSpreadsheetColumns(QObject):
             return combo_widget
 
         elif current_column["name"] == "op_use_nuke":
-            if not is_valid_asset(item.name()):
+            if not is_valid_asset(item):
                 QMessageBox.warning(
                     hiero.ui.mainWindow(),
                     "Critical",
@@ -778,7 +732,7 @@ class CustomSpreadsheetColumns(QObject):
             "op_handle_end",
             "op_handle_start",
         ]:
-            if not is_valid_asset(item.name()):
+            if not is_valid_asset(item):
                 QMessageBox.warning(
                     hiero.ui.mainWindow(),
                     "Critical",
@@ -806,13 +760,13 @@ class CustomSpreadsheetColumns(QObject):
 
     def dropMimeData(self, row, column, item, data, items):
         """Handle a drag and drop operation - adds a Dragged Tag to the shot"""
-        for thing in items:
-            if isinstance(thing, hiero.core.Tag):
-                item.addTag(thing)
+        for drop_item in drop_items:
+            if isinstance(drop_item, hiero.core.Tag):
+                item.addTag(drop_item)
 
         return None
 
-    def colorspaceChanged(self, action):
+    def colorspace_changed(self, action):
         """This method is called when Colorspace widget changes index."""
         colorspace = action.text()
         selection = self.currentView.selection()
@@ -851,7 +805,7 @@ class CustomSpreadsheetColumns(QObject):
                 for track_item in selection:
                     cut_info_tag = track_item.cut_info_tag()
                     if cut_info_tag:
-                        print(f"{track_item.name()}: Removing 'Cut Info' tag")
+                        log.info(f"{track_item.name()}: Removing 'Cut Info' tag")
                         track_item.removeTag(cut_info_tag)
 
     def openpype_instance_changed(self):
@@ -871,7 +825,7 @@ class CustomSpreadsheetColumns(QObject):
                 for track_item in selection:
                     openpype_instance_tag = track_item.openpype_instance_tag()
                     if openpype_instance_tag:
-                        print(f"{track_item.name()}: Removing 'Cut Info' tag")
+                        log.info(f"{track_item.name()}: Removing 'Cut Info' tag")
                         track_item.removeTag(openpype_instance_tag)
             else:
                 for track_item in selection:
@@ -890,7 +844,6 @@ def _set_cut_info_tag(self, key, value):
         cut_tag = hiero.core.Tag("Cut Info")
         cut_tag.setIcon("icons:TagKeylight.png")
 
-        # Do i need this duplicate code?
         frame_start, handle_start, handle_end = openpype_setting_defaults()
 
         frame_offset = frame_start + handle_start
@@ -937,15 +890,11 @@ def _cut_info(self):
 
 def _cut_info_tag(self):
     tags = self.tags()
-    cut_info_tag = None
     for tag in tags:
-        if not tag.name() == "Cut Info":
-            continue
+        if tag.name() == "Cut Info":
+            return tag
 
-        cut_info_tag = tag
-        break
-
-    return cut_info_tag
+    return None
 
 
 def openpype_setting_defaults():
@@ -961,7 +910,7 @@ def openpype_setting_defaults():
     return (frame_start_default, handle_start_default, handle_end_default)
 
 
-def get_entity_links(asset_name):
+def get_entity_hierarchy(asset_name):
     """Retrieve entity links for the given asset.
 
     This function creates a dictionary of linked entities for the specified
@@ -982,40 +931,43 @@ def get_entity_links(asset_name):
     project_doc = get_project(project_name)
     asset_doc = get_asset_by_name(project_name, asset_name)
 
-    entity_links = get_hierarchy_env(project_doc, asset_doc)
+    hierarchy_env = get_hierarchy_env(project_doc, asset_doc)
     if asset_doc:
         parents = asset_doc["data"]["parents"]
 
         # Breakdown the first folders by which ones are not epi/seq/shot
         sub_directories = []
         for parent in parents:
-            if parent in entity_links.values():
+            if parent in hierarchy_env.values():
                 break
             else:
                 sub_directories.append(parent)
+    hierarchy_env = get_hierarchy_env(project_doc, asset_doc)
 
-    # Add standard entities to dict
     asset_entities = {}
-    episode = entity_links.get("EPISODE")
+    episode = hierarchy_env.get("EPISODE")
     if episode:
         asset_entities["episode"] = episode
 
-    sequence = entity_links.get("SEQ")
+    sequence = hierarchy_env.get("SEQ")
     if sequence:
         asset_entities["sequence"] = sequence
 
-    asset = entity_links.get("SHOT")
+    asset = hierarchy_env.get("SHOT")
     if asset:
         asset_entities["shot"] = asset
 
-    # Add folder to dict
-    asset_entities["folder"] = os.sep.join(sub_directories)
+    if hierarchy_env.get("ASSET_TYPE"):
+        folder = "asset"
+    else:
+        folder = "shots"
+    asset_entities["folder"] = folder
 
     return asset_entities
 
 
 def get_hierarchy_data(asset_name, track_name):
-    hierarchy_data = get_entity_links(asset_name)
+    hierarchy_data = get_entity_hierarchy(asset_name)
     hierarchy_data["track"] = track_name
 
     return hierarchy_data
@@ -1041,15 +993,11 @@ def get_hierarchy_parents(hierarchy_data):
 
 def _openpype_instance_tag(self):
     tags = self.tags()
-    instance_tag = None
     for tag in tags:
-        if not OPENPYPE_TAG_NAME in tag.name():
-            continue
+        if OPENPYPE_TAG_NAME in tag.name():
+            return tag
 
-        instance_tag = tag
-        break
-
-    return instance_tag
+    return None
 
 
 def _set_openpype_instance(self, key, value):
@@ -1065,7 +1013,7 @@ def _set_openpype_instance(self, key, value):
         # Skip validation if user simply wants to create default tag
         if value:
             if not value.isdigit():
-                print(f"{self.name()}: {key} must be a valid number")
+                log.info(f"{self.name()}: {key} must be a valid number")
                 return
 
     convert_keys = {
@@ -1074,26 +1022,25 @@ def _set_openpype_instance(self, key, value):
         "handle_end": "handleEnd",
     }
     # Convert data from column names into OP instance names
-    if key in convert_keys:
-        key = convert_keys[key]
+    key = convert_keys.get(key, key)
 
     instance_tag = self.openpype_instance_tag()
     track_item_name = self.name()
     track_name = self.parentTrack().name()
-    valid_asset = is_valid_asset(track_item_name)
     # Check if asset has valid name
     # if not don't create instance
-    if not valid_asset:
+    if not is_valid_asset(self):
         if instance_tag:
-            print(f"{self.name()}: Tag tack name no longer valid. "
+            log.info(f"{self.name()}: Track item name no longer valid. "
                   "Removing Openpype tag")
             self.removeTag(instance_tag)
         else:
-            print(f"{self.name()}: Track item name not found in DB!")
+            log.info(f"{self.name()}: Track item name not found in DB!")
 
         return
     else:
-        asset_doc = valid_asset
+        project_name = get_current_project_name()
+        asset_doc = get_asset_by_name(project_name, self.name())
 
     instance_data = {}
     if not instance_tag:
@@ -1112,7 +1059,7 @@ def _set_openpype_instance(self, key, value):
         instance_data["hierarchyData"] = hierarchy_data
         instance_data["hierarchy"] = hierarchy_path
         instance_data["parents"] = hierarchy_parents
-        instance_data["asset"] = get_track_item_shot(track_item_name)
+        instance_data["asset"] = track_item_name
         instance_data["subset"] = track_name
         instance_data["family"] = family
         instance_data["workfileFrameStart"] = frame_start
@@ -1191,7 +1138,7 @@ def _update_op_instance_asset(event):
         instance_data["hierarchyData"] = hierarchy_data
         instance_data["hierarchy"] = hierarchy_path
         instance_data["parents"] = hierarchy_parents
-        instance_data["asset"] = get_track_item_shot(track_item_name)
+        instance_data["asset"] = track_item_name
         instance_data["subset"] = track_name
         update = False
         for key, value in instance_data.items():
@@ -1212,7 +1159,30 @@ def _update_op_instance_asset(event):
                 update = True
 
         if update:
-            print(f"{track_item_name}: OP Instance updated - data modified")
+            log.info(f"{track_item_name}: OP Instance updated - data modified")
+
+
+def validate_avalon_track_item(event):
+    """
+    Event driven function that iters through all items as SequenceEdited
+    doesn't have self.sender and assign a validation attribute to each track
+    item
+    """
+    sequence = event.sequence
+    track_items = []
+    if sequence:
+        for video_track in sequence.videoTracks():
+            for item in video_track.items():
+                if isinstance(item, hiero.core.TrackItem):
+                    track_items.append(item)
+
+    project_name = get_current_project_name()
+    for track_item in track_items:
+        asset_doc = get_asset_by_name(project_name, track_item.name())
+        if asset_doc:
+            track_item.valid_avalon_track_item = True
+        else:
+            track_item.valid_avalon_track_item = False
 
 
 # Inject cut tag getter and setter methods into hiero.core.TrackItem
@@ -1229,7 +1199,11 @@ hiero.core.TrackItem.openpype_instance = _openpype_instance
 
 # Register openpype instance update event
 hiero.core.events.registerInterest(
-    "kSelectionChanged", _update_op_instance_asset
+    "kSequenceEdited", _update_op_instance_asset
 )
+
+# Register validation query to avalon
+hiero.core.events.registerInterest("kSequenceEdited", validate_avalon_track_item)
+
 # Register our custom columns
 hiero.ui.customColumn = CustomSpreadsheetColumns()
