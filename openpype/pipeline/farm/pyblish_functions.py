@@ -876,7 +876,7 @@ def create_metadata_path(instance, anatomy):
     # and when the subset was called the same, it was overwriting the same file
     # over and over
     metadata_filename = "{}_{}_{}_metadata.json".format(
-        datetime.now().strftime("%d%m%Y%H%M%S"),
+        datetime.datetime.now().strftime("%d%m%Y%H%M%S"),
         ins_data["asset"],
         ins_data["subset"]
     )
