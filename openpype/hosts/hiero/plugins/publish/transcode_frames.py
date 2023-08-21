@@ -13,35 +13,6 @@ from openpype.pipeline import publish, legacy_io
 from openpype.hosts.hiero.api import work_root
 
 
-def get_role_colorspace(env_ocio_path, track_item):
-    """Get the role and colorspace based on the active OCIO configuration and media color transform.
-
-    Args:
-        track_item: The track item containing information about the media color transform.
-
-    Returns:
-        tuple or None: A tuple containing the role and colorspace if found, or None if not found.
-    """
-    ocio_config = PyOpenColorIO.Config.CreateFromFile(env_ocio_path)
-
-    media_color_transform = track_item.sourceMediaColourTransform()
-    role_colorspace = [role for role in ocio_config.getRoles() if role[0] == media_color_transform]
-    if role_colorspace:
-        role, colorspace = role_colorspace[0]
-
-        return role, colorspace
-    else:
-        # Media color transform must be a colorspace if is not role
-        # Regardless test if the colorspace can be found in the config and if not produce a warning
-        colorspace_search = ocio_config.getColorSpace(media_color_transform).getName()
-
-        # Search doesn't require exact match
-        if colorspace_search != media_color_transform:
-            print("Warning: Track Item media color transform not found in OCIO config!")
-
-        return None, media_color_transform
-
-
 class TranscodeFrames(publish.Extractor):
     """Transcode Hiero media to the right colorspace using OIIO or Nuke"""
 
@@ -58,39 +29,29 @@ class TranscodeFrames(publish.Extractor):
     nuke_transcode_py = "/pipe/hiero/templates/nuke_transcode.py"
     nuke_transcode_script = "/pipe/hiero/templates/ingest_transcode.nk"
 
+    # WARNING: Need to be very careful about the length of the overall command
+    # Anything around 490-505 will cause ffmpeg to through an error
     # OIIO args we want to run to convert colorspaces
     oiio_args = [
         "--frames",
         "<STARTFRAME>-<ENDFRAME>",
         "\"{input_path}\"",  # Escape input path in case there's whitespaces
+        "--eraseattrib",
+        "\"Exif:ImageHistory\"", # Image history is too long and not needed
         "-v",
-        "--nosoftwareattrib",
         "--compression",
         "zips",
         "-d",
         "half",
         "--scanline",
+        "--attrib:subimages=1",
+        "framesPerSecond",
+        "\"{fps}\"",
+        "--colorconfig",
+        "{ocio_path}",
         "--colorconvert",
         "\"{src_media_color_transform}\"",
         "\"{dst_media_color_transform}\"",
-        "--sattrib",
-        "framesPerSecond",  # Required to fix 'missing compression attribute' error
-        "{fps}",
-        "--sattrib",
-        "input/filename",
-        "\"{input_path}\"",
-        "--sattrib",
-        "alkemy/ingest/colorspace",
-        "\"{src_colorspace}\"",
-        "--sattrib",
-        "alkemy/ingest/role",
-        "\"{src_role}\"",
-        "--sattrib",
-        "alkemy/ingest/colorconfig",
-        "{ocio_path}",
-        "--sattrib",
-        "software",
-        "\"{{command}}\"",
         "-o",
         "{output_path}",
     ]
@@ -154,11 +115,9 @@ class TranscodeFrames(publish.Extractor):
         src_media_color_transform = track_item.sourceMediaColourTransform()
         # Define extra metadata variables
         ocio_path = os.getenv('OCIO')
-        src_role, src_colorspace = get_role_colorspace(ocio_path, track_item)
 
         # TODO: skip transcoding if source colorspace matches destination
         # if src_media_color_transform == self.dst_media_color_transform:
-
         src_frame_start, src_frame_end = instance.data["srcFrameRange"]
         out_frame_start, out_frame_end = instance.data["outFrameRange"]
         self.log.info(
@@ -208,15 +167,9 @@ class TranscodeFrames(publish.Extractor):
                 src_media_color_transform=src_media_color_transform,
                 dst_media_color_transform=self.dst_media_color_transform,
                 output_path=output_path,
-                fps=instance.data["fps"],
-                src_colorspace=src_colorspace,
-                src_role=src_role,
+                fps=round(instance.data["fps"], 2),
                 ocio_path=ocio_path,
             )
-            print(oiio_args, 'oiio_args')
-            # Add command as we are getting rid of Software in favor of software
-            # There's a better way to do this but it works. It's late....
-            oiio_args = oiio_args.format(command=oiio_args.replace('"', '\"')).replace(' --sattrib software "{command}"', "")
 
             # NOTE: We use src frame start/end because oiiotool doesn't support
             # writing out a different frame range than input
