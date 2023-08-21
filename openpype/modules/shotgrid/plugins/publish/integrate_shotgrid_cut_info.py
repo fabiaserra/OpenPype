@@ -1,35 +1,15 @@
 import pyblish.api
 
 
-def openpype_publish_tag(track_item):
-    """Get tag that was used to publish track item"""
-    for item_tag in track_item.tags():
-        tag_metadata = item_tag.metadata().dict()
-        tag_family = tag_metadata.get("tag.family", "")
-        if tag_family == "reference":
-            return tag_metadata
-
-    return {}
-
-
-def get_tag_handles(track_item):
-    tag = openpype_publish_tag(track_item)
-    try:
-        handle_start = int(tag.get("tag.handleStart", "0"))
-        handle_end = int(tag.get("tag.handleEnd", "0"))
-    except ValueError:
-        raise Exception("Handle field should only contain numbers")
-
-    return handle_start, handle_end
-
-
 class IntegrateShotgridCutInfo(pyblish.api.InstancePlugin):
-    """Gathers cut info from instance and clip tag data. That data is then updated on the shot entity in Shotgrid"""
+    """Gathers cut info from Cut Info tag data. That data is then updated on
+    the shot entity in Shotgrid
+    """
 
     order = pyblish.api.IntegratorOrder + 0.4999
     label = "Integrate Shotgrid Cut Info"
     hosts = ["hiero"]
-    families = ["reference"]
+    families = ["reference", "plate"]
 
     optional = True
 
@@ -52,13 +32,15 @@ class IntegrateShotgridCutInfo(pyblish.api.InstancePlugin):
 
         track_item = instance.data["item"]
 
-        # handleStart and handleEnd are overriden to reflect media range and not absolute handles
-        # Solution is to take the handle values directly from the tag instead of instance data
-        handle_start, handle_end = get_tag_handles(track_item)
-        cut_in = instance.data["frameStart"]
-        cut_out = instance.data["frameEnd"]
-        head_in = cut_in - handle_start
-        tail_out = cut_out + handle_end
+        if not "cut_info_tag" in track_item.__dir__():
+            return
+
+        cut_info = track_item.cut_info()
+
+        cut_in = int(cut_info["cut_in"])
+        cut_out = int(cut_info["cut_out"])
+        head_in = cut_in - int(cut_info["head_handles"])
+        tail_out = cut_out + int(cut_info["tail_handles"])
 
         shot_data = {
             "sg_cut_in": cut_in,
