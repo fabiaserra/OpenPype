@@ -4,6 +4,7 @@ import json
 import getpass
 import requests
 import pyblish.api
+import PyOpenColorIO
 
 import hiero
 
@@ -22,36 +23,35 @@ class TranscodeFrames(publish.Extractor):
     movie_extensions = {"mov", "mp4", "mxf"}
     nuke_specific_extensions = {"braw"}
     output_ext = "exr"
-    dst_colorspace = "scene_linear"
+    dst_media_color_transform = "scene_linear"
 
     # TODO: Replace these with published Templates workflow
     nuke_transcode_py = "/pipe/hiero/templates/nuke_transcode.py"
     nuke_transcode_script = "/pipe/hiero/templates/ingest_transcode.nk"
 
+    # WARNING: Need to be very careful about the length of the overall command
+    # Anything around 490-505 will cause ffmpeg to through an error
     # OIIO args we want to run to convert colorspaces
     oiio_args = [
         "--frames",
         "<STARTFRAME>-<ENDFRAME>",
         "\"{input_path}\"",  # Escape input path in case there's whitespaces
+        "--eraseattrib",
+        "\"Exif:ImageHistory\"", # Image history is too long and not needed
         "-v",
-        "--info",
         "--compression",
         "zips",
         "-d",
         "half",
         "--scanline",
+        "--attrib:subimages=1",
+        "framesPerSecond",
+        "\"{fps}\"",
+        "--colorconfig",
+        "\"{ocio_path}\"",
         "--colorconvert",
-        "{src_colorspace}",
-        "{dst_colorspace}",
-        "--sattrib",
-        "framesPerSecond",  # Required to fix 'missing compression attribute' error
-        "{fps}",
-        "--sattrib",
-        "alkemy/ingest/colorspace",  # Ingest colorspace
-        "{src_colorspace}",
-        "--sattrib",
-        "input/filename",  # Ingest input filename
-        "\"{input_path}\"",  # Escape input path in case there's whitespaces
+        "\"{src_media_color_transform}\"",
+        "\"{dst_media_color_transform}\"",
         "-o",
         "{output_path}",
     ]
@@ -112,11 +112,12 @@ class TranscodeFrames(publish.Extractor):
         output_dir = os.path.dirname(output_template)
 
         # Determine color transformation
-        src_colorspace = track_item.sourceMediaColourTransform()
+        src_media_color_transform = track_item.sourceMediaColourTransform()
+        # Define extra metadata variables
+        ocio_path = os.getenv("OCIO")
 
         # TODO: skip transcoding if source colorspace matches destination
-        # if src_colorspace == self.dst_colorspace:
-
+        # if src_media_color_transform == self.dst_media_color_transform:
         src_frame_start, src_frame_end = instance.data["srcFrameRange"]
         out_frame_start, out_frame_end = instance.data["outFrameRange"]
         self.log.info(
@@ -132,11 +133,11 @@ class TranscodeFrames(publish.Extractor):
         self.log.info("Output path: %s", output_path)
         self.log.info("Output ext: %s", self.output_ext)
         self.log.info("Source ext: %s", source_ext.lower())
-
         # If either source or output is a video format, transcode using Nuke
         if (self.output_ext.lower() in self.movie_extensions or
                 source_ext.lower() in self.movie_extensions or
-                source_ext.lower() in self.nuke_specific_extensions):
+                source_ext.lower() in self.nuke_specific_extensions) or \
+                instance.data.get("use_nuke", False):
             # No need to raise error as Nuke raises an error exit value if something went wrong
             self.log.info("Submitting Nuke transcode")
 
@@ -149,8 +150,8 @@ class TranscodeFrames(publish.Extractor):
             extra_env["_AX_TRANSCODE_READTYPE"] = self.output_ext.lower()
             extra_env["_AX_TRANSCODE_READPATH"] = input_path
             extra_env["_AX_TRANSCODE_WRITEPATH"] = output_path
-            extra_env["_AX_TRANSCODE_READCOLORSPACE"] = src_colorspace
-            extra_env["_AX_TRANSCODE_TARGETCOLORSPACE"] = self.dst_colorspace
+            extra_env["_AX_TRANSCODE_READCOLORSPACE"] = src_media_color_transform
+            extra_env["_AX_TRANSCODE_TARGETCOLORSPACE"] = self.dst_media_color_transform
 
             response = self.payload_submit(
                 instance,
@@ -163,11 +164,13 @@ class TranscodeFrames(publish.Extractor):
             self.log.info("Submitting OIIO transcode")
             oiio_args = " ".join(self.oiio_args).format(
                 input_path=input_path,
-                src_colorspace=src_colorspace,
-                dst_colorspace=self.dst_colorspace,
+                src_media_color_transform=src_media_color_transform,
+                dst_media_color_transform=self.dst_media_color_transform,
                 output_path=output_path,
-                fps=instance.data["fps"],
+                fps=round(instance.data["fps"], 2),
+                ocio_path=ocio_path,
             )
+
             # NOTE: We use src frame start/end because oiiotool doesn't support
             # writing out a different frame range than input
             response = self.payload_submit(
