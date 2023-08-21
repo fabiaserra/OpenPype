@@ -32,7 +32,7 @@ def create_metadata_path(instance_data):
         logger.warning("Path is unreachable: `{}`".format(output_dir))
 
     metadata_filename = "{}_{}_{}_metadata.json".format(
-        datetime.now().strftime("%d%m%Y%H%M%S"),
+        datetime.datetime.now().strftime("%d%m%Y%H%M%S"),
         instance_data["asset"],
         instance_data["subset"]
     )
