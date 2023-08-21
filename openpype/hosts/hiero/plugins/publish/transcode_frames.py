@@ -48,7 +48,7 @@ class TranscodeFrames(publish.Extractor):
         "framesPerSecond",
         "\"{fps}\"",
         "--colorconfig",
-        "{ocio_path}",
+        "\"{ocio_path}\"",
         "--colorconvert",
         "\"{src_media_color_transform}\"",
         "\"{dst_media_color_transform}\"",
@@ -114,7 +114,7 @@ class TranscodeFrames(publish.Extractor):
         # Determine color transformation
         src_media_color_transform = track_item.sourceMediaColourTransform()
         # Define extra metadata variables
-        ocio_path = os.getenv('OCIO')
+        ocio_path = os.getenv("OCIO")
 
         # TODO: skip transcoding if source colorspace matches destination
         # if src_media_color_transform == self.dst_media_color_transform:
