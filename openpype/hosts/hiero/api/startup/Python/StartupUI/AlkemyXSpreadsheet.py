@@ -39,10 +39,8 @@ def get_active_ocio_config():
     env_ocio_path = os.getenv("OCIO")
 
     if env_ocio_path:
-        ocio_path = env_ocio_path
-        ocio_config = PyOpenColorIO.Config.CreateFromFile(ocio_path)
         # Returning now. No need to search other places for config
-        return ocio_config
+        return PyOpenColorIO.Config.CreateFromFile(env_ocio_path)
 
     # If not OCIO found in environ then check project OCIO
     active_seq = hiero.ui.activeSequence()
@@ -60,6 +58,7 @@ def get_active_ocio_config():
                 config_name = pathlib.Path(config).parent.name
                 if project.ocioConfigName() == config_name:
                     ocio_path = config
+                    break
 
     # Else statement is a catch for when the spreadsheet runs without sequence
     # loaded
@@ -245,9 +244,9 @@ def is_valid_asset(track_item):
         dict: The asset document if found, otherwise an empty dictionary.
     """
     # Track item may not have ran through callback to is valid attr
-    if "valid_avalon_track_item" in track_item.__dir__():
+    if "hierarchy_env" in track_item.__dir__():
 
-        return track_item.valid_avalon_track_item
+        return track_item.hierarchy_env
 
     project_name = get_current_project_name()
     asset_doc = get_asset_by_name(project_name, track_item.name())
@@ -257,19 +256,23 @@ def is_valid_asset(track_item):
         return False
 
 
-def get_track_item_envs(asset_name):
+def get_track_item_env(track_item):
     """
     Get the asset environment from an asset stored in the Avalon database.
 
     Args:
-        asset_name (str): The name of the asset.
+        track_item (str): Track item.
 
     Returns:
         dict: The asset environment if found, otherwise an empty dictionary.
     """
+    if "hierarchy_env" in track_item.__dir__():
+
+        return track_item.hierarchy_env
+
     project_name = get_current_project_name()
     project_doc = get_project(project_name)
-    asset_doc = get_asset_by_name(project_name, asset_name)
+    asset_doc = get_asset_by_name(project_name, track_item.name())
     if not asset_doc:
         return {}
 
@@ -383,17 +386,17 @@ class CustomSpreadsheetColumns(QObject):
             return f"{width}x{height}"
 
         elif current_column["name"] == "Episode":
-            track_item_episode = get_track_item_envs(item.name()).get("EPISODE")
+            track_item_episode = get_track_item_env(item).get("EPISODE")
 
             return track_item_episode or "--"
 
         elif current_column["name"] == "Sequence":
-            track_item_sequence = get_track_item_envs(item.name()).get("SEQ")
+            track_item_sequence = get_track_item_env(item).get("SEQ")
 
             return track_item_sequence or "--"
 
         elif current_column["name"] == "Shot":
-            track_item_shot = get_track_item_envs(item.name()).get("SHOT")
+            track_item_shot = get_track_item_env(item).get("SHOT")
 
             return track_item_shot or "--"
 
@@ -549,15 +552,7 @@ class CustomSpreadsheetColumns(QObject):
 
     def getForeground(self, row, column, item):
         """Return the text color for a cell"""
-        if self.column_list[column]["name"] in [
-            "op_family",
-            "op_frame_start",
-            "op_handle_end",
-            "op_handle_start",
-            "op_use_nuke",
-            "op_subset",
-        ]:
-
+        if self.column_list[column]["name"].startswith("op_"):
             if not is_valid_asset(item):
                 return QColor(255, 60, 30)
 
@@ -758,7 +753,7 @@ class CustomSpreadsheetColumns(QObject):
     def setModelData(self, row, column, item, editor):
         return False
 
-    def dropMimeData(self, row, column, item, data, items):
+    def dropMimeData(self, row, column, item, data, drop_items):
         """Handle a drag and drop operation - adds a Dragged Tag to the shot"""
         for drop_item in drop_items:
             if isinstance(drop_item, hiero.core.Tag):
@@ -844,7 +839,7 @@ def _set_cut_info_tag(self, key, value):
         cut_tag = hiero.core.Tag("Cut Info")
         cut_tag.setIcon("icons:TagKeylight.png")
 
-        frame_start, handle_start, handle_end = openpype_setting_defaults()
+        frame_start, handle_start, handle_end = get_openpype_setting_defaults()
 
         frame_offset = frame_start + handle_start
         if value:
@@ -897,7 +892,7 @@ def _cut_info_tag(self):
     return None
 
 
-def openpype_setting_defaults():
+def get_openpype_setting_defaults():
     project_name = get_current_project_name()
     project_settings = get_project_settings(project_name)
 
@@ -910,7 +905,7 @@ def openpype_setting_defaults():
     return (frame_start_default, handle_start_default, handle_end_default)
 
 
-def get_entity_hierarchy(asset_name):
+def get_entity_hierarchy(asset_doc, project_name):
     """Retrieve entity links for the given asset.
 
     This function creates a dictionary of linked entities for the specified
@@ -927,21 +922,7 @@ def get_entity_hierarchy(asset_name):
         dict: A dictionary containing linked entities, including episode,
                 sequence, shot, and folder information.
     """
-    project_name = get_current_project_name()
     project_doc = get_project(project_name)
-    asset_doc = get_asset_by_name(project_name, asset_name)
-
-    hierarchy_env = get_hierarchy_env(project_doc, asset_doc)
-    if asset_doc:
-        parents = asset_doc["data"]["parents"]
-
-        # Breakdown the first folders by which ones are not epi/seq/shot
-        sub_directories = []
-        for parent in parents:
-            if parent in hierarchy_env.values():
-                break
-            else:
-                sub_directories.append(parent)
     hierarchy_env = get_hierarchy_env(project_doc, asset_doc)
 
     asset_entities = {}
@@ -966,8 +947,8 @@ def get_entity_hierarchy(asset_name):
     return asset_entities
 
 
-def get_hierarchy_data(asset_name, track_name):
-    hierarchy_data = get_entity_hierarchy(asset_name)
+def get_hierarchy_data(asset_doc, project_name, track_name):
+    hierarchy_data = get_entity_hierarchy(asset_doc, project_name)
     hierarchy_data["track"] = track_name
 
     return hierarchy_data
@@ -1051,10 +1032,10 @@ def _set_openpype_instance(self, key, value):
         else:
             family = "plate"
 
-        hierarchy_data = get_hierarchy_data(track_item_name, track_name)
+        hierarchy_data = get_hierarchy_data(asset_doc, project_name, track_name)
         hierarchy_path = get_hierarchy_path(asset_doc)
         hierarchy_parents = get_hierarchy_parents(hierarchy_data)
-        frame_start, handle_start, handle_end = openpype_setting_defaults()
+        frame_start, handle_start, handle_end = get_openpype_setting_defaults()
 
         instance_data["hierarchyData"] = hierarchy_data
         instance_data["hierarchy"] = hierarchy_path
@@ -1130,7 +1111,7 @@ def _update_op_instance_asset(event):
             track_item.removeTag(instance_tag)
             continue
 
-        hierarchy_data = get_hierarchy_data(track_item_name, track_name)
+        hierarchy_data = get_hierarchy_data(asset_doc, project_name, track_name)
         hierarchy_path = get_hierarchy_path(asset_doc)
         hierarchy_parents = get_hierarchy_parents(hierarchy_data)
 
@@ -1162,7 +1143,7 @@ def _update_op_instance_asset(event):
             log.info(f"{track_item_name}: OP Instance updated - data modified")
 
 
-def validate_avalon_track_item(event):
+def _update_avalon_track_item(event):
     """
     Event driven function that iters through all items as SequenceEdited
     doesn't have self.sender and assign a validation attribute to each track
@@ -1176,13 +1157,9 @@ def validate_avalon_track_item(event):
                 if isinstance(item, hiero.core.TrackItem):
                     track_items.append(item)
 
-    project_name = get_current_project_name()
     for track_item in track_items:
-        asset_doc = get_asset_by_name(project_name, track_item.name())
-        if asset_doc:
-            track_item.valid_avalon_track_item = True
-        else:
-            track_item.valid_avalon_track_item = False
+        track_item_env = get_track_item_env(track_item)
+        track_item.hierarchy_env = track_item_env
 
 
 # Inject cut tag getter and setter methods into hiero.core.TrackItem
@@ -1203,7 +1180,7 @@ hiero.core.events.registerInterest(
 )
 
 # Register validation query to avalon
-hiero.core.events.registerInterest("kSequenceEdited", validate_avalon_track_item)
+hiero.core.events.registerInterest("kSequenceEdited", _update_avalon_track_item)
 
 # Register our custom columns
 hiero.ui.customColumn = CustomSpreadsheetColumns()
