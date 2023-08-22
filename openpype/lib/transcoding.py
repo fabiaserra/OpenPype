@@ -19,7 +19,11 @@ from .vendor_bin_utils import (
 # Max length of string that is supported by ffmpeg
 MAX_FFMPEG_STRING_LEN = 8196
 # Not allowed symbols in attributes for ffmpeg
-NOT_ALLOWED_FFMPEG_CHARS = ("\"", )
+
+### Starts Alkemy-X Ovveride ###
+# There's no reason that double quote " should not be allowed
+NOT_ALLOWED_FFMPEG_CHARS = ()
+### Ends Alkemy-X Ovveride ###
 
 # OIIO known xml tags
 STRING_TAGS = {

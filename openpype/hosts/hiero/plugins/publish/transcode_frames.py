@@ -35,23 +35,27 @@ class TranscodeFrames(publish.Extractor):
     oiio_args = [
         "--frames",
         "<STARTFRAME>-<ENDFRAME>",
-        "\"{input_path}\"",  # Escape input path in case there's whitespaces
+        '"{input_path}"',  # Escape input path in case there's whitespaces
         "--eraseattrib",
-        "\"Exif:ImageHistory\"", # Image history is too long and not needed
+        '"Exif*"', # Image history is too long and not needed
         "-v",
         "--compression",
         "zips",
         "-d",
         "half",
         "--scanline",
+        # "--sattrib",  # Can't add this meta until farm OIIO supports it
+        # "original_meta",
+        # '"{{TOP.META}}"', # Add meta from current input for pass through
         "--attrib:subimages=1",
         "framesPerSecond",
-        "\"{fps}\"",
-        "--colorconfig",
-        "\"{ocio_path}\"",
+        '"{fps}"',
+        "--colorconfig", # Add color config as an arg so that it can be traced
+        '"{ocio_path}"',
         "--colorconvert",
-        "\"{src_media_color_transform}\"",
-        "\"{dst_media_color_transform}\"",
+        '"{src_media_color_transform}"',
+        '"{dst_media_color_transform}"',
+        "--sansattrib", # Remove attrib/sattrib from command in software/exif
         "-o",
         "{output_path}",
     ]
