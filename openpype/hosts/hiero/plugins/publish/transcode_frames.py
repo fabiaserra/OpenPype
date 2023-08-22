@@ -44,14 +44,18 @@ class TranscodeFrames(publish.Extractor):
         "-d",
         "half",
         "--scanline",
+        # "--sattrib",  # Can't add this meta until farm OIIO supports it
+        # "original_meta",
+        # "\"{{TOP.META}}\"", # Add meta from current input for pass through
         "--attrib:subimages=1",
         "framesPerSecond",
         "\"{fps}\"",
-        "--colorconfig",
+        "--colorconfig", # Add color config as an arg so that it can be traced
         "\"{ocio_path}\"",
         "--colorconvert",
         "\"{src_media_color_transform}\"",
         "\"{dst_media_color_transform}\"",
+        "--sansattrib", # Remove attrib/sattrib from command in software/exif
         "-o",
         "{output_path}",
     ]
