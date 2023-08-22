@@ -37,7 +37,7 @@ class TranscodeFrames(publish.Extractor):
         "<STARTFRAME>-<ENDFRAME>",
         '"{input_path}"',  # Escape input path in case there's whitespaces
         "--eraseattrib",
-        '"Exif:ImageHistory"', # Image history is too long and not needed
+        '"Exif*"', # Image history is too long and not needed
         "-v",
         "--compression",
         "zips",
