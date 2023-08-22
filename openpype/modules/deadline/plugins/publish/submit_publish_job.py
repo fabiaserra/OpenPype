@@ -560,8 +560,12 @@ class ProcessSubmittedJobOnFarm(pyblish.api.InstancePlugin,
             }
             publish_job.update({"ftrack": ftrack})
 
+        ### Starts Alkemy-X Override ###
+        # Create metadata path only as we are adding a timestamp up to the
+        # second and this caused it to have a missmatch in some cases
         # metadata_path, rootless_metadata_path = \
         #     create_metadata_path(instance, anatomy)
+        ### Ends Alkemy-X Override ###
 
         with open(metadata_path, "w") as f:
             json.dump(publish_job, f, indent=4, sort_keys=True)
