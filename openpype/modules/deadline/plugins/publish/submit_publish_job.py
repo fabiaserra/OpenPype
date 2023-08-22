@@ -358,7 +358,7 @@ class ProcessSubmittedJobOnFarm(pyblish.api.InstancePlugin,
 
         deadline_publish_job_id = response.json()["_id"]
 
-        return deadline_publish_job_id
+        return deadline_publish_job_id, metadata_path
 
 
     def process(self, instance):
@@ -511,6 +511,7 @@ class ProcessSubmittedJobOnFarm(pyblish.api.InstancePlugin,
             }
 
         deadline_publish_job_id = None
+        metadata_path = ""
         if submission_type == "deadline":
             # get default deadline webservice url from deadline module
             self.deadline_url = instance.context.data["defaultDeadline"]
@@ -519,7 +520,7 @@ class ProcessSubmittedJobOnFarm(pyblish.api.InstancePlugin,
                 self.deadline_url = instance.data.get("deadlineUrl")
             assert self.deadline_url, "Requires Deadline Webservice URL"
 
-            deadline_publish_job_id = \
+            deadline_publish_job_id, metadata_path = \
                 self._submit_deadline_post_job(instance, render_job, instances)
 
             # Inject deadline url to instances.
@@ -559,8 +560,12 @@ class ProcessSubmittedJobOnFarm(pyblish.api.InstancePlugin,
             }
             publish_job.update({"ftrack": ftrack})
 
-        metadata_path, rootless_metadata_path = \
-            create_metadata_path(instance, anatomy)
+        ### Starts Alkemy-X Override ###
+        # Create metadata path only as we are adding a timestamp up to the
+        # second and this caused it to have a missmatch in some cases
+        # metadata_path, rootless_metadata_path = \
+        #     create_metadata_path(instance, anatomy)
+        ### Ends Alkemy-X Override ###
 
         with open(metadata_path, "w") as f:
             json.dump(publish_job, f, indent=4, sort_keys=True)
