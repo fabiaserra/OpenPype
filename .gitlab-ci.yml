@@ -124,8 +124,9 @@ build-patch:
   allow_failure: false
 
 deploy-patch:
+  image: alpine:latest
   tags:
-    - cw-pvc
+    - mnt-pipe
   stage: deploy
   script:
     - cp -R ./artifact/build/* /pipe/openpype/versions/
@@ -164,8 +165,9 @@ release-patch:
     - when: always
 
 deploy-to-deadline:
+  image: alpine:latest
   tags:
-    - cw-pvc
+    - mnt-pipe
   stage: deploy
   script:
     - rsync -avh --chmod=777 --chown=nobody:nogroup $CI_PROJECT_DIR/openpype/modules/deadline/repository/custom/plugins/* /deadline-repo/custom/plugins/
