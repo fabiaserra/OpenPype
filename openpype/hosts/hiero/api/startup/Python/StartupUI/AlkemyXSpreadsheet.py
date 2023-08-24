@@ -21,6 +21,13 @@ from openpype.pipeline.context_tools import (
 )
 from openpype.settings import get_project_settings
 
+FORMATS = {fmt.name(): {
+        'width':fmt.width(),
+        'height':fmt.height(),
+        "format": fmt.toString(),
+        "pixelAspect":fmt.pixelAspect()
+    }
+           for fmt in hiero.core.formats()}
 
 log = Logger.get_logger(__name__)
 
@@ -70,9 +77,56 @@ def get_active_ocio_config():
     return ocio_config
 
 
-class Colorspace_Widget(QMainWindow):
+
+class ResolutionWidget(QWidget):
+    def __init__(self, current_format):
+        super(ResolutionWidget, self).__init__()
+
+        # put a scrollbar first
+        body_container = QWidget()
+        self.body = QVBoxLayout()
+        # self.body.addStretch(1)
+        body_container.setLayout(self.body)
+
+        self.resolution_combo = QComboBox()
+        self.resolution_combo.setEditable(True)
+        # Use base settings from current combobox defaults
+        completer = self.resolution_combo.completer()
+        completer.setCompletionMode(QCompleter.PopupCompletion)
+        completer.setFilterMode(Qt.MatchContains)
+        self.resolution_combo.addItem(" -- ")
+
+        # Move current resolution to the top
+        proper_res = ""
+        for res in sorted(FORMATS, key=lambda x: FORMATS[x]["width"]):
+            width = FORMATS[res]['width']
+            height = FORMATS[res]['height']
+            if not (width == current_format.width() and height == current_format.height()):
+                self.resolution_combo.addItem('{1}x{2} - {0}'.format(res, width, height))
+            else:
+                proper_res = res
+
+        # Move current resolution to the top
+        if proper_res:
+            width = FORMATS[proper_res]['width']
+            height = FORMATS[proper_res]['height']
+            current_format_string = f"{width}x{height} - {proper_res}"
+        else:
+            current_format_string = f"{current_format.width()}x{current_format.height()}"
+        self.resolution_combo.insertItem(0, current_format_string)
+
+# Will need to add current format if found as tag on clip
+#        self.resolution_combo.setCurrentText(current_format_string)
+        self.resolution_combo.setCurrentIndex(0)
+        self.body.addWidget(self.resolution_combo)
+
+
+        self.setLayout(self.body)
+
+
+class ColorspaceWidget(QMainWindow):
     def __init__(self, ocio_config, parent=None):
-        super(Colorspace_Widget, self).__init__(parent)
+        super(ColorspaceWidget, self).__init__(parent)
 
         # Change how roles are added - add them to the base menu using the
         # getRoles method
@@ -629,10 +683,20 @@ class CustomSpreadsheetColumns(QObject):
 
         elif current_column["name"] == "Colorspace":
             ocio_config = get_active_ocio_config()
-            edit_widget = Colorspace_Widget(ocio_config)
+            edit_widget = ColorspaceWidget(ocio_config)
             edit_widget.root_menu.triggered.connect(self.colorspace_changed)
 
             return edit_widget
+
+        elif current_column["name"] == "Edit_Res":
+            # Send current format for init
+            edit_widget = ResolutionWidget(item.format())
+            self.resolution_combo.currentIndexChanged.connect(self.edit_res_changed)
+
+            return edit_widget
+
+        elif current_column["name"] == "resize_type":
+            pass
 
         elif current_column["name"] in [
             "cut_in",
@@ -761,12 +825,40 @@ class CustomSpreadsheetColumns(QObject):
 
         return None
 
+
+    def edit_res_changed(self, index):
+        edit_resolution = self.resolution_combo.itemText(index)
+
+        # Add resolution tag or update it.
+        # If adding for the first time then default resize type to width
+        # if user tries to update resize type without res then do nothing
+        # Warn user please enter resolution first
+
+
+        # Use index to get text to ensure text is correct
+        # print(self.resolution_combo.itemText(index))
+        # with project.beginUndo("Set Edit Resolution"):
+        #     track_item = None
+        #     items = [
+        #         item
+        #         for item in selection
+        #         if (item.mediaType() == hiero.core.TrackItem.MediaType.kVideo)
+        #     ]
+        #     for track_item in items:
+        #         track_item.setSourceMediaColourTransform(colorspace)
+
+        #     if track_item:
+        #         # Force sequence update
+        #         track_item.sequence().editFinished()
+
+
     def colorspace_changed(self, action):
         """This method is called when Colorspace widget changes index."""
         colorspace = action.text()
         selection = self.currentView.selection()
         project = selection[0].project()
         with project.beginUndo("Set Colorspace"):
+            track_item = None
             items = [
                 item
                 for item in selection
@@ -774,6 +866,10 @@ class CustomSpreadsheetColumns(QObject):
             ]
             for track_item in items:
                 track_item.setSourceMediaColourTransform(colorspace)
+
+            if track_item:
+                # Force sequence update
+                track_item.sequence().editFinished()
 
     def cut_info_changed(self):
         sender = self.sender()
@@ -800,7 +896,9 @@ class CustomSpreadsheetColumns(QObject):
                 for track_item in selection:
                     cut_info_tag = track_item.cut_info_tag()
                     if cut_info_tag:
-                        log.info(f"{track_item.name()}: Removing 'Cut Info' tag")
+                        log.info(f"{track_item.parent.name()}."
+                                 f"{track_item.name()}: "
+                                 "Removing 'Cut Info' tag")
                         track_item.removeTag(cut_info_tag)
 
     def openpype_instance_changed(self):
@@ -820,7 +918,9 @@ class CustomSpreadsheetColumns(QObject):
                 for track_item in selection:
                     openpype_instance_tag = track_item.openpype_instance_tag()
                     if openpype_instance_tag:
-                        log.info(f"{track_item.name()}: Removing 'Cut Info' tag")
+                        log.info(f"{track_item.parent.name()}."
+                                 f"{track_item.name()}: "
+                                 "Removing 'Cut Info' tag")
                         track_item.removeTag(openpype_instance_tag)
             else:
                 for track_item in selection:
@@ -994,7 +1094,8 @@ def _set_openpype_instance(self, key, value):
         # Skip validation if user simply wants to create default tag
         if value:
             if not value.isdigit():
-                log.info(f"{self.name()}: {key} must be a valid number")
+                log.info(f"{self.parent().name()}.{self.name()}: "
+                         f"{key} must be a valid number")
                 return
 
     convert_keys = {
@@ -1012,11 +1113,12 @@ def _set_openpype_instance(self, key, value):
     # if not don't create instance
     if not is_valid_asset(self):
         if instance_tag:
-            log.info(f"{self.name()}: Track item name no longer valid. "
-                  "Removing Openpype tag")
+            log.info(f"{self.parent().name()}.{self.name()}: "
+                    "Track item name no longer valid. Removing Openpype tag")
             self.removeTag(instance_tag)
         else:
-            log.info(f"{self.name()}: Track item name not found in DB!")
+            log.info(f"{self.parent().name()}.{self.name()}: "
+                     "Track item name not found in DB!")
 
         return
     else:
@@ -1090,10 +1192,11 @@ def _openpype_instance(self):
 
 def _update_op_instance_asset(event):
     # Always iter through all items since the user may never reselected the
-    active_sequence = hiero.ui.activeSequence()
+    timeline = hiero.ui.activeSequence()
     track_items = []
-    if active_sequence:
-        for video_track in active_sequence.videoTracks():
+    # Grab all track items
+    if timeline:
+        for video_track in timeline.videoTracks():
             for item in video_track.items():
                 if isinstance(item, hiero.core.TrackItem):
                     track_items.append(item)
@@ -1140,7 +1243,88 @@ def _update_op_instance_asset(event):
                 update = True
 
         if update:
-            log.info(f"{track_item_name}: OP Instance updated - data modified")
+            log.info(f"{track_name}.{track_item_name}: "
+                     "OP Instance updated - data modified")
+
+
+class TrackRename():
+    previous_track_item = ()
+
+    def __init__(self):
+        pass
+
+    def _update_op_instance_subset(self, event):
+        video_track_change = False
+        # Because video tracks and track items can not coexist within a single
+        # selection it's known that if first index of selection is video track
+        # previous change of selection was for video track
+        if self.previous_track_item:
+            if isinstance(self.previous_track_item[0], hiero.core.VideoTrack):
+                video_track_change = True
+
+        if not video_track_change:
+            self.previous_track_item = event.sender.selection()
+            return
+
+        # Always iter through all items since the user may never reselected the
+        timeline = event.sender
+        track_items = []
+        # Grab relevant track items
+        if timeline:
+            for video_track in self.previous_track_item:
+                for item in video_track.items():
+                    if isinstance(item, hiero.core.TrackItem):
+                        track_items.append(item)
+
+        for track_item in track_items:
+            instance_tag = track_item.openpype_instance_tag()
+            if not instance_tag:
+                continue
+
+            track_item_name = track_item.name()
+            track_name = track_item.parentTrack().name()
+            project_name = get_current_project_name()
+            asset_doc = get_asset_by_name(project_name, track_item_name)
+            if not asset_doc:
+                track_item.removeTag(instance_tag)
+                continue
+
+            hierarchy_data = get_hierarchy_data(
+                asset_doc, project_name, track_name
+            )
+
+            instance_data = {}
+            instance_data["hierarchyData"] = hierarchy_data
+            instance_data["subset"] = track_name
+            update = False
+            for key, value in instance_data.items():
+                current_value = instance_tag.metadata().value(f"tag.{key}")
+                # Need to compare objects in true form
+                if (
+                    f"{current_value[0]}{current_value[-1]}"
+                    in ["{}", "[]", "()"]
+                    or current_value == "None"
+                ):
+                    current_value = ast.literal_eval(current_value)
+
+                if current_value != value:
+                    # Change value into string form if not already a string
+                    if not isinstance(value, str):
+                        value = value.__repr__()
+
+                    instance_tag.metadata().setValue(f"tag.{key}", value)
+                    update = True
+
+            if update:
+                log.info(
+                    f"{track_name}.{track_item_name}: "
+                    "OP Instance updated - data modified"
+                )
+
+        self.previous_track_item = event.sender.selection()
+
+
+
 
 
 def _update_avalon_track_item(event):
@@ -1179,8 +1363,17 @@ hiero.core.events.registerInterest(
     "kSequenceEdited", _update_op_instance_asset
 )
 
+# SequenceEdited only capture Track Item renames and not Video Track renames
+# Need class to keep track of previous selection to limit event runtime
+track_rename = TrackRename()
+hiero.core.events.registerInterest(
+    "kSelectionChanged/kTimeline", track_rename._update_op_instance_subset
+)
+
 # Register validation query to avalon
-hiero.core.events.registerInterest("kSequenceEdited", _update_avalon_track_item)
+hiero.core.events.registerInterest(
+    "kSequenceEdited", _update_avalon_track_item
+)
 
 # Register our custom columns
 hiero.ui.customColumn = CustomSpreadsheetColumns()
