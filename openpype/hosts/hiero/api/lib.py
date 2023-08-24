@@ -1553,7 +1553,6 @@ def otio_parse_edl_events(path, color_edits_only=False):
 
 def parse_edl_events(color_file, color_edits_only=True):
     try:
-        print('testing parse from otio')
         edl = otio_parse_edl_events(color_file, color_edits_only)
 
     except UnicodeDecodeError:
