@@ -478,6 +478,9 @@ class CustomSpreadsheetColumns(QObject):
             "head_handles",
             "tail_handles",
         ]:
+            if not isinstance(item.parent(), hiero.core.VideoTrack):
+                return "--"
+
             tag_key = current_column["name"]
             current_tag_text = item.cut_info().get(tag_key, "--")
 
@@ -488,6 +491,8 @@ class CustomSpreadsheetColumns(QObject):
             current_tag_text = item.openpype_instance().get(
                 f"{instance_key.split('op_')[-1]}", "--"
             )
+            if not isinstance(item.parent(), hiero.core.VideoTrack):
+                return "--"
 
             return current_tag_text
 
@@ -672,7 +677,9 @@ class CustomSpreadsheetColumns(QObject):
         self.currentView = view
         current_column = self.column_list[column]
 
-        if current_column["cellType"] == "readonly":
+        if (current_column["cellType"] == "readonly"
+            or not isinstance(item.parent(), hiero.core.VideoTrack)
+            ):
             # readonly is done by removing visibility and useability of the
             # returned widget to the widget viewer
             edit_widget = QLabel()
@@ -884,7 +891,8 @@ class CustomSpreadsheetColumns(QObject):
             value = value if value == "0" else value.lstrip("0")
 
         view = hiero.ui.activeView()
-        selection = view.selection()
+        selection = [item for item in view.selection() \
+                     if isinstance(item.parent(), hiero.core.VideoTrack)]
         project = selection[0].project()
         with project.beginUndo("Set Cut Info"):
             if value != "--":
@@ -896,7 +904,7 @@ class CustomSpreadsheetColumns(QObject):
                 for track_item in selection:
                     cut_info_tag = track_item.cut_info_tag()
                     if cut_info_tag:
-                        log.info(f"{track_item.parent.name()}."
+                        log.info(f"{track_item.parent().name()}."
                                  f"{track_item.name()}: "
                                  "Removing 'Cut Info' tag")
                         track_item.removeTag(cut_info_tag)
@@ -910,7 +918,8 @@ class CustomSpreadsheetColumns(QObject):
             value = sender.text()
 
         view = hiero.ui.activeView()
-        selection = view.selection()
+        selection = [item for item in view.selection() \
+                     if isinstance(item.parent(), hiero.core.VideoTrack)]
         project = selection[0].project()
         with project.beginUndo("Set Openpype Instance"):
             # If value is -- this is used as an easy to remove openpype tag
@@ -918,13 +927,14 @@ class CustomSpreadsheetColumns(QObject):
                 for track_item in selection:
                     openpype_instance_tag = track_item.openpype_instance_tag()
                     if openpype_instance_tag:
-                        log.info(f"{track_item.parent.name()}."
+                        log.info(f"{track_item.parent().name()}."
                                  f"{track_item.name()}: "
                                  "Removing 'Cut Info' tag")
                         track_item.removeTag(openpype_instance_tag)
             else:
                 for track_item in selection:
                     track_item.set_openpype_instance(key, value)
+
 
 def _set_cut_info_tag(self, key, value):
     """Empty value is allowed incase editor wants to create a cut tag with
@@ -1133,6 +1143,7 @@ def _set_openpype_instance(self, key, value):
             family = "reference"
         else:
             family = "plate"
+        families = ["clip", "review"]
 
         hierarchy_data = get_hierarchy_data(asset_doc, project_name, track_name)
         hierarchy_path = get_hierarchy_path(asset_doc)
@@ -1145,16 +1156,17 @@ def _set_openpype_instance(self, key, value):
         instance_data["asset"] = track_item_name
         instance_data["subset"] = track_name
         instance_data["family"] = family
+        instance_data["families"] = str(families)
         instance_data["workfileFrameStart"] = frame_start
         instance_data["handleStart"] = handle_start \
             if family == "plate" else "0"
         instance_data["handleEnd"] = handle_end \
             if family == "plate" else "0"
 
+
         # Constants
         instance_data["audio"] = "False"
         instance_data["heroTrack"] = "True"
-        instance_data["families"] = "['clip']"
         instance_data["id"] = "pyblish.avalon.instance"
         instance_data["publish"] = "True"
         instance_data["reviewTrack"] = "None"
