@@ -36,7 +36,9 @@ class IntegrateShotgridCutInfo(pyblish.api.InstancePlugin):
             return
 
         cut_info = track_item.cut_info()
-
+        if not cut_info:
+            self.log.info("No cut info found on instance track item. Ignoring cut update")
+            return
         cut_in = int(cut_info["cut_in"])
         cut_out = int(cut_info["cut_out"])
         head_in = cut_in - int(cut_info["head_handles"])
