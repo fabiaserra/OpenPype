@@ -1321,7 +1321,112 @@ def get_main_window():
 ### Starts Alkemy-X Override ###
 
 
-def parse_edl_events(path, color_edits_only=False):
+def regex_parse_edl_events(path, color_edits_only=False):
+    """
+    EDL is parsed using OTIO and then placed into a data struture for output "edl"
+    Data is stored under the understanding that it will be used for identifying plate names which are linked to CDLs
+
+    EDL LOC metadata is parsed with OTIO under markers and then regexed to find the main bit of information which
+    will link it to a plate name further down the line
+
+    Underscores are not counted ({0,}) but are left greedy incase naming doesn't follow normal shot convention
+    but instead follows plate pull naming convention.
+    Example: abc_101_010_010_element
+    Example: abc_101_010_010_element_fire
+
+    Examples of targeted matches:
+    abc_101_010_010_element
+    abc_101_010_010
+    abc_101_010
+    101_010_010
+
+    Examples of what does not match:
+    abc_101
+    101_001
+    _abc_101_010
+    abc_101_010_
+    """
+    shot_pattern = r"(?<!_)(?P<LOC>[a-zA-Z0-9]{3,4}_((?<=_)[a-zA-Z0-9]{3,4}_){1,2}[a-zA-Z0-9]{3,4}(?<!_)(_[a-zA-Z0-9]{1,}){0,})\b"
+
+    # Define regex patterns
+    edit_pattern = r"(?<=[\n\r])(?P<edit>\d+\s+[\s\S]*?)(?=([\n\r]+\d+)|\Z)"
+    sop_pattern = r"[*]\s?ASC[_]SOP\s+[(]\s?(?P<sR>[-]?\d+[.]\d{4,6})\s+(?P<sG>[-]?\d+[.]\d{4,6})\s+(?P<sB>[-]?\d+[.]\d{4,6})\s?[)]\s?[(]\s?(?P<oR>[-]?\d+[.]\d{4,6})\s+(?P<oG>[-]?\d+[.]\d{4,6})\s+(?P<oB>[-]?\d+[.]\d{4,6})\s?[)]\s?[(]\s?(?P<pR>[-]?\d+[.]\d{4,6})\s+(?P<pG>[-]?\d+[.]\d{4,6})\s+(?P<pB>[-]?\d+[.]\d{4,6})\s?[)]\s?"
+    sat_pattern = r"[*]\s?ASC_SAT\s+(?P<sat>\d+[.]*\d*)"
+    tape_pattern = r"\d+\s*(?P<source>[\S]*)(?=\s*)"
+    clip_name_pattern = r"[*]\s?FROM[ ]*CLIP[ ]*NAME:\s*(?P<clip_name>.+)"
+    loc_pattern = r"[*]\s?LOC:\s?.+\b(?<!_)(?P<LOC>[\w]{3,4}_((?<=_)[\w]{3,4}_){1,2}[\w]{3,4}(?<!_)(_[\w]{1,}){0,})\b"
+
+    with open(path, "r") as f:
+        edl_data = f.read()
+
+    # Need to find first entry in edit list for range
+    first_match = re.search(edit_pattern, edl_data)
+    first_entry = int(first_match.group().split(" ", 1)[0]) if first_match else 1
+
+    for edit_match in re.finditer(edit_pattern, edl_data):
+        slope, offset, power, sat = None, None, None, None
+
+        edit_value = edit_match.group("edit")
+        # Determine if color data is present in event and store it
+        sop_match = re.search(sop_pattern, edit_value)
+        if sop_match:
+            slope, offset, power = (
+                tuple(map(float, (sop_match.group("sR"), sop_match.group("sG"), sop_match.group("sB")))),
+                tuple(map(float, (sop_match.group("oR"), sop_match.group("oG"), sop_match.group("oB")))),
+                tuple(map(float, (sop_match.group("pR"), sop_match.group("pG"), sop_match.group("pB")))),
+            )
+
+        # Always record even numbers
+        entry = str(int(edit_value.split(" ", 1)[0]))
+        # edl["entries"].append(entry)
+
+        # Clip Name value
+        clip_name_match = re.search(clip_name_pattern, edit_value)
+        clip_name_value = clip_name_match.group("clip_name") if clip_name_match else ""
+
+        # Tape value
+        tape_match = re.search(tape_pattern, edit_value)
+        tape_value = tape_match.group("source") if tape_match else ""
+
+        # LOC value
+        loc_match = re.search(loc_pattern, edit_value)
+        loc_value = loc_match.group("LOC") if loc_match else ""
+
+
+        # Do rest of regex find if color data was found.
+        if not (slope is None and offset is None and power is None):
+            # Sat value doesn't need to be found. If not found default to 1
+            sat_match = re.search(sat_pattern, edit_value)
+            sat = sat_match.group("sat") if sat_match else 1
+
+            edl["events"][entry] = {
+                "tape": tape_value,
+                "clip_name": clip_name_value,
+                "LOC": loc_value,
+                "slope": slope,
+                 "offset": offset,
+                 "power": power,
+                 "sat": sat,
+                 }
+        else:
+            if not color_edits_only:
+                edl["events"][entry] = {
+                    "tape": tape_value,
+                    "clip_name": clip_name_value,
+                    "LOC": loc_value,
+                }
+
+    # Add last found entry from edit list iteration
+    last_entry = int(edit_value.split(" ", 1)[0])
+
+    # Finish EDL info
+    edl["first_entry"] = first_entry
+    edl["last_entry"] = last_entry
+
+    return edl
+
+
+def otio_parse_edl_events(path, color_edits_only=False):
     """EDL is parsed using OTIO and then placed into a dictionary
 
     Data is stored under the understanding that it will be used for identifying
@@ -1442,6 +1547,17 @@ def parse_edl_events(path, color_edits_only=False):
     # Finish EDL info
     edl["first_entry"] = 1
     edl["last_entry"] = entry_count
+
+    return edl
+
+
+def parse_edl_events(color_file, color_edits_only=True):
+    try:
+        print('testing parse from otio')
+        edl = otio_parse_edl_events(color_file, color_edits_only)
+
+    except UnicodeDecodeError:
+        return False
 
     return edl
 
