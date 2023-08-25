@@ -123,6 +123,13 @@ class ExtractOTIOTrimmingVideo(publish.Extractor):
         """
         basename = os.path.basename(file_path)
         name, ext = os.path.splitext(basename)
+        ### Starts Alkemy-X Override ###
+        # If extension is mxf change it to mov as there's a bug in
+        # Nuke that reads the trimmed mxf in a different resolution
+        # showing a green edge at the edge of the frame
+        if ext == ".mxf":
+            ext = ".mov"
+        ### Ends Alkemy-X Override ###
 
         output_file = "{}_{}{}".format(
             name,
