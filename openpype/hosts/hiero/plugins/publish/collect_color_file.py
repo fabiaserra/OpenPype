@@ -595,7 +595,7 @@ class CollectColorFile(pyblish.api.InstancePlugin):
         incoming_match = re.match(incoming_pattern, source_path)
         color_info = {}
         if incoming_match:
-            priority, cdl, color_file = get_color_file(
+            priority, cdl, color_file = self.get_color_file(
                 source_path, item_name, source_name
             )
             if color_file:
