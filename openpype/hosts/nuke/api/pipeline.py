@@ -589,7 +589,15 @@ def list_instances(creator_id=None):
             instance_ids.add(instance_data["instance_id"])
 
         # node name could change, so update subset name data
-        _update_subset_name_data(instance_data, node)
+        ### Starts Alkemy-X Override ###
+        # Removing utility to update the subset name based on the node name
+        # The subset name is something that we control ourselves in the custom
+        # Write node so this was causing the subset of the instance to update
+        # to a different value. In the future it might be that we want to actually
+        # drive the subset name based on the node name but that would need to be
+        # agreed upon
+        # _update_subset_name_data(instance_data, node)
+        ### Ends Alkemy-X Override ###
 
         if "render_order" not in node.knobs():
             subset_instances.append((node, instance_data))
