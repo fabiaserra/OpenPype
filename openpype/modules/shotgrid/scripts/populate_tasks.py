@@ -78,7 +78,7 @@ def populate_tasks(project_code):
     if sequences:
         add_tasks_to_sg_entities(project, sequences, "Sequence", default_tasks)
 
-    # For child entities we ignore "generic task
+    # For child entities we ignore "generic" task
     default_tasks.pop("generic")
 
     # Try add tasks to all Shots
