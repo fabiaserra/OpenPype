@@ -301,19 +301,20 @@ class ExtractReviewSlate(publish.Extractor):
             if input_audio:
                 fmap = [
                     "-filter_complex",
-                    "[0:v] [0:a] [1:v] [1:a] concat=n=2:v=1:a=1 [v] [a]",
-                    "-map", '[v]',
-                    "-map", '[a]'
+                    '"[0:v][0:a][1:v][1:a]concat=n=2:v=1:a=1[v][a]"',
+                    "-map", '"[v]"',
+                    "-map", '"[a]"'
                 ]
             else:
                 fmap = [
                     "-filter_complex",
-                    "[0:v] [1:v] concat=n=2:v=1:a=0 [v]",
-                    "-map", '[v]'
+                    '"[0:v][1:v]concat=n=2:v=1:a=0[v]"',
+                    "-map", '"[v]"'
                 ]
             concat_args = get_ffmpeg_tool_args(
                 "ffmpeg",
                 "-y",
+                "-vsync 2",  # avoids duplicating frames while concatenating
                 "-i", slate_v_path,
                 "-i", input_path,
             )
@@ -353,8 +354,10 @@ class ExtractReviewSlate(publish.Extractor):
                 "Executing concat filter: {}".format
                 (" ".join(concat_args))
             )
+
+            concat_args_cmd = " ".join(concat_args)
             run_subprocess(
-                concat_args, logger=self.log
+                concat_args_cmd, shell=True, logger=self.log
             )
 
             self.log.debug("__ repre[tags]: {}".format(repre["tags"]))
@@ -549,8 +552,10 @@ class ExtractReviewSlate(publish.Extractor):
         self.log.debug("Silent Slate Executing: {}".format(
             " ".join(slate_silent_args)
         ))
+        slate_silent_cmd = " ".join(slate_silent_args)
+
         run_subprocess(
-            slate_silent_args, logger=self.log
+            slate_silent_cmd, shell=True, logger=self.log
         )
 
     def add_video_filter_args(self, args, inserting_arg):
