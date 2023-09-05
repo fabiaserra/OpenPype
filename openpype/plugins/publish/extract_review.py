@@ -265,6 +265,11 @@ class ExtractReview(pyblish.api.InstancePlugin):
                     sg_profiles[out_name]["ext"] = out_fields["sg_extension"]
                     sg_profiles[out_name]["tags"] = ent_overrides.get(f"sg_{delivery_type}_tags") or []
                     sg_profiles[out_name]["fps"] = ent_overrides.get(f"sg_{delivery_type}_fps")
+                    resolution = ent_overrides.get(f"sg_{delivery_type}_resolution")
+                    if resolution:
+                        width, height = resolution.split("x")
+                        sg_profiles[out_name]["resolutionWidth"] = width
+                        sg_profiles[out_name]["resolutionHeight"] = height
                     # Set final/review_colorspace tag so it uses the transcoded
                     # representations that have that tag
                     sg_profiles[out_name]["filter"]["custom_tags"] = [
@@ -667,7 +672,7 @@ class ExtractReview(pyblish.api.InstancePlugin):
             ### Starts Alkemy-X Override ###
             # Grab FPS from SG delivery (i.e., review or final) if it
             # exists, otherwise default to the project FPS
-            "fps": float( output_def.get("fps") or instance.data["fps"]),
+            "fps": float(output_def.get("fps") or instance.data["fps"]),
             ### Ends Alkemy-X Override ###
             "frame_start": frame_start,
             "frame_end": frame_end,
@@ -678,8 +683,12 @@ class ExtractReview(pyblish.api.InstancePlugin):
             "output_frame_start": int(output_frame_start),
             "output_frame_end": int(output_frame_end),
             "pixel_aspect": instance.data.get("pixelAspect", 1),
-            "resolution_width": instance.data.get("resolutionWidth"),
-            "resolution_height": instance.data.get("resolutionHeight"),
+            ### Starts Alkemy-X Override ###
+            # Grab resolution from SG delivery (i.e., review or final) if it
+            # exists, otherwise default to the project resolution
+            "resolution_width": output_def.get("resolutionWidth") or instance.data.get("resolutionWidth"),
+            "resolution_height": output_def.get("resolutionHeight") or instance.data.get("resolutionHeight"),
+            ### Ends Alkemy-X Override ###
             "origin_repre": repre,
             "input_is_sequence": input_is_sequence,
             "first_sequence_frame": first_sequence_frame,

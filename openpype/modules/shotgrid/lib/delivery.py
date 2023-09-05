@@ -16,6 +16,7 @@ SG_EXTRA_DELIVERY_FIELDS = [
     "sg_review_fps",
     "sg_review_lut",
     "sg_review_tags",
+    "sg_review_resolution",
     # "sg_review_reformat",  # TODO: not used yet
     # "sg_review_scale",  # TODO: not used yet
 ]
