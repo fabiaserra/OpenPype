@@ -11,23 +11,48 @@ from qtpy.QtGui import *
 
 import hiero
 
-from openpype.client import get_asset_by_name, get_project
+from openpype.client import get_asset_by_name, get_project, \
+    get_last_version_by_subset_name
 from openpype.hosts.hiero.api.constants import OPENPYPE_TAG_NAME
 from openpype.hosts.hiero.api.lib import (set_trackitem_openpype_tag)
 from openpype.lib import Logger
+from openpype.modules.shotgrid.lib import credentials
 from openpype.pipeline.context_tools import (
     get_current_project_name,
     get_hierarchy_env,
 )
-from openpype.settings import get_project_settings
+
+
+SHOTGRID = credentials.get_shotgrid_session()
 
 FORMATS = {fmt.name(): {
-        'width':fmt.width(),
-        'height':fmt.height(),
+        "width": fmt.width(),
+        "height": fmt.height(),
         "format": fmt.toString(),
-        "pixelAspect":fmt.pixelAspect()
+        "pixelAspect": fmt.pixelAspect()
     }
            for fmt in hiero.core.formats()}
+
+TAG_DATA_KEY_CONVERT = {
+    OPENPYPE_TAG_NAME: {
+        "tag.workfileFrameStart": "frame_start",
+        "tag.handleStart": "handle_start",
+        "tag.handleEnd": "handle_end",
+    }
+}
+
+SG_TAG_ICONS = {
+    "retime": "icons:TagKronos.png",
+    "repo": "icons:ExitFullScreen.png",
+    "split": "icons:TimelineToolSlide.png",
+    "insert": "icons:SyncPush.png",
+}
+
+INGEST_EFFECTS = ["flip", "flop"]
+SG_TAGS = ["retime", "repo", "insert", "split"]
+EVEN_COLUMN_COLOR = QColor(61, 61, 66)
+ODD_COLUMN_COLOR = QColor(53, 53, 57)
+NO_OP_TRANSLATE = {43: None, 45: None, 42: None, 47: None}
 
 log = Logger.get_logger(__name__)
 
@@ -77,51 +102,46 @@ def get_active_ocio_config():
     return ocio_config
 
 
+class CheckboxMenu(QMenu):
+    mouse_in_view = True
+    def __init__(self, *args, **kwargs):
+        QMenu.__init__(self, *args, **kwargs)
 
-class ResolutionWidget(QWidget):
-    def __init__(self, current_format):
-        super(ResolutionWidget, self).__init__()
-
-        # put a scrollbar first
-        body_container = QWidget()
-        self.body = QVBoxLayout()
-        # self.body.addStretch(1)
-        body_container.setLayout(self.body)
-
-        self.resolution_combo = QComboBox()
-        self.resolution_combo.setEditable(True)
-        # Use base settings from current combobox defaults
-        completer = self.resolution_combo.completer()
-        completer.setCompletionMode(QCompleter.PopupCompletion)
-        completer.setFilterMode(Qt.MatchContains)
-        self.resolution_combo.addItem(" -- ")
-
-        # Move current resolution to the top
-        proper_res = ""
-        for res in sorted(FORMATS, key=lambda x: FORMATS[x]["width"]):
-            width = FORMATS[res]['width']
-            height = FORMATS[res]['height']
-            if not (width == current_format.width() and height == current_format.height()):
-                self.resolution_combo.addItem('{1}x{2} - {0}'.format(res, width, height))
-            else:
-                proper_res = res
-
-        # Move current resolution to the top
-        if proper_res:
-            width = FORMATS[proper_res]['width']
-            height = FORMATS[proper_res]['height']
-            current_format_string = f"{width}x{height} - {proper_res}"
+    def accept(self, event):
+        if self.can_close:
+            event.accept()
         else:
-            current_format_string = f"{current_format.width()}x{current_format.height()}"
-        self.resolution_combo.insertItem(0, current_format_string)
+            event.ignore()
 
-# Will need to add current format if found as tag on clip
-#        self.resolution_combo.setCurrentText(current_format_string)
-        self.resolution_combo.setCurrentIndex(0)
-        self.body.addWidget(self.resolution_combo)
+    def enterEvent(self, event):
+        self.mouse_in_view = True
 
+    def leaveEvent(self, event):
+        self.mouse_in_view = False
 
-        self.setLayout(self.body)
+    def keyPressEvent(self, event):
+        if event.key() in [Qt.Key_Return, Qt.Key_Enter]:
+            self.can_close = True
+            self.close()
+
+    def mousePressEvent(self, event):
+        if not self.mouse_in_view:
+            self.can_close = True
+            self.close()
+
+        if event.button() == Qt.LeftButton:
+            action = self.activeAction()
+            if action:
+                if action.isChecked():
+                    action.setChecked(False)
+                else:
+                    action.setChecked(True)
+
+                # Suppress the event to prevent the menu from closing
+                event.accept()
+                return
+
+        super().mouseReleaseEvent(event)
 
 
 class ColorspaceWidget(QMainWindow):
@@ -288,6 +308,164 @@ class ColorspaceWidget(QMainWindow):
         return menu
 
 
+
+class IngestResWidget(QComboBox):
+    def __init__(self, item, current_format):
+        QComboBox.__init__(self)
+        if "x" in current_format:
+            default_format_width, default_format_height = \
+                current_format.split("x")
+        else:
+            default_format = item.source().format()
+            default_format_width = default_format.width()
+            default_format_height = default_format.height()
+
+        self.setEditable(True)
+        rx = QRegExp("^\d+[x]\d+$")
+        validator = QRegExpValidator(rx, self.lineEdit())
+        self.setValidator(validator)
+        self.lineEdit().setText("--")
+        self.lineEdit().selectAll()
+
+        # Use base settings from current combobox defaults
+        completer = self.completer()
+        completer.setCompletionMode(QCompleter.PopupCompletion)
+        completer.setFilterMode(Qt.MatchContains)
+        self.addItem("--")
+
+        # Move current resolution to the top
+        proper_res = ""
+        for res in sorted(FORMATS, key=lambda x: FORMATS[x]["width"]):
+            width = FORMATS[res]["width"]
+            height = FORMATS[res]["height"]
+            if (width == default_format_width and
+                height == default_format_height):
+                proper_res = res
+            else:
+                self.addItem("{1}x{2} - {0}".format(res, width, height))
+
+        # Move current resolution to the top
+        if proper_res:
+            width = FORMATS[proper_res]["width"]
+            height = FORMATS[proper_res]["height"]
+            default_format_string = f"{width}x{height} - {proper_res}"
+        else:
+            default_format_string = \
+                f"{default_format_width}x{default_format_height}"
+        self.insertItem(0, default_format_string)
+
+        # Will need to add current format if found as tag on clip
+        if not current_format:
+            self.setCurrentIndex(1)
+        else:
+            self.setCurrentIndex(0)
+
+
+class IngestEffectsWidget(QMainWindow):
+    can_close = False
+    effects_data = {}
+    effect_actions = {}
+    def __init__(self, tag_state):
+        QMainWindow.__init__(self)
+
+        self.effects_button = QPushButton("Effects")
+
+        # Menu must be stored on self. Button won't react properly without
+        self.root_menu = CheckboxMenu("Main")
+
+        # set default state to effect data that exists
+        for effect_type in INGEST_EFFECTS:
+            effect_action = QAction(effect_type)
+            effect_action.setObjectName(effect_type)
+            effect_type_state = True if \
+                tag_state.get(effect_type, "False") == "True" else False
+            effect_action.setCheckable(True)
+            effect_action.setChecked(effect_type_state)
+
+            self.effect_actions[effect_type] = effect_action
+            self.root_menu.addAction(effect_action)
+
+        self.effects_button.setMenu(self.root_menu)
+        self.setCentralWidget(self.effects_button)
+
+    def set_effects_data(self):
+        for key, widget in self.effect_actions.items():
+            self.effects_data[key] = widget.isChecked()
+
+
+class CurrentGradeDialog(QDialog):
+    def __init__(self, *args, **kwargs):
+        QDialog.__init__(self, *args, **kwargs)
+
+    def leaveEvent(self, event):
+        self.close()
+
+
+# QT widget type doesn't matter. Only used for the show event
+class CurrentGradeWidget(QLabel):
+    def __init__(self, text):
+        QLabel.__init__(self)
+        self.ingest_grade = text
+
+    def showEvent(self, event):
+        # On show pop out separate dialog widget
+        dialog = CurrentGradeDialog()
+
+        line_edit = QLineEdit()
+        line_edit.setReadOnly(True)
+        line_edit.setText(self.ingest_grade)
+        line_edit.editingFinished.connect(dialog.close)
+        line_edit.returnPressed.connect(dialog.close)
+        line_edit.setFrame(False)
+
+        layout_widget = QVBoxLayout()
+        layout_widget.addWidget(line_edit)
+        dialog.setLayout(layout_widget)
+        dialog.move(self.mapToGlobal(self.rect().topLeft()))
+        dialog.setWindowFlags(Qt.Window | Qt.FramelessWindowHint)
+
+        metrics = line_edit.fontMetrics()
+        margin = line_edit.textMargins()
+        content = line_edit.contentsMargins()
+        width = metrics.width(self.ingest_grade) + margin.left() \
+            + margin.right() + content.left() + content.right()
+        # 32 is the dialog window margin
+        dialog.setFixedWidth(width+32)
+        dialog.exec()
+
+
+class SGTagsWidget(QMainWindow):
+    can_close = False
+    tag_data = {}
+    tag_actions = {}
+    def __init__(self, tag_state):
+        QMainWindow.__init__(self)
+
+        self.sg_tags_button = QPushButton("SG Tags")
+
+        # Menu must be stored on self. Button won't react properly without
+        self.root_menu = CheckboxMenu("Main")
+
+        # set default state to tag data that exists
+        for tag_type in SG_TAGS:
+            tag_action = QAction(tag_type)
+            tag_action.setObjectName(tag_type)
+            tag_type_state = True if \
+                tag_state.get(tag_type, "False") == "True" else False
+            tag_action.setCheckable(True)
+            tag_action.setChecked(tag_type_state)
+
+            self.tag_actions[tag_type] = tag_action
+            self.root_menu.addAction(tag_action)
+
+        self.sg_tags_button.setMenu(self.root_menu)
+        self.setCentralWidget(self.sg_tags_button)
+
+    def set_tag_data(self):
+        for key, widget in self.tag_actions.items():
+            self.tag_data[key] = widget.isChecked()
+
+
 def is_valid_asset(track_item):
     """Check if the given asset name is valid for the current project.
 
@@ -342,22 +520,45 @@ class CustomSpreadsheetColumns(QObject):
     QItemDelegate classes.
     """
 
+    # Decorator function for widget callbacks
+    def column_widget_callback(callback):
+        def wrapper(self, *args, **kwargs):
+            view = hiero.ui.activeView()
+            selection = [item for item in view.selection() \
+                        if isinstance(item.parent(), hiero.core.VideoTrack)]
+            project = selection[0].project()
+
+            result = callback(self, selection, project, *args, **kwargs)
+
+            sequence = hiero.ui.activeSequence()
+            # There may not be an active sequence
+            if sequence:
+                # Force sequence update
+                sequence.editFinished()
+
+            return result
+
+        return wrapper
+
     currentView = hiero.ui.activeView()
 
-    # This is the list of Columns available
-    # readonly implies QLabel
-    # dropdown implies QCombo
-    # text implies QTextEdit
+    # This is the list of Columns that will be added
     column_list = [
-        {"name": "Tags", "cellType": "readonly"},
-        {"name": "Colorspace", "cellType": "dropdown"},
-        {"name": "Notes", "cellType": "readonly"},
         {"name": "FileType", "cellType": "readonly"},
-        {"name": "WidthxHeight", "cellType": "readonly"},
-        {"name": "Pixel Aspect", "cellType": "readonly"},
+        {"name": "Tags", "cellType": "readonly"},
+        {"name": "Colorspace", "cellType": "custom"},
         {"name": "Episode", "cellType": "readonly"},
         {"name": "Sequence", "cellType": "readonly"},
         {"name": "Shot", "cellType": "readonly"},
+        {"name": "WidthxHeight", "cellType": "readonly"},
+        {"name": "Pixel Aspect", "cellType": "readonly"},
+        {"name": "ingest_res", "cellType": "custom", "size": QSize(100, 25)},
+        {"name": "resize_type", "cellType": "checkbox"},
+        {"name": "ingest_effects", "cellType": "custom"},
+        {"name": "cur_version", "cellType": "readonly"},
+        {"name": "cur_grade", "cellType": "custom"},
+        {"name": "sg_tags", "cellType": "custom"},
+        {"name": "edit_note", "cellType": "checkbox"},
         {"name": "head_handles", "cellType": "text"},
         {"name": "cut_in", "cellType": "text"},
         {"name": "cut_out", "cellType": "text"},
@@ -366,10 +567,10 @@ class CustomSpreadsheetColumns(QObject):
             "name": "valid_entity",
             "cellType": "readonly",
         },
-        {"name": "op_frame_start", "cellType": "text", "size": QSize(40, 20)},
-        {"name": "op_family", "cellType": "dropdown", "size": QSize(10, 10)},
-        {"name": "op_handle_start", "cellType": "text", "size": QSize(10, 10)},
-        {"name": "op_handle_end", "cellType": "text", "size": QSize(10, 10)},
+        {"name": "op_frame_start", "cellType": "text", "size": QSize(40, 25)},
+        {"name": "op_family", "cellType": "dropdown", "size": QSize(10, 25)},
+        {"name": "op_handle_start", "cellType": "text", "size": QSize(10, 25)},
+        {"name": "op_handle_end", "cellType": "text", "size": QSize(10, 25)},
         {"name": "op_subset", "cellType": "readonly"},
         {"name": "op_use_nuke", "cellType": "checkbox"},
     ]
@@ -472,6 +673,53 @@ class CustomSpreadsheetColumns(QObject):
             else:
                 return "--"
 
+        elif current_column["name"] == "cur_version":
+            instance_data = item.openpype_instance_data()
+            if not instance_data:
+                return "--"
+
+            project_name = os.getenv("AVALON_PROJECT")
+            asset = instance_data.get("asset")
+            subset = instance_data.get("subset")
+            last_version_doc = get_last_version_by_subset_name(
+                project_name, subset, asset_name=asset)
+
+            if last_version_doc:
+                last_version = last_version_doc["name"]
+                return str(last_version)
+            else:
+                return "--"
+
+        elif current_column["name"] == "ingest_res":
+
+            return item.ingest_res_data().get("resolution", "--")
+
+        elif current_column["name"] == "resize_type":
+
+            return item.ingest_res_data().get("resize", "--")
+
+        elif current_column["name"] == "edit_note":
+
+            return item.edit_note_data().get("note", "--")
+
+        elif current_column["name"] == "ingest_effects":
+            effects_data = item.ingest_effects_data()
+
+            # Remove default keys
+            for key in ("label", "applieswhole"):
+                if key in effects_data:
+                    del effects_data[key]
+
+            effects = []
+            for key in sorted(effects_data, key=INGEST_EFFECTS.index):
+                if effects_data[key] == "True":
+                    effects.append(key)
+
+            if effects:
+                return ", ".join(effects)
+            else:
+                return "--"
+
         elif current_column["name"] in [
             "cut_in",
             "cut_out",
@@ -482,13 +730,13 @@ class CustomSpreadsheetColumns(QObject):
                 return "--"
 
             tag_key = current_column["name"]
-            current_tag_text = item.cut_info().get(tag_key, "--")
+            current_tag_text = item.cut_info_data().get(tag_key, "--")
 
             return current_tag_text
 
         elif "op_" in current_column["name"]:
             instance_key = current_column["name"]
-            current_tag_text = item.openpype_instance().get(
+            current_tag_text = item.openpype_instance_data().get(
                 f"{instance_key.split('op_')[-1]}", "--"
             )
             if not isinstance(item.parent(), hiero.core.VideoTrack):
@@ -510,9 +758,6 @@ class CustomSpreadsheetColumns(QObject):
         if current_column["name"] == "Tags":
             return str([item.name() for item in item.tags()])
 
-        elif current_column["name"] == "Notes":
-            return str(self.get_notes(item))
-
         elif current_column["name"] == "Episode":
             return (
                 "Episode name of current track item if valid otherwise --"
@@ -528,28 +773,85 @@ class CustomSpreadsheetColumns(QObject):
                 "Shot name of current track item if valid otherwise --"
             )
 
+
+        elif current_column["name"] == "ingest_res":
+            return (
+                "When provided overrides the default resolution value from "
+                "both Plate resolution and Shotgrid ingest resolution.\n\n"
+                "Text input format:\n{width}x{height}\ni.e. 1920x1080"
+            )
+
+        elif current_column["name"] == "resize_type":
+            return (
+                "Nuke like resize types that is used for determining how to "
+                "perform the reformating action when aspect ratio differs"
+            )
+
+        elif current_column["name"] == "ingest_effects":
+            return (
+                "Effects to apply to track item on ingest"
+            )
+
+        elif current_column["name"] == "cur_version":
+            return (
+                "Current ingested items latest current published version"
+            )
+
+        elif current_column["name"] == "cur_grade":
+            return (
+                "After ingesting media the grade (if one was used) will show "
+                "up here.\nDouble click to see full path"
+            )
+
+        elif current_column["name"] == "sg_tags":
+            return (
+                "Shot tags that you'd like applied to the items Shotgrid Shot"
+            )
+
+        elif current_column["name"] == "edit_note":
+            return (
+                "Editorial Note that gets applied to the items Shotgrid Shot\n"
+                "If this note was already made it be created again"
+            )
+
         elif current_column["name"] == "cut_in":
             return (
                 "Shot 'cut in' frame. This is meant to be ground truth and can"
-                " be used to sync to SG."
+                " be used to sync to SG.\n\n Operators are supported "
+                "i.e:\n'+20' -> 1001+20=1021\n'-10' -> 1010-10=1000\n'*2' -> "
+                "8*2=16\n'/2' -> 16/2=8\n\nWhen written in 1001-10 form the "
+                "expression will evaluate first. For multi-select updates that"
+                " may yield unintended results"
             )
 
         elif current_column["name"] == "cut_out":
             return (
                 "Shot 'cut out' frame. This is meant to be ground truth and can"
-                " be used to sync to SG."
+                " be used to sync to SG.\n\n Operators are supported "
+                "i.e:\n'+20' -> 1001+20=1021\n'-10' -> 1010-10=1000\n'*2' -> "
+                "8*2=16\n'/2' -> 16/2=8\n\nWhen written in 1001-10 form the "
+                "expression will evaluate first. For multi-select updates that"
+                " may yield unintended results"
             )
 
         elif current_column["name"] == "head_handles":
             return (
                 "Shot 'head handle' duration. This is meant to be ground truth"
-                " and can be used to sync to SG."
+                " and can be used to sync to SG.\n\n Operators are supported "
+                "i.e:\n'+20' -> 1001+20=1021\n'-10' -> 1010-10=1000\n'*2' -> "
+                "8*2=16\n'/2' -> 16/2=8\n\nWhen written in 1001-10 form the "
+                "expression will evaluate first. For multi-select updates that"
+                " may yield unintended results"
             )
 
         elif current_column["name"] == "tail_handles":
             return (
                 "Shot 'tail handle' duration. This is meant to be ground truth"
-                " and can be used to sync to SG."
+                " and can be used to sync to SG.\n\n Operators are supported "
+                "i.e:\n'+20' -> 1001+20=1021\n'-10' -> 1010-10=1000\n'*2' -> "
+                "8*2=16\n'/2' -> 16/2=8\n\nWhen written in 1001-10 form the "
+                "expression will evaluate first. For multi-select updates that"
+                " may yield unintended results"
             )
 
         elif current_column["name"] == "valid_entity":
@@ -602,10 +904,10 @@ class CustomSpreadsheetColumns(QObject):
         if column_name.startswith("op_") or column_name == "valid_entity":
             if row % 2 == 0:
                 # For reference default even row is 61, 61, 61
-                return QColor(61, 61, 66)
+                return EVEN_COLUMN_COLOR
             else:
-                # For reference default even row is 53, 53, 53
-                return QColor(53, 53, 57)
+                # For reference default odd row is 53, 53, 53
+                return ODD_COLUMN_COLOR
 
         return None
 
@@ -642,10 +944,26 @@ class CustomSpreadsheetColumns(QObject):
         """Paint a custom cell. Return True if the cell was painted, or False
         to continue with the default cell painting.
         """
+        # Save the painter so it can restored later
+        painter.save()
+
+        # Set highlight for selected items
+        if option.state & QStyle.State_Selected:
+            painter.fillRect(option.rect, option.palette.highlight())
+            if row % 2 == 0:
+                painter.setPen(EVEN_COLUMN_COLOR)
+            else:
+                painter.setPen(ODD_COLUMN_COLOR)
+
+        else:
+            painter.setPen(QColor(195,195,195))
+
         current_column = self.column_list[column]
         if current_column["name"] == "Tags":
+            # Set highlight for selected items
             if option.state & QStyle.State_Selected:
                 painter.fillRect(option.rect, option.palette.highlight())
+
             iconSize = 20
             rectangle = QRect(
                 option.rect.x(),
@@ -655,21 +973,81 @@ class CustomSpreadsheetColumns(QObject):
             )
             tags = item.tags()
             if len(tags) > 0:
-                painter.save()
                 painter.setClipRect(option.rect)
                 for tag in item.tags():
-                    tag_metadata = tag.metadata()
-                    if not (
-                        tag_metadata.hasKey("tag.status")
-                        or tag_metadata.hasKey("tag.artistID")
-                    ):
-                        QIcon(tag.icon()).paint(
-                            painter, rectangle, Qt.AlignLeft
-                        )
-                        rectangle.translate(rectangle.width() + 2, 0)
+                    QIcon(tag.icon()).paint(
+                        painter, rectangle, Qt.AlignCenter
+                    )
+                    rectangle.translate(rectangle.width() + 2, 0)
+
                 painter.restore()
                 return True
 
+        elif current_column["name"] == "cur_grade":
+            # Set highlight for selected items
+            if option.state & QStyle.State_Selected:
+                painter.fillRect(option.rect, option.palette.highlight())
+                if row % 2 == 0:
+                    painter.setPen(EVEN_COLUMN_COLOR)
+                else:
+                    painter.setPen(ODD_COLUMN_COLOR)
+
+            else:
+                painter.setPen(QColor(195,195,195))
+
+            ingest_grade = item.openpype_instance_data().get("ingested_grade")
+
+            painter.setClipRect(option.rect)
+
+            if not ingest_grade or ingest_grade == "None":
+                painter.drawText(option.rect, Qt.AlignLeft, "--")
+
+                painter.restore()
+                return True
+
+            margin = QMargins(0, 0, 5, 0)
+            text = option.fontMetrics.elidedText(ingest_grade, Qt.ElideLeft,
+                                            option.rect.width())
+            painter.drawText(option.rect-margin, Qt.AlignRight | Qt.AlignVCenter,
+                             text)
+
+            painter.restore()
+            return True
+
+        elif current_column["name"] == "sg_tags":
+            painter.setClipRect(option.rect)
+            sg_tag_data = item.sg_tags_data()
+            if not sg_tag_data:
+                painter.drawText(option.rect, Qt.AlignLeft, "--")
+
+                painter.restore()
+                return True
+
+            iconSize = 20
+            rectangle = QRect(
+                option.rect.x(),
+                option.rect.y() + (option.rect.height() - iconSize) / 2,
+                iconSize,
+                iconSize,
+            )
+
+            # Remove default keys
+            for key in ("label", "applieswhole"):
+                if key in sg_tag_data:
+                    del sg_tag_data[key]
+
+            # Need to make sure the icons are sorted for easy readability
+            for key in sorted(sg_tag_data, key=SG_TAGS.index):
+                if sg_tag_data[key] == "True":
+                    QIcon(SG_TAG_ICONS[key]).paint(
+                        painter, rectangle, Qt.AlignCenter
+                    )
+                    rectangle.translate(rectangle.width() + 2, 0)
+
+            painter.restore()
+            return True
+
+        painter.restore()
         return False
 
     def createEditor(self, row, column, item, view):
@@ -695,15 +1073,89 @@ class CustomSpreadsheetColumns(QObject):
 
             return edit_widget
 
-        elif current_column["name"] == "Edit_Res":
-            # Send current format for init
-            edit_widget = ResolutionWidget(item.format())
-            self.resolution_combo.currentIndexChanged.connect(self.edit_res_changed)
+        elif current_column["name"] == "ingest_res":
+            current_format = item.ingest_res_data().get("resolution", "")
 
-            return edit_widget
+            resolution_combo = IngestResWidget(item, current_format)
+
+            resolution_combo.currentIndexChanged.connect(
+                lambda: self.ingest_res_changed(resolution_combo, "index"))
+            resolution_combo.lineEdit().returnPressed.connect(
+                lambda: self.ingest_res_changed(resolution_combo.lineEdit()
+                                                , "return"))
+
+            return resolution_combo
 
         elif current_column["name"] == "resize_type":
-            pass
+            # Let user know that ingest format must exist first
+            current_resize_type = item.ingest_res_data().get("resize")
+            if not current_resize_type:
+                QMessageBox.warning(
+                    hiero.ui.mainWindow(),
+                    "Critical",
+                    "No Ingest Resolution found\n"
+                    "Please assign an Ingest Resolution first",
+                )
+
+            resize_type = QComboBox()
+            resize_type.addItem("none")
+            resize_type.addItem("width")
+            resize_type.addItem("height")
+            resize_type.addItem("fit")
+            resize_type.addItem("fill")
+            resize_type.addItem("distort")
+
+            resize_index = resize_type.findText(current_resize_type)
+            resize_type.setCurrentIndex(resize_index)
+            resize_type.currentIndexChanged.connect(
+                lambda: self.ingest_res_type_changed(resize_type))
+
+            return resize_type
+
+        elif current_column["name"] == "ingest_effects":
+            ingest_effects_state = item.ingest_effects_data()
+            ingest_effects_edit_widget = IngestEffectsWidget(
+                ingest_effects_state)
+            ingest_effects_edit_widget.root_menu.aboutToHide.connect(
+                lambda: self.ingest_effect_changed(ingest_effects_edit_widget)
+            )
+
+            return ingest_effects_edit_widget
+
+        elif current_column["name"] == "cur_grade":
+            # If user double clicks on current grade. Show the full path and
+            # disable editing
+            ingest_grade = item.openpype_instance_data().get("ingested_grade")
+            if not ingest_grade or ingest_grade == "None":
+                edit_widget = QLabel()
+                edit_widget.setEnabled(False)
+                edit_widget.setVisible(False)
+
+                return edit_widget
+
+            widget = CurrentGradeWidget(ingest_grade)
+
+            return widget
+
+        elif current_column["name"] == "sg_tags":
+            sg_tag_state = item.sg_tags_data()
+            sg_tag_edit_widget = SGTagsWidget(sg_tag_state)
+            sg_tag_edit_widget.root_menu.aboutToHide.connect(
+                lambda: self.sg_tags_changed(sg_tag_edit_widget)
+            )
+
+            return sg_tag_edit_widget
+
+        elif current_column["name"] == "edit_note":
+            current_edit_note = item.edit_note_data().get("note", "")
+
+            edit_widget = QLineEdit()
+            edit_widget.setText(current_edit_note)
+
+            edit_widget.returnPressed.connect(
+                lambda: self.edit_note_changed(edit_widget))
+
+            return edit_widget
 
         elif current_column["name"] in [
             "cut_in",
@@ -712,10 +1164,11 @@ class CustomSpreadsheetColumns(QObject):
             "tail_handles",
         ]:
             tag_key = current_column["name"]
-            current_text = item.cut_info().get(tag_key)
+            current_text = item.cut_info_data().get(tag_key)
             edit_widget = QLineEdit(current_text)
             edit_widget.setObjectName(tag_key)
-            edit_widget.returnPressed.connect(self.cut_info_changed)
+            edit_widget.returnPressed.connect(
+                lambda: self.cut_info_changed(edit_widget))
 
             return edit_widget
 
@@ -732,7 +1185,7 @@ class CustomSpreadsheetColumns(QObject):
                 readonly_widget.setVisible(False)
                 return readonly_widget
 
-            instance_tag = item.openpype_instance_tag()
+            instance_tag = item.get_openpype_instance()
             if not instance_tag:
                 combo_text = "--"
             else:
@@ -748,47 +1201,7 @@ class CustomSpreadsheetColumns(QObject):
             combo_widget.addItem("reference")
             combo_widget.setCurrentText(combo_text)
             combo_widget.currentIndexChanged.connect(
-                self.openpype_instance_changed
-            )
-
-            return combo_widget
-
-        elif current_column["name"] == "op_use_nuke":
-            if not is_valid_asset(item):
-                QMessageBox.warning(
-                    hiero.ui.mainWindow(),
-                    "Critical",
-                    "Can't assign data to invalid entity",
-                )
-
-                readonly_widget = QLabel()
-                readonly_widget.setEnabled(False)
-                readonly_widget.setVisible(False)
-
-                return readonly_widget
-
-            instance_tag = item.openpype_instance_tag()
-            if not instance_tag:
-                check_state = "--"
-            else:
-                # For Openpype tags already made they won't have use nuke
-                # instance data
-                try:
-                    check_state = instance_tag.metadata().value("use_nuke")
-                except RuntimeError:
-                    check_state = "--"
-
-            instance_key = current_column["name"].split("op_")[-1]
-            combo_widget = QComboBox()
-            combo_widget.setObjectName(instance_key)
-            # Since trigger is on index change. Need to make sure valid options
-            # will also be a change of index
-            combo_widget.addItem("--")
-            combo_widget.addItem("True")
-            combo_widget.addItem("False")
-            combo_widget.setCurrentText(check_state)
-            combo_widget.currentIndexChanged.connect(
-                self.openpype_instance_changed
+                lambda: self.openpype_instance_changed(combo_widget)
             )
 
             return combo_widget
@@ -812,12 +1225,53 @@ class CustomSpreadsheetColumns(QObject):
                 return readonly_widget
 
             instance_key = current_column["name"].split("op_")[-1]
-            current_text = item.cut_info().get(f"tag.{instance_key}")
+            current_text = item.cut_info_data().get(f"tag.{instance_key}")
             edit_widget = QLineEdit(current_text)
             edit_widget.setObjectName(instance_key)
-            edit_widget.returnPressed.connect(self.openpype_instance_changed)
+            edit_widget.returnPressed.connect(
+                lambda: self.openpype_instance_changed(edit_widget))
 
             return edit_widget
+
+        elif current_column["name"] == "op_use_nuke":
+            if not is_valid_asset(item):
+                QMessageBox.warning(
+                    hiero.ui.mainWindow(),
+                    "Critical",
+                    "Can't assign data to invalid entity",
+                )
+
+                readonly_widget = QLabel()
+                readonly_widget.setEnabled(False)
+                readonly_widget.setVisible(False)
+
+                return readonly_widget
+
+            instance_tag = item.get_openpype_instance()
+            if not instance_tag:
+                check_state = "--"
+            else:
+                # For Openpype tags already made they won't have use nuke
+                # instance data
+                try:
+                    check_state = instance_tag.metadata().value("use_nuke")
+                except RuntimeError:
+                    check_state = "--"
+
+            instance_key = current_column["name"].split("op_")[-1]
+            combo_widget = QComboBox()
+            combo_widget.setObjectName(instance_key)
+            # Since trigger is on index change. Need to make sure valid options
+            # will also be a change of index
+            combo_widget.addItem("--")
+            combo_widget.addItem("True")
+            combo_widget.addItem("False")
+            combo_widget.setCurrentText(check_state)
+            combo_widget.currentIndexChanged.connect(
+                lambda: self.openpype_instance_changed(combo_widget)
+            )
+
+            return combo_widget
 
         return None
 
@@ -832,124 +1286,159 @@ class CustomSpreadsheetColumns(QObject):
 
         return None
 
-
-    def edit_res_changed(self, index):
-        edit_resolution = self.resolution_combo.itemText(index)
-
-        # Add resolution tag or update it.
-        # If adding for the first time then default resize type to width
-        # if user tries to update resize type without res then do nothing
-        # Warn user please enter resolution first
-
-
-        # Use index to get text to ensure text is correct
-        # print(self.resolution_combo.itemText(index))
-        # with project.beginUndo("Set Edit Resolution"):
-        #     track_item = None
-        #     items = [
-        #         item
-        #         for item in selection
-        #         if (item.mediaType() == hiero.core.TrackItem.MediaType.kVideo)
-        #     ]
-        #     for track_item in items:
-        #         track_item.setSourceMediaColourTransform(colorspace)
-
-        #     if track_item:
-        #         # Force sequence update
-        #         track_item.sequence().editFinished()
-
-
-    def colorspace_changed(self, action):
+    @column_widget_callback
+    def colorspace_changed(self, selection, project, action):
         """This method is called when Colorspace widget changes index."""
         colorspace = action.text()
-        selection = self.currentView.selection()
-        project = selection[0].project()
+
         with project.beginUndo("Set Colorspace"):
             track_item = None
-            items = [
-                item
-                for item in selection
-                if (item.mediaType() == hiero.core.TrackItem.MediaType.kVideo)
-            ]
-            for track_item in items:
+            for track_item in selection:
                 track_item.setSourceMediaColourTransform(colorspace)
 
-            if track_item:
-                # Force sequence update
-                track_item.sequence().editFinished()
+    @column_widget_callback
+    def ingest_res_changed(self,
+                           selection, project, sender, signal_type):
+        if signal_type == "index":
+            # Don't want current text incase it's from line edit?
+            ingest_resolution = sender.currentText()
+        else:
+            ingest_resolution = sender.text().strip()
 
-    def cut_info_changed(self):
-        sender = self.sender()
+        key = "resolution"
+
+        with project.beginUndo("Set Ingest Resolution"):
+            if ingest_resolution != "--":
+                ingest_resolution = ingest_resolution.split(" - ")[0]
+                for track_item in selection:
+                    track_item.set_ingest_res(key, ingest_resolution)
+
+            else:
+                for track_item in selection:
+                    ingest_res_tag = track_item.get_ingest_res()
+                    if ingest_res_tag:
+                        log.info(f"{track_item.parent().name()}."
+                                 f"{track_item.name()}: "
+                                 "Removing 'Ingest Resolution' tag")
+                        track_item.removeTag(ingest_res_tag)
+
+    @column_widget_callback
+    def ingest_res_type_changed(self, selection, project, sender, index):
+        resize_type = sender.itemText(index)
+        key = "resize"
+
+        with project.beginUndo("Set Ingest Resolution Resize Type"):
+            for track_item in selection:
+                track_item.set_ingest_res(key, resize_type)
+
+    @column_widget_callback
+    def ingest_effect_changed(self,
+                              selection, project, ingest_effects_edit_widget):
+        ingest_effects_edit_widget.set_effects_data()
+        effect_states = ingest_effects_edit_widget.effects_data
+
+        with project.beginUndo("Update Ingest Effects"):
+            for track_item in selection:
+                track_item.set_ingest_effects(effect_states)
+
+    @column_widget_callback
+    def sg_tags_changed(self, selection, project, sg_tag_edit_widget):
+        sg_tag_edit_widget.set_tag_data()
+        tag_states = sg_tag_edit_widget.tag_data
+
+        with project.beginUndo("Update SG Tag Toggle"):
+            for track_item in selection:
+                track_item.set_sg_tags(tag_states)
+
+    @column_widget_callback
+    def edit_note_changed(self, selection, project, sender):
+        text = sender.text()
+
+        with project.beginUndo("Set Edit Note"):
+            if text != "--":
+                for track_item in selection:
+                    track_item.set_edit_note(text)
+
+            # If value is -- this is used as an easy to remove Edit Note tag
+            else:
+                for track_item in selection:
+                    edit_note_tag = track_item.get_edit_note()
+                    if edit_note_tag:
+                        log.info(f"{track_item.parent().name()}."
+                                 f"{track_item.name()}: "
+                                 "Removing 'Edit Note' tag")
+                        track_item.removeTag(edit_note_tag)
+
+    @column_widget_callback
+    def cut_info_changed(self, selection, project, sender):
         key = sender.objectName()
         value = sender.text().strip()
 
+        value_no_operators = value.translate(NO_OP_TRANSLATE)
         # Only pass on edit if user unintentionally erased value from column
-        if value not in ["--", ""] and not value.isdigit():
+        if value not in ["--", ""] and not value_no_operators.isdigit():
             return
         else:
             # Remove preceding zeros
             value = value if value == "0" else value.lstrip("0")
 
-        view = hiero.ui.activeView()
-        selection = [item for item in view.selection() \
-                     if isinstance(item.parent(), hiero.core.VideoTrack)]
-        project = selection[0].project()
         with project.beginUndo("Set Cut Info"):
+            operate = value != value_no_operators
             if value != "--":
                 for track_item in selection:
-                    track_item.set_cut_info_tag(key, value)
+                    track_item.set_cut_info(key, value, operate)
 
             # If value is -- this is used as an easy to remove Cut Info tag
             else:
                 for track_item in selection:
-                    cut_info_tag = track_item.cut_info_tag()
+                    cut_info_tag = track_item.get_cut_info()
                     if cut_info_tag:
                         log.info(f"{track_item.parent().name()}."
                                  f"{track_item.name()}: "
                                  "Removing 'Cut Info' tag")
                         track_item.removeTag(cut_info_tag)
 
-    def openpype_instance_changed(self):
-        sender = self.sender()
+    @column_widget_callback
+    def openpype_instance_changed(self, selection, project, sender):
         key = sender.objectName()
         if isinstance(sender, QComboBox):
             value = sender.currentText()
         else:
             value = sender.text()
 
-        view = hiero.ui.activeView()
-        selection = [item for item in view.selection() \
-                     if isinstance(item.parent(), hiero.core.VideoTrack)]
-        project = selection[0].project()
         with project.beginUndo("Set Openpype Instance"):
             # If value is -- this is used as an easy to remove openpype tag
             if value.strip() == "--":
                 for track_item in selection:
-                    openpype_instance_tag = track_item.openpype_instance_tag()
-                    if openpype_instance_tag:
+                    openpype_instance = track_item.get_openpype_instance()
+                    if openpype_instance:
                         log.info(f"{track_item.parent().name()}."
                                  f"{track_item.name()}: "
                                  "Removing 'Cut Info' tag")
-                        track_item.removeTag(openpype_instance_tag)
+                        track_item.removeTag(openpype_instance)
             else:
                 for track_item in selection:
                     track_item.set_openpype_instance(key, value)
 
 
-def _set_cut_info_tag(self, key, value):
+def _set_cut_info(self, key, value, operate):
     """Empty value is allowed incase editor wants to create a cut tag with
     default values
     """
     # Cut tag can be set from a variety of columns
     # Need to logic for each case
-    cut_tag = self.cut_info_tag()
+    cut_tag = self.get_cut_info()
+
+    # Can't do operations on an empty value
+    if not cut_tag and operate:
+        return
 
     if not cut_tag:
         # get default handles
         cut_tag = hiero.core.Tag("Cut Info")
         cut_tag.setIcon("icons:TagKeylight.png")
 
-        frame_start, handle_start, handle_end = get_openpype_setting_defaults()
+        frame_start, handle_start, handle_end = get_frame_defaults()
 
         frame_offset = frame_start + handle_start
         if value:
@@ -976,43 +1465,82 @@ def _set_cut_info_tag(self, key, value):
         self.addTag(cut_tag)
 
     if value:
+        if operate:
+            # Leave operation as is if value has valid expression
+            if value[0].isdigit():
+                operation = value
+            else:
+                current_value = cut_tag.metadata().value(f"tag.{key}")
+                operation = f"{current_value}{value}"
+
+            try:
+                # Frames must be integers
+                value = str(int(eval(operation)))
+            except SyntaxError:
+                log.info(f"{self.parent().name()}.{self.name()}: "
+                         f"{value} must be properly formatted. Read"
+                         "tooltip for more information")
+                return
+
         cut_tag.metadata().setValue(f"tag.{key}", value)
 
     self.sequence().editFinished()
 
 
-def _cut_info(self):
-    cut_info_tag = self.cut_info_tag()
-    cut_info = {}
-
-    if cut_info_tag:
-        cut_info_data = cut_info_tag.metadata().dict()
-        for key, value in cut_info_data.items():
-            cut_info[key.split("tag.")[-1]] = value
-
-    return cut_info
-
-
-def _cut_info_tag(self):
+def get_tag(self, name, contains=False):
     tags = self.tags()
     for tag in tags:
-        if tag.name() == "Cut Info":
-            return tag
+        if contains:
+            if name in tag.name():
+                return tag
+        else:
+            if name == tag.name():
+                return tag
 
     return None
 
 
-def get_openpype_setting_defaults():
-    project_name = get_current_project_name()
-    project_settings = get_project_settings(project_name)
+def get_tag_data(self, name, contains=False):
+    tag = get_tag(self, name, contains)
+    tag_data = {}
 
-    create_settings = project_settings["hiero"]["create"]
-    create_shot_clip_defaults = create_settings["CreateShotClip"]
-    frame_start_default = create_shot_clip_defaults["workfileFrameStart"]
-    handle_start_default = create_shot_clip_defaults["handleStart"]
-    handle_end_default = create_shot_clip_defaults["handleEnd"]
+    if not tag:
+        return tag_data
 
-    return (frame_start_default, handle_start_default, handle_end_default)
+    convert_keys = TAG_DATA_KEY_CONVERT.get(name, {})
+    tag_meta_data = tag.metadata().dict()
+    for key, value in tag_meta_data.items():
+        # Convert data from column names into tag key names
+        if key in convert_keys:
+            tag_data[convert_keys[key]] = value
+        else:
+            tag_data[key.split("tag.")[-1]] = value
+
+    return tag_data
+
+
+def get_frame_defaults(project_name):
+    # Grab handle infos from SG
+    filters = [
+        [
+            "name",
+            "is",
+            project_name,
+        ],
+    ]
+    fields = [
+        "sg_show_handles",
+        "sg_default_start_frame",
+    ]
+    sg_project = SHOTGRID.find_one("Project", filters, fields)
+
+    if not sg_project:
+        return 1001, 8, 8
+
+    frame_start_default = sg_project["sg_default_start_frame"]
+    handle_start_default = sg_project["sg_show_handles"]
+
+    return (frame_start_default, handle_start_default, handle_start_default)
 
 
 def get_entity_hierarchy(asset_doc, project_name):
@@ -1082,15 +1610,6 @@ def get_hierarchy_parents(hierarchy_data):
     return parents
 
 
-def _openpype_instance_tag(self):
-    tags = self.tags()
-    for tag in tags:
-        if OPENPYPE_TAG_NAME in tag.name():
-            return tag
-
-    return None
-
-
 def _set_openpype_instance(self, key, value):
     """
     Only one key of the tag can be modified at a time for items that already
@@ -1116,7 +1635,7 @@ def _set_openpype_instance(self, key, value):
     # Convert data from column names into OP instance names
     key = convert_keys.get(key, key)
 
-    instance_tag = self.openpype_instance_tag()
+    instance_tag = self.get_openpype_instance()
     track_item_name = self.name()
     track_name = self.parentTrack().name()
     # Check if asset has valid name
@@ -1145,10 +1664,11 @@ def _set_openpype_instance(self, key, value):
             family = "plate"
         families = ["clip", "review"]
 
-        hierarchy_data = get_hierarchy_data(asset_doc, project_name, track_name)
+        hierarchy_data = get_hierarchy_data(
+            asset_doc, project_name, track_name)
         hierarchy_path = get_hierarchy_path(asset_doc)
         hierarchy_parents = get_hierarchy_parents(hierarchy_data)
-        frame_start, handle_start, handle_end = get_openpype_setting_defaults()
+        frame_start, handle_start, handle_end = get_frame_defaults(project_name)
 
         instance_data["hierarchyData"] = hierarchy_data
         instance_data["hierarchy"] = hierarchy_path
@@ -1163,9 +1683,8 @@ def _set_openpype_instance(self, key, value):
         instance_data["handleEnd"] = handle_end \
             if family == "plate" else "0"
 
-
         # Constants
-        instance_data["audio"] = "False"
+        instance_data["audio"] = "True"
         instance_data["heroTrack"] = "True"
         instance_data["id"] = "pyblish.avalon.instance"
         instance_data["publish"] = "True"
@@ -1173,6 +1692,7 @@ def _set_openpype_instance(self, key, value):
         instance_data["sourceResolution"] = "False"
         instance_data["variant"] = "Main"
         instance_data["use_nuke"] = "False"
+        instance_data["ingested_grade"] = "None"
 
     if value:
         instance_data.update({key: value})
@@ -1182,24 +1702,102 @@ def _set_openpype_instance(self, key, value):
     self.sequence().editFinished()
 
 
-def _openpype_instance(self):
-    instance_tag = self.openpype_instance_tag()
-    instance_data = {}
-    if instance_tag:
-        tag_data = instance_tag.metadata().dict()
-        # Convert data from column names into OP instance names
-        convert_keys = {
-            "tag.workfileFrameStart": "frame_start",
-            "tag.handleStart": "handle_start",
-            "tag.handleEnd": "handle_end",
-        }
-        for key, value in tag_data.items():
-            if key in convert_keys:
-                instance_data[convert_keys[key]] = value
-            else:
-                instance_data[key.split("tag.")[-1]] = value
+def _set_ingest_effects(self, states):
+    effect_tag = self.get_ingest_effects()
 
-    return instance_data
+    if not effect_tag:
+        effect_tag = hiero.core.Tag("Ingest Effects")
+        effect_tag.setIcon("icons:TimelineToolSoftEffect.png")
+        # Add default resize type
+        self.sequence().editFinished()
+        self.addTag(effect_tag)
+        # Need this here because the correct tag on run is always the next one
+        _set_ingest_effects(self, states)
+    else:
+        # Remove tag if all states are False
+        if not [
+            effect_tag for effect_tag in states if states[effect_tag] == True
+            ]:
+            self.removeTag(effect_tag)
+            return
+
+    effect_tag_meta = effect_tag.metadata()
+    for key, value in states.items():
+        # Meta will always have all SG tag states
+        # Convert to string to match tag metadata needs
+        value = "True" if value else "False"
+        effect_tag_meta.setValue(f"tag.{key}", value)
+
+def _set_sg_tags(self, states):
+    sg_tag = self.get_sg_tags()
+
+    if not sg_tag:
+        sg_tag = hiero.core.Tag("SG Tags")
+        sg_tag.setIcon("icons:EffectsTiny.png")
+        # Add default resize type
+        self.sequence().editFinished()
+        self.addTag(sg_tag)
+        # Need this here because the correct tag on run is always the next one
+        _set_sg_tags(self, states)
+    else:
+        # Remove tag if all states are False
+        if not [sg_tag for sg_tag in states if states[sg_tag] == True]:
+            self.removeTag(sg_tag)
+            return
+
+    sg_tag_meta = sg_tag.metadata()
+    for key, value in states.items():
+        # Meta will always have all SG tag states
+        # Convert to string to match tag metadata needs
+        value = "True" if value else "False"
+        sg_tag_meta.setValue(f"tag.{key}", value)
+
+
+def _set_ingest_res(self, key, value):
+    ingest_res_tag = self.get_ingest_res()
+
+    if not ingest_res_tag:
+        ingest_res_tag = hiero.core.Tag("Ingest Resolution")
+        ingest_res_tag.setIcon("icons:PPResolution.png")
+        ingest_res_data = {}
+        ingest_res_data["resize"] = "width"
+
+        if value:
+            ingest_res_data.update({key: value})
+
+        for key, value in ingest_res_data.items():
+            if not isinstance(value, str):
+                value = str(value)
+            ingest_res_tag.metadata().setValue(f"tag.{key}", value)
+
+
+        self.sequence().editFinished()
+        self.addTag(ingest_res_tag)
+
+        # Need this here because the correct tag on run is always the next one
+        _set_ingest_res(self, key, value)
+
+    ingest_res_tag.metadata().setValue(f"tag.{key}", value)
+
+    self.sequence().editFinished()
+
+
+def _set_edit_note(self, note):
+    edit_note_tag = self.get_edit_note()
+
+    if not edit_note_tag:
+        edit_note_tag = hiero.core.Tag("Edit Note")
+        edit_note_tag.setIcon("icons:SyncMessage.png")
+
+        self.sequence().editFinished()
+        self.addTag(edit_note_tag)
+
+        # Need this here because the correct tag on run is always the next one
+        _set_edit_note(self, note)
+
+    edit_note_tag.metadata().setValue(f"tag.note", note)
+
+    self.sequence().editFinished()
 
 
 def _update_op_instance_asset(event):
@@ -1214,7 +1812,7 @@ def _update_op_instance_asset(event):
                     track_items.append(item)
 
     for track_item in track_items:
-        instance_tag = track_item.openpype_instance_tag()
+        instance_tag = track_item.get_openpype_instance()
         if not instance_tag:
             continue
 
@@ -1226,7 +1824,8 @@ def _update_op_instance_asset(event):
             track_item.removeTag(instance_tag)
             continue
 
-        hierarchy_data = get_hierarchy_data(asset_doc, project_name, track_name)
+        hierarchy_data = get_hierarchy_data(
+            asset_doc, project_name, track_name)
         hierarchy_path = get_hierarchy_path(asset_doc)
         hierarchy_parents = get_hierarchy_parents(hierarchy_data)
 
@@ -1259,7 +1858,7 @@ def _update_op_instance_asset(event):
                      "OP Instance updated - data modified")
 
 
-class TrackRename():
+class TrackRenameEvent():
     previous_track_item = ()
 
     def __init__(self):
@@ -1289,7 +1888,7 @@ class TrackRename():
                         track_items.append(item)
 
         for track_item in track_items:
-            instance_tag = track_item.openpype_instance_tag()
+            instance_tag = track_item.get_openpype_instance()
             if not instance_tag:
                 continue
 
@@ -1336,9 +1935,6 @@ class TrackRename():
         self.previous_track_item = event.sender.selection()
 
 
-
-
-
 def _update_avalon_track_item(event):
     """
     Event driven function that iters through all items as SequenceEdited
@@ -1358,16 +1954,38 @@ def _update_avalon_track_item(event):
         track_item.hierarchy_env = track_item_env
 
 
-# Inject cut tag getter and setter methods into hiero.core.TrackItem
-hiero.core.TrackItem.set_cut_info_tag = _set_cut_info_tag
-hiero.core.TrackItem.cut_info_tag = _cut_info_tag
-hiero.core.TrackItem.cut_info = _cut_info
+# Attach tag setters, getters and tag data get into hiero.core.TrackItem
+hiero.core.TrackItem.set_ingest_res = _set_ingest_res
+hiero.core.TrackItem.get_ingest_res = lambda self: get_tag(
+    self, "Ingest Resolution")
+hiero.core.TrackItem.ingest_res_data = lambda self: get_tag_data(
+    self, "Ingest Resolution")
 
+hiero.core.TrackItem.set_ingest_effects = _set_ingest_effects
+hiero.core.TrackItem.get_ingest_effects = lambda self: get_tag(
+    self, "Ingest Effects")
+hiero.core.TrackItem.ingest_effects_data = lambda self: get_tag_data(
+    self, "Ingest Effects")
 
-# Add openpype_instance methods to track item object
+hiero.core.TrackItem.set_sg_tags = _set_sg_tags
+hiero.core.TrackItem.get_sg_tags = lambda self: get_tag(self, "SG Tags")
+hiero.core.TrackItem.sg_tags_data = lambda self: get_tag_data(self, "SG Tags")
+
+hiero.core.TrackItem.set_edit_note = _set_edit_note
+hiero.core.TrackItem.get_edit_note = lambda self: get_tag(self, "Edit Note")
+hiero.core.TrackItem.edit_note_data = lambda self: get_tag_data(
+    self, "Edit Note")
+
+hiero.core.TrackItem.set_cut_info = _set_cut_info
+hiero.core.TrackItem.get_cut_info = lambda self: get_tag(self, "Cut Info")
+hiero.core.TrackItem.cut_info_data = lambda self: get_tag_data(
+    self, "Cut Info")
+
 hiero.core.TrackItem.set_openpype_instance = _set_openpype_instance
-hiero.core.TrackItem.openpype_instance_tag = _openpype_instance_tag
-hiero.core.TrackItem.openpype_instance = _openpype_instance
+hiero.core.TrackItem.get_openpype_instance = lambda self: get_tag(
+    self, OPENPYPE_TAG_NAME, contains=True)
+hiero.core.TrackItem.openpype_instance_data = lambda self: get_tag_data(
+    self, OPENPYPE_TAG_NAME, contains=True)
 
 
 # Register openpype instance update event
@@ -1377,7 +1995,7 @@ hiero.core.events.registerInterest(
 
 # SequenceEdited only capture Track Item renames and not Video Track renames
 # Need class to keep track of previous selection to limit event runtime
-track_rename = TrackRename()
+track_rename = TrackRenameEvent()
 hiero.core.events.registerInterest(
     "kSelectionChanged/kTimeline", track_rename._update_op_instance_subset
 )
