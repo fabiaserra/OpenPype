@@ -35,14 +35,13 @@ class CollectShotgridShot(pyblish.api.InstancePlugin):
 
 def _get_shotgrid_shot(sg, anatomy):
     shot_name = anatomy["asset"]
-
     # OP project name/code isn't always sg_code. This approach gives a sure fire way
     # to match to a SG project
     filters = [
         [
-            "project.Project.sg_code",
+            "project.Project.name",
             "in",
-            [anatomy["project"]["name"], anatomy["project"]["code"]],
+            [anatomy["project"]["name"]],
         ],
         ["code", "is", shot_name],
     ]
