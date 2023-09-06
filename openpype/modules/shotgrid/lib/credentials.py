@@ -1,3 +1,4 @@
+import getpass
 import os
 from urllib.parse import urlparse
 
@@ -155,10 +156,24 @@ def get_shotgrid_session():
         )
 
     proxy = os.environ.get("HTTPS_PROXY", "").lstrip("https://")
-    return shotgun_api3.Shotgun(
-        shotgrid_url,
-        script_name=shotgrid_script_name,
-        api_key=shotgrid_script_key,
-        http_proxy=proxy,
-    )
+    try:
+        sg = shotgun_api3.Shotgun(
+            shotgrid_url,
+            script_name=shotgrid_script_name,
+            api_key=shotgrid_script_key,
+            http_proxy=proxy,
+            sudo_as_login=getpass.getuser()
+        )
+        # Authentication test to proc error if bad
+        sg.find("Project", [], [])
+        return sg
+
+    except shotgun_api3.shotgun.AuthenticationFault:
+        return shotgun_api3.Shotgun(
+            shotgrid_url,
+            script_name=shotgrid_script_name,
+            api_key=shotgrid_script_key,
+            http_proxy=proxy,
+            sudo_as_login=f"{getpass.getuser()}@alkemy-x.com"
+        )
 ### Ends Alkemy-X Override ###
