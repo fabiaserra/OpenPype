@@ -686,8 +686,10 @@ class ExtractReview(pyblish.api.InstancePlugin):
             ### Starts Alkemy-X Override ###
             # Grab resolution from SG delivery (i.e., review or final) if it
             # exists, otherwise default to the project resolution
-            "resolution_width": output_def.get("resolutionWidth") or instance.data.get("resolutionWidth"),
-            "resolution_height": output_def.get("resolutionHeight") or instance.data.get("resolutionHeight"),
+            "resolution_width": output_def.get("resolutionWidth") or \
+                instance.data.get("resolutionWidth"),
+            "resolution_height": output_def.get("resolutionHeight") or \
+                instance.data.get("resolutionHeight"),
             ### Ends Alkemy-X Override ###
             "origin_repre": repre,
             "input_is_sequence": input_is_sequence,
