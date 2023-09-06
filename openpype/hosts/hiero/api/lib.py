@@ -1318,9 +1318,9 @@ def get_main_window():
                            widget.metaObject().className() == name)
         _CTX.parent_gui = main_window
     return _CTX.parent_gui
+
+
 ### Starts Alkemy-X Override ###
-
-
 def regex_parse_edl_events(path, color_edits_only=False):
     """
     EDL is parsed using OTIO and then placed into a data struture for output "edl"

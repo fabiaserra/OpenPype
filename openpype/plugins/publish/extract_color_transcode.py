@@ -56,12 +56,13 @@ class ExtractOIIOTranscode(publish.Extractor):
     label = "Transcode color spaces"
     order = pyblish.api.ExtractorOrder + 0.019
     ### Starts Alkemy-X Override ###
-    # Filter plugin so it only gets executed for `client_review` family, which
-    # we are currently controlling with a Client Review toggle on the publisher
-    # In the future we might want to run the transcode for other cases but
-    # for now this simplifies our pipeline so we can have more control over
-    # when the transcoding happens.
-    families = ["client_review", "client_final"]
+    # Filter plugin so it only gets executed for "review", "client_review" and
+    # "client_final"`families. We are currently controlling with a "Review",
+    # "Client Review" and "Client Final" checkboxes on the publisher to define
+    # when to set those families. In the future we might want to run
+    # this same transcode plugin for other cases but for now this simplifies our
+    # pipeline so we can have more control over when the transcoding happens.
+    families = ["review", "client_review", "client_final"]
 
     # Skeleton of an output definition of a profile
     profile_output_skeleton = {
@@ -114,13 +115,14 @@ class ExtractOIIOTranscode(publish.Extractor):
         # Grab which delivery types we are running by checking the families
         # and remove the output definitions that don't match the delivery types
         delivery_types = []
-        if "client_review" in instance.data.get("families"):
+        if "client_review" in instance.data.get("families") or \
+                "review" in instance.data.get("families"):
             self.log.debug("Adding 'review' as delivery type for SG outputs.")
             delivery_types.append("review")
         else:
             self.log.debug(
-                "Removing 'exr_review' from profile because 'client_review' is " \
-                "not part of the families."
+                "Removing 'exr_review' from profile because 'client_review' or" \
+                " 'review' are not part of the families."
             )
             del profile["outputs"]["exr_review"]
 

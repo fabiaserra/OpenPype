@@ -573,8 +573,6 @@ def get_files(package_path, filters):
     return files
 
 
-
-
 class CollectColorFile(pyblish.api.InstancePlugin):
     """Collect Color File for plate."""
 
