@@ -1428,8 +1428,8 @@ def _set_cut_info(self, key, value, operate):
         # get default handles
         cut_tag = hiero.core.Tag("Cut Info")
         cut_tag.setIcon("icons:TagKeylight.png")
-
-        frame_start, handle_start, handle_end = get_frame_defaults()
+        project_name = get_current_project_name()
+        frame_start, handle_start, handle_end = get_frame_defaults(project_name)
 
         frame_offset = frame_start + handle_start
         if value:
@@ -1533,8 +1533,8 @@ def get_frame_defaults(project_name):
     if not sg_project:
         return 1001, 8, 8
 
-    frame_start_default = sg_project["sg_default_start_frame"]
-    handle_start_default = sg_project["sg_show_handles"]
+    frame_start_default = sg_project.get("sg_default_start_frame", 1001)
+    handle_start_default = sg_project.get("sg_show_handles", 8)
 
     return (frame_start_default, handle_start_default, handle_start_default)
 
