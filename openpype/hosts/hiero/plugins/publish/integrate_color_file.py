@@ -8,8 +8,9 @@ from datetime import datetime
 
 import pyblish.api
 import xml.etree.ElementTree
-from openpype.hosts.hiero import api as phiero
 
+from openpype.hosts.hiero import api as phiero
+from openpype.hosts.hiero.api import lib
 
 def format_xml(root):
     dom = xml.dom.minidom.parseString(xml.etree.ElementTree.tostring(root))
@@ -564,3 +565,9 @@ class IntegrateColorFile(pyblish.api.InstancePlugin):
 
         ingest_meta.write_ingest_meta()
         self.log.info("Ingest meta writen out")
+
+        # If track item in instance then update track item with grade path
+        track_item = instance.data["item"]
+        if track_item:
+            lib.set_trackitem_openpype_tag(
+                track_item, {"ingested_grade": color_path})
