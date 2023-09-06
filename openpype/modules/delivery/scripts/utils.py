@@ -251,7 +251,7 @@ def submit_deadline_post_job(
 
     # Add OpenPype version if we are running from build.
     if is_running_from_build():
-        environment["OPENPYPE_VERSION": os.environ.getenv("OPENPYPE_VERSION")]
+        environment["OPENPYPE_VERSION"] = os.getenv("OPENPYPE_VERSION")
 
     args = [
         "--headless",
