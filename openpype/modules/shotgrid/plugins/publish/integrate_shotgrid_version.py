@@ -11,8 +11,6 @@ class IntegrateShotgridVersion(pyblish.api.InstancePlugin):
     label = "Shotgrid Version"
     ### Starts Alkemy-X Override ###
     fields_to_add = {
-        "frameStart": (int, "sg_first_frame"),
-        "frameEnd": (int, "sg_last_frame"),
         "comment": (str, "description"),
         "family": (str, "sg_version_type"),
     }
@@ -61,6 +59,20 @@ class IntegrateShotgridVersion(pyblish.api.InstancePlugin):
             data_to_update["sg_status_list"] = intent["value"]
 
         ### Starts Alkemy-X Override ###
+        frame_start = instance.data.get("frameStart") or context.data.get("frameStart")
+        frame_end = instance.data.get("frameEnd") or context.data.get("frameEnd")
+        handle_start = instance.data.get("handleStart") or context.data.get("handleStart")
+        handle_end = instance.data.get("handleEnd") or context.data.get("handleEnd")
+        if frame_start != None and handle_start != None:
+            data_to_update["sg_first_frame"] = frame_start - handle_start
+            self.log.info("Adding field '{}' to SG as '{}':'{}'".format(
+                    "frameStart", "sg_first_frame", frame_start - handle_start)
+                )
+        if frame_end != None and handle_end != None:
+            data_to_update["sg_last_frame"] = frame_end + handle_end
+            self.log.info("Adding field '{}' to SG as '{}':'{}'".format(
+                    "frameEnd", "sg_last_frame", frame_end + handle_end)
+                )
         # Add a few extra fields from OP to SG version
         for op_field, sg_field in self.fields_to_add.items():
             field_value = instance.data.get(op_field) or context.data.get(op_field)
@@ -106,13 +118,28 @@ class IntegrateShotgridVersion(pyblish.api.InstancePlugin):
                     )
 
                     data_to_update["sg_path_to_movie"] = local_path
+                    ### Starts Alkemy-X Override ###
+                    if (
+                        "slate" in instance.data["families"]
+                        and "slate-frame" in representation["tags"]
+                    ):
+                        data_to_update["sg_movie_has_slate"] = True
+                    ### Ends Alkemy-X Override ###
 
                 elif representation["ext"] in ["jpg", "png", "exr", "tga"]:
                     # Define the pattern to match the frame number
                     padding_pattern = r"\.\d+\."
                     # Replace the frame number with '%04d'
                     path_to_frame = re.sub(padding_pattern, ".%04d.", local_path)
+
                     data_to_update["sg_path_to_frames"] = path_to_frame
+                    ### Starts Alkemy-X Override ###
+                    if (
+                        "slate" in instance.data["families"]
+                        and "slate-frame" in representation["tags"]
+                    ):
+                        data_to_update["sg_frames_have_slate"] = True
+                    ### Ends Alkemy-X Override ###
 
         self.log.info("Updating Shotgrid version with {}".format(data_to_update))
         self.sg.update("Version", version["id"], data_to_update)
