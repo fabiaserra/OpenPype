@@ -1654,11 +1654,13 @@ def _set_openpype_instance(self, key, value):
     if not instance_tag:
         # First fill default instance if no tag found and then update with
         # data parameter
+        families = ["clip"]
         if "ref" in track_name:
             family = "reference"
         else:
+            families = ["review"]
             family = "plate"
-        families = ["clip", "review"]
+
 
         hierarchy_data = get_hierarchy_data(
             asset_doc, project_name, track_name)
@@ -1691,6 +1693,18 @@ def _set_openpype_instance(self, key, value):
         instance_data["ingested_grade"] = "None"
 
     if value:
+        print(key, 'key')
+        # When family is changed the families need to adapt
+        if key == "family":
+            print('is family')
+            families = ["clip"]
+            if value == "plate":
+                print('is plate adding review')
+                families.append("review")
+
+            print(families, 'families')
+            instance_data.update({"families": families})
+
         instance_data.update({key: value})
 
     set_trackitem_openpype_tag(self, instance_data)
