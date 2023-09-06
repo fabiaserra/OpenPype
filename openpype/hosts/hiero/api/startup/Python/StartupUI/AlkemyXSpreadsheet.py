@@ -14,7 +14,7 @@ import hiero
 from openpype.client import get_asset_by_name, get_project, \
     get_last_version_by_subset_name
 from openpype.hosts.hiero.api.constants import OPENPYPE_TAG_NAME
-from openpype.hosts.hiero.api.lib import (set_trackitem_openpype_tag)
+from openpype.hosts.hiero.api.lib import set_trackitem_openpype_tag
 from openpype.lib import Logger
 from openpype.modules.shotgrid.lib import credentials
 from openpype.pipeline.context_tools import (
@@ -325,7 +325,6 @@ class IngestResWidget(QComboBox):
         validator = QRegExpValidator(rx, self.lineEdit())
         self.setValidator(validator)
         self.lineEdit().setText("--")
-        self.lineEdit().selectAll()
 
         # Use base settings from current combobox defaults
         completer = self.completer()
@@ -360,6 +359,8 @@ class IngestResWidget(QComboBox):
         else:
             self.setCurrentIndex(0)
 
+        # Select all for easy editing
+        self.lineEdit().selectAll()
 
 class IngestEffectsWidget(QMainWindow):
     can_close = False
@@ -705,11 +706,6 @@ class CustomSpreadsheetColumns(QObject):
         elif current_column["name"] == "ingest_effects":
             effects_data = item.ingest_effects_data()
 
-            # Remove default keys
-            for key in ("label", "applieswhole"):
-                if key in effects_data:
-                    del effects_data[key]
-
             effects = []
             for key in sorted(effects_data, key=INGEST_EFFECTS.index):
                 if effects_data[key] == "True":
@@ -1030,11 +1026,6 @@ class CustomSpreadsheetColumns(QObject):
                 iconSize,
                 iconSize,
             )
-
-            # Remove default keys
-            for key in ("label", "applieswhole"):
-                if key in sg_tag_data:
-                    del sg_tag_data[key]
 
             # Need to make sure the icons are sorted for easy readability
             for key in sorted(sg_tag_data, key=SG_TAGS.index):
@@ -1515,6 +1506,11 @@ def get_tag_data(self, name, contains=False):
             tag_data[convert_keys[key]] = value
         else:
             tag_data[key.split("tag.")[-1]] = value
+
+    # Remove default keys
+    for key in ("label", "applieswhole"):
+        if key in tag_data:
+            del tag_data[key]
 
     return tag_data
 
