@@ -67,6 +67,9 @@ def populate_tasks(project_code):
 
     # Find the project with the given code
     project = sg.find_one("Project", [["sg_code", "is", project_code]])
+    if not project:
+        logger.error("Project with 'sg_code' %s not found.", project_code)
+        return
 
     # Try add tasks to all Episodes
     episodes = sg.find("Episode", [["project", "is", project]], ["id", "code"])

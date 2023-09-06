@@ -13,7 +13,7 @@ from openpype.pipeline import publish, legacy_io
 from openpype.hosts.hiero.api import work_root
 
 
-class TranscodeFrames(publish.Extractor):
+class TranscodeFrames(publish.Extractor, publish.ColormanagedPyblishPluginMixin):
     """Transcode Hiero media to the right colorspace using OIIO or Nuke"""
 
     order = pyblish.api.ExtractorOrder - 0.1
@@ -400,6 +400,13 @@ class TranscodeFrames(publish.Extractor):
         for i in range(out_frame_start, (out_frame_end + 1)):
             instance.data["expectedFiles"].append(
                 os.path.join(dirname, (filename % i)).replace("\\", "/"))
+
+        # Set destination colorspace to instance data so the transcode plugin
+        # that runs on these files knows what input colorspace to use
+        self.log.debug(
+            "Setting colorspace '%s' to instance", self.dst_media_color_transform
+        )
+        instance.data["colorspace"] = self.dst_media_color_transform
 
         # Set frame start/end handles as it's used in integrate to map
         # the frames to the correct frame range
