@@ -441,12 +441,12 @@ class IngestMeta:
             return main_grade
 
 
-class IntegrateColorFile(pyblish.api.InstancePlugin):
-    """Integrate Color File for plate."""
+class ExtractColorFile(pyblish.api.InstancePlugin):
+    """Extract Color File for plate to grade directory location on disk"""
 
-    order = pyblish.api.IntegratorOrder
-    label = "Integrate Color File"
-    families = ["plate"]
+    order = pyblish.api.ExtractorOrder - 0.49
+    label = "Extract Color File"
+    families = ["plate", "plate.farm"]
 
     optional = True
 
