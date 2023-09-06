@@ -1,5 +1,5 @@
+from openpype import client
 from openpype.lib import Logger
-from openpype.client import create_project
 from openpype.pipeline import project_folders
 from openpype.modules.shotgrid.lib import credentials
 from openpype.settings import get_project_settings
@@ -8,7 +8,7 @@ from openpype.settings import get_project_settings
 logger = Logger.get_logger(__name__)
 
 
-def create_project(project_name):
+def create_project(project_code):
     """Create a new project, set up its folders and populate it with the SG info."""
 
     # Query project in SG to grab its code name and id
@@ -16,18 +16,20 @@ def create_project(project_name):
     sg_project = sg.find_one(
         "Project",
         [
-            ["name", "is", project_name],
+            ["sg_code", "is", project_code],
         ],
-        ["sg_code", "id"],
+        ["name", "id"],
     )
-    if not sg_project["sg_code"]:
-        logger.error("No 'sg_code' found on project %s", project_name)
+    if not sg_project:
+        logger.error("Project with 'sg_code' '%s' not found.", project_code)
         return
 
+    project_name = sg_project["name"]
+
     # Create OP project
-    create_project(
+    client.create_project(
         project_name,
-        sg_project["sg_code"],
+        project_code,
         library_project=False,
     )
 
