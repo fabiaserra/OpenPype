@@ -63,12 +63,12 @@ class IntegrateShotgridVersion(pyblish.api.InstancePlugin):
         frame_end = instance.data.get("frameEnd") or context.data.get("frameEnd")
         handle_start = instance.data.get("handleStart") or context.data.get("handleStart")
         handle_end = instance.data.get("handleEnd") or context.data.get("handleEnd")
-        if frame_start is not None and handle_start is not None:
+        if frame_start != None and handle_start != None:
             data_to_update["sg_first_frame"] = frame_start - handle_start
             self.log.info("Adding field '{}' to SG as '{}':'{}'".format(
                     "frameStart", "sg_first_frame", frame_start - handle_start)
                 )
-        if frame_end is not None and handle_end is not None:
+        if frame_end != None and handle_end != None:
             data_to_update["sg_last_frame"] = frame_end + handle_end
             self.log.info("Adding field '{}' to SG as '{}':'{}'".format(
                     "frameEnd", "sg_last_frame", frame_end + handle_end)
