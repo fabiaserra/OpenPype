@@ -35,7 +35,7 @@ def create_project(project_code):
 
     # Set SG project id on project settings
     project_settings = get_project_settings(project_name)
-    project_settings["shotgrid"]["shotgrid"]["shotgrid_project_id"] = sg_project["id"]
+    project_settings["shotgrid"]["shotgrid_project_id"] = sg_project["id"]
 
     # Create project folders
     project_folders.create_project_folders(project_name)
