@@ -134,10 +134,7 @@ class IntegrateShotgridVersion(pyblish.api.InstancePlugin):
 
                     data_to_update["sg_path_to_frames"] = path_to_frame
                     ### Starts Alkemy-X Override ###
-                    if (
-                        "slate" in instance.data["families"]
-                        and "slate-frame" in representation["tags"]
-                    ):
+                    if "slate" in instance.data["families"]:
                         data_to_update["sg_frames_have_slate"] = True
                     ### Ends Alkemy-X Override ###
 
