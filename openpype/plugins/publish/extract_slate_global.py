@@ -7,7 +7,7 @@ import pyblish.api
 from html2image import Html2Image
 
 from openpype.lib import (
-    get_oiio_tools_path,
+    get_oiio_tool_args,
     get_ffprobe_streams,
     get_chrome_tool_path,
     run_subprocess,
@@ -286,14 +286,29 @@ class SlateCreator:
 
         return slate_rendered_paths[0]
 
-    def render_image_oiio(self, input, output, in_args=None, out_args=None):
+    def render_image_oiio(
+            self, input, output, in_args=None, out_args=None, ocio_config_path=None
+        ):
         """Call oiiotool to convert one image to another."""
         name = os.path.basename(input)
-        cmd = [get_oiio_tools_path()]
-        cmd.extend(in_args or [])
+
+        cmd = get_oiio_tool_args(
+            "oiiotool",
+            # Don't add any additional attributes
+            "--nosoftwareattrib",
+        )
+        if ocio_config_path:
+            cmd.extend(["--colorconfig", ocio_config_path])
+
+        if in_args:
+            cmd.extend(in_args)
         cmd.extend(["-i", input])
-        cmd.extend(out_args or [])
+
+        if out_args:
+            cmd.extend(out_args)
+
         cmd.extend(["-o", output])
+
         try:
             run_subprocess(cmd, logger=self.log)
         except TypeError as error:
@@ -577,11 +592,16 @@ class ExtractSlateGlobal(publish.Extractor):
                 )
             )
 
+            # Extract colorspace config path from representation
+            colorspace_data = repre.get("colorspaceData")
+            config_path = colorspace_data.get("config", {}).get("path")
+
             slate_creator.render_image_oiio(
                 temp_slate,
                 slate_final_path,
                 in_args=oiio_profile["oiio_args"].get("input") or [],
                 out_args=oiio_profile["oiio_args"].get("output") or [],
+                ocio_config_path=config_path,
             )
 
             # update representations and instance
