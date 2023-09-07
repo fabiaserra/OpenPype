@@ -59,12 +59,13 @@ class IntegrateShotgridShotData(pyblish.api.InstancePlugin):
 
         for batch in self.sg_batch:
             self.log.info(
-                "%s data as %s on Shot '%s' : %s",
-                # There is a bug with the logger that doesn't like %sd
-                batch["request_type"].capitalize() + "d",
-                batch["entity_type"],
-                sg_shot["name"],
-                batch["data"],
+                # Using format as there is a weird bug with %sd
+                "{0}d data as {1} on Shot '{2}' : {3}".format(
+                    batch["request_type"].capitalize(),
+                    batch["entity_type"],
+                    sg_shot["name"],
+                    batch["data"],
+                )
             )
 
     def update_cut_info(self, track_item, sg_shot):
