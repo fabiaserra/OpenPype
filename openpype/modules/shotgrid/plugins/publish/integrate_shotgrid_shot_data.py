@@ -3,8 +3,11 @@ import pyblish.api
 
 
 class IntegrateShotgridShotData(pyblish.api.InstancePlugin):
-    """Gathers cut info from Cut Info tag data. That data is then updated on
-    the shot entity in Shotgrid
+    """This plugin gathers various data from the ingest process and updates
+    the corresponding Shotgrid Shot entity with this data.
+
+    It performs updates on: cut information, shot tags, working
+    resolution, and editing notes.
     """
 
     order = pyblish.api.IntegratorOrder + 0.4999
@@ -14,17 +17,18 @@ class IntegrateShotgridShotData(pyblish.api.InstancePlugin):
 
     optional = True
     sg_tags = {
-        "retime": {'id': 245, 'name': 'retime', 'type': 'Tag'},
-         "repo": {'id': 424, 'name': 'Pushin/Repo', 'type': 'Tag'},
-         "insert": {'id': 244, 'name': 'Screen Insert', 'type': 'Tag'},
-         "split": {'id': 423, 'name': 'Split Screen', 'type': 'Tag'},
+        "retime": {"id": 245, "name": "retime", "type": "Tag"},
+        "repo": {"id": 424, "name": "Pushin/Repo", "type": "Tag"},
+        "insert": {"id": 244, "name": "Screen Insert", "type": "Tag"},
+        "split": {"id": 423, "name": "Split Screen", "type": "Tag"},
     }
+    sg_batch = []
 
     def process(self, instance):
-
         if instance.data.get("farm"):
             self.log.info(
-                "Instance is marked to be processed on farm. Skipping")
+                "Instance is marked to be processed on farm. Skipping"
+            )
             return
 
         context = instance.context
@@ -46,6 +50,23 @@ class IntegrateShotgridShotData(pyblish.api.InstancePlugin):
         self.update_working_resolution(track_item, sg_shot)
         self.update_edit_note(track_item, sg_shot)
 
+        result = self.sg.batch(self.sg_batch)
+        if not result:
+            self.log.warning(
+                "Failed to update data on Shotgrid Shot '%s'", sg_shot["name"]
+            )
+            return
+
+        for batch in self.sg_batch:
+            self.log.info(
+                "%s data as %s on Shot '%s' : %s",
+                # There is a bug with the logger that doesn't like %sd
+                batch["request_type"].capitalize() + "d",
+                batch["entity_type"],
+                sg_shot["name"],
+                batch["data"],
+            )
+
     def update_cut_info(self, track_item, sg_shot):
         # Check if track item had attached cut_info_data method
         if not "cut_info_data" in track_item.__dir__():
@@ -53,7 +74,9 @@ class IntegrateShotgridShotData(pyblish.api.InstancePlugin):
 
         cut_info = track_item.cut_info_data()
         if not cut_info:
-            self.log.info("No cut info found on instance track item. Ignoring cut update")
+            self.log.info(
+                "No cut info found on instance track item. Ignoring cut update"
+            )
             return
         cut_in = int(cut_info["cut_in"])
         cut_out = int(cut_info["cut_out"])
@@ -66,21 +89,14 @@ class IntegrateShotgridShotData(pyblish.api.InstancePlugin):
             "sg_head_in": head_in,
             "sg_tail_out": tail_out,
         }
-        self.log.info(
-            "Setting cut info on shot '{0}' - {1}".format(
-                sg_shot["name"], shot_data
-            )
-        )
 
-        result = self.sg.update(
-            "Shot",
-            sg_shot["id"],
-            shot_data,
-        )
-        if not result:
-            self.log.warning(
-                "Failed to update shot cut information. Most likely SG connection was severed"
-            )
+        cut_info_batch = {
+            "request_type": "update",
+            "entity_type": "Shot",
+            "entity_id": sg_shot["id"],
+            "data": shot_data,
+        }
+        self.sg_batch.append(cut_info_batch)
 
     def update_shot_tags(self, track_item, sg_shot):
         # Check if track item had attached sg_tags_data method
@@ -89,19 +105,22 @@ class IntegrateShotgridShotData(pyblish.api.InstancePlugin):
 
         sg_tag_data = track_item.sg_tags_data()
         if not sg_tag_data:
-            self.log.info("No sg shot tags found on instance track item. Ignoring sg shot tag update")
+            self.log.info(
+                "No sg shot tags found on instance track item. Ignoring sg shot tag update"
+            )
             return
 
-
         tag_updates = []
-        for key, tag in self.sg_tags():
+        for key, tag in self.sg_tags.items():
             # Need to make sure the icons are sorted for easy readability
             if sg_tag_data[key] == "True":
                 tag_updates.append(tag)
 
         # compare tag_updates to current tags
 
-        shot_tags = self.sg.find_one("Shot", [["id", "is", sg_shot["id"]]], ["code", "tags"]).get("tags")
+        shot_tags = self.sg.find_one(
+            "Shot", [["id", "is", sg_shot["id"]]], ["code", "tags"]
+        ).get("tags")
 
         current_tag_ids = set(tag["id"] for tag in shot_tags)
         tag_update_ids = set(tag["id"] for tag in tag_updates)
@@ -112,17 +131,19 @@ class IntegrateShotgridShotData(pyblish.api.InstancePlugin):
 
         if not current_tag_ids.difference(tag_update_ids):
             current_tag_names = ", ".join([tag["name"] for tag in shot_tags])
-            self.log.info(f"No shot tag updates needed. Current shot "
-                          "tags: {current_tag_names}")
+            self.log.info(
+                "No shot tag updates needed. Current shot tags: %s",
+                current_tag_names,
+            )
             return
 
-        updated_tag_names = ", ".join([tag["name"] for tag in tag_updates])
-        self.log.info("Setting tag updates on shot '{0}' - {1}".format(
-            sg_shot["name"], updated_tag_names))
-
-        # Let user know if needed updates were made
-        self.sg.update("Shot", sg_shot["id"], {"tags": tag_updates})
-
+        sg_tag_batch = {
+            "request_type": "update",
+            "entity_type": "Shot",
+            "entity_id": sg_shot["id"],
+            "data": {"tags": tag_updates},
+        }
+        self.sg_batch.append(sg_tag_batch)
 
     def update_working_resolution(self, track_item, sg_shot):
         # How to know if this plate should update the working resolution?
@@ -147,15 +168,18 @@ class IntegrateShotgridShotData(pyblish.api.InstancePlugin):
         # Check to see if the note was already made. If so skip
         for note in notes:
             if note["content"] == edit_note_text:
-                self.log.info(f"No editorial note made. Note already exists: "
-                          "{edit_note_text}")
+                self.log.info(
+                    f"No editorial note made. Note already exists: "
+                    "{edit_note_text}"
+                )
                 return
 
         sg_user = self.sg.find_one(
-            "HumanUser", [['name', 'contains', getpass.getuser()]], ['name'])
+            "HumanUser", [["name", "contains", getpass.getuser()]], ["name"]
+        )
         sg_project_id = self.sg.find_one(
             "Shot", ["id", "is", sg_shot["id"]], ["project.Project.id"]
-            ).get("project.Project.id")
+        ).get("project.Project.id")
         note_data = {
             "project": {"type": "Project", "id": sg_project_id},
             "note_links": [{"type": "Shot", "id": sg_shot["id"]}],
@@ -164,6 +188,10 @@ class IntegrateShotgridShotData(pyblish.api.InstancePlugin):
             "user": {"type": "HumanUser", "id": sg_user["id"]},
         }
 
-        new_note = sg.create("Note", note_data)
-        self.log.info("Making editorial note on shot '{0}' - {1}".format(
-            sg_shot["name"], new_note))
+        edit_note_batch = {
+            "request_type": "create",
+            "entity_type": "Note",
+            "data": {"tags": note_data},
+        }
+
+        self.sg_batch.append(edit_note_batch)
