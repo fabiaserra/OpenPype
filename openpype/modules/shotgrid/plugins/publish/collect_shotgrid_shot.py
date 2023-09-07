@@ -40,7 +40,7 @@ def _get_shotgrid_shot(sg, anatomy):
     filters = [
         [
             "project.Project.name",
-            "in",
+            "is",
             [anatomy["project"]["name"]],
         ],
         ["code", "is", shot_name],
