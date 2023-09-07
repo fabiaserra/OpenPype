@@ -736,7 +736,7 @@ class CollectColorFile(pyblish.api.InstancePlugin):
                         priority = 8
 
                     # Need to compare to None since priority can be 0
-                    if not priority is None:
+                    if priority is not None:
                         # Distinguish type priority
                         if color_ext == "cc":
                             priority += 0

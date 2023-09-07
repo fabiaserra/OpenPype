@@ -25,13 +25,16 @@ from openpype.pipeline.context_tools import (
 
 SHOTGRID = credentials.get_shotgrid_session()
 
-FORMATS = {fmt.name(): {
-        "width": fmt.width(),
-        "height": fmt.height(),
-        "format": fmt.toString(),
-        "pixelAspect": fmt.pixelAspect()
+FORMATS = {
+    fmt.name():
+        {
+            "width": fmt.width(),
+            "height": fmt.height(),
+            "format": fmt.toString(),
+            "pixelAspect": fmt.pixelAspect()
+        }
+        for fmt in hiero.core.formats()
     }
-           for fmt in hiero.core.formats()}
 
 TAG_DATA_KEY_CONVERT = {
     OPENPYPE_TAG_NAME: {
@@ -308,7 +311,6 @@ class ColorspaceWidget(QMainWindow):
         return menu
 
 
-
 class IngestResWidget(QComboBox):
     def __init__(self, item, current_format):
         QComboBox.__init__(self)
@@ -321,8 +323,7 @@ class IngestResWidget(QComboBox):
             default_format_height = default_format.height()
 
         self.setEditable(True)
-        rx = QRegExp("^\d+[x]\d+$")
-        validator = QRegExpValidator(rx, self.lineEdit())
+        validator = QRegExpValidator(r"^\d+[x]\d+$", self.lineEdit())
         self.setValidator(validator)
         self.lineEdit().setText("--")
 
@@ -341,7 +342,7 @@ class IngestResWidget(QComboBox):
                 height == default_format_height):
                 proper_res = res
             else:
-                self.addItem("{1}x{2} - {0}".format(res, width, height))
+                self.addItem("{0}x{1} - {2}".format(width, height, res))
 
         # Move current resolution to the top
         if proper_res:
