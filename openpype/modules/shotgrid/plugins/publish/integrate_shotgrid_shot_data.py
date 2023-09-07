@@ -2,7 +2,7 @@ import getpass
 import pyblish.api
 
 
-class IntegrateShotgridCutInfo(pyblish.api.InstancePlugin):
+class IntegrateShotgridShotData(pyblish.api.InstancePlugin):
     """Gathers cut info from Cut Info tag data. That data is then updated on
     the shot entity in Shotgrid
     """
