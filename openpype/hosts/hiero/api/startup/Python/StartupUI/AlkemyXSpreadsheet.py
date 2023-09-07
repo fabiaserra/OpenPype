@@ -11,8 +11,11 @@ from qtpy.QtGui import *
 
 import hiero
 
-from openpype.client import get_asset_by_name, get_project, \
-    get_last_version_by_subset_name
+from openpype.client import (
+    get_asset_by_name,
+    get_project,
+    get_last_version_by_subset_name,
+)
 from openpype.hosts.hiero.api.constants import OPENPYPE_TAG_NAME
 from openpype.hosts.hiero.api.lib import set_trackitem_openpype_tag
 from openpype.lib import Logger
@@ -26,15 +29,14 @@ from openpype.pipeline.context_tools import (
 SHOTGRID = credentials.get_shotgrid_session()
 
 FORMATS = {
-    fmt.name():
-        {
-            "width": fmt.width(),
-            "height": fmt.height(),
-            "format": fmt.toString(),
-            "pixelAspect": fmt.pixelAspect()
-        }
-        for fmt in hiero.core.formats()
+    fmt.name(): {
+        "width": fmt.width(),
+        "height": fmt.height(),
+        "format": fmt.toString(),
+        "pixelAspect": fmt.pixelAspect(),
     }
+    for fmt in hiero.core.formats()
+}
 
 TAG_DATA_KEY_CONVERT = {
     OPENPYPE_TAG_NAME: {
@@ -107,6 +109,7 @@ def get_active_ocio_config():
 
 class CheckboxMenu(QMenu):
     mouse_in_view = True
+
     def __init__(self, *args, **kwargs):
         QMenu.__init__(self, *args, **kwargs)
 
@@ -315,8 +318,9 @@ class IngestResWidget(QComboBox):
     def __init__(self, item, current_format):
         QComboBox.__init__(self)
         if "x" in current_format:
-            default_format_width, default_format_height = \
-                current_format.split("x")
+            default_format_width, default_format_height = current_format.split(
+                "x"
+            )
         else:
             default_format = item.source().format()
             default_format_width = default_format.width()
@@ -338,8 +342,10 @@ class IngestResWidget(QComboBox):
         for res in sorted(FORMATS, key=lambda x: FORMATS[x]["width"]):
             width = FORMATS[res]["width"]
             height = FORMATS[res]["height"]
-            if (width == default_format_width and
-                height == default_format_height):
+            if (
+                width == default_format_width
+                and height == default_format_height
+            ):
                 proper_res = res
             else:
                 self.addItem("{0}x{1} - {2}".format(width, height, res))
@@ -350,8 +356,9 @@ class IngestResWidget(QComboBox):
             height = FORMATS[proper_res]["height"]
             default_format_string = f"{width}x{height} - {proper_res}"
         else:
-            default_format_string = \
+            default_format_string = (
                 f"{default_format_width}x{default_format_height}"
+            )
         self.insertItem(0, default_format_string)
 
         # Will need to add current format if found as tag on clip
@@ -363,10 +370,12 @@ class IngestResWidget(QComboBox):
         # Select all for easy editing
         self.lineEdit().selectAll()
 
+
 class IngestEffectsWidget(QMainWindow):
     can_close = False
     effects_data = {}
     effect_actions = {}
+
     def __init__(self, tag_state):
         QMainWindow.__init__(self)
 
@@ -379,8 +388,11 @@ class IngestEffectsWidget(QMainWindow):
         for effect_type in INGEST_EFFECTS:
             effect_action = QAction(effect_type)
             effect_action.setObjectName(effect_type)
-            effect_type_state = True if \
-                tag_state.get(effect_type, "False") == "True" else False
+            effect_type_state = (
+                True
+                if tag_state.get(effect_type, "False") == "True"
+                else False
+            )
             effect_action.setCheckable(True)
             effect_action.setChecked(effect_type_state)
 
@@ -429,10 +441,15 @@ class CurrentGradeWidget(QLabel):
         metrics = line_edit.fontMetrics()
         margin = line_edit.textMargins()
         content = line_edit.contentsMargins()
-        width = metrics.width(self.ingest_grade) + margin.left() \
-            + margin.right() + content.left() + content.right()
+        width = (
+            metrics.width(self.ingest_grade)
+            + margin.left()
+            + margin.right()
+            + content.left()
+            + content.right()
+        )
         # 32 is the dialog window margin
-        dialog.setFixedWidth(width+32)
+        dialog.setFixedWidth(width + 32)
         dialog.exec()
 
 
@@ -440,6 +457,7 @@ class SGTagsWidget(QMainWindow):
     can_close = False
     tag_data = {}
     tag_actions = {}
+
     def __init__(self, tag_state):
         QMainWindow.__init__(self)
 
@@ -452,8 +470,9 @@ class SGTagsWidget(QMainWindow):
         for tag_type in SG_TAGS:
             tag_action = QAction(tag_type)
             tag_action.setObjectName(tag_type)
-            tag_type_state = True if \
-                tag_state.get(tag_type, "False") == "True" else False
+            tag_type_state = (
+                True if tag_state.get(tag_type, "False") == "True" else False
+            )
             tag_action.setCheckable(True)
             tag_action.setChecked(tag_type_state)
 
@@ -479,7 +498,6 @@ def is_valid_asset(track_item):
     """
     # Track item may not have ran through callback to is valid attr
     if "hierarchy_env" in track_item.__dir__():
-
         return track_item.hierarchy_env
 
     project_name = get_current_project_name()
@@ -501,7 +519,6 @@ def get_track_item_env(track_item):
         dict: The asset environment if found, otherwise an empty dictionary.
     """
     if "hierarchy_env" in track_item.__dir__():
-
         return track_item.hierarchy_env
 
     project_name = get_current_project_name()
@@ -526,8 +543,11 @@ class CustomSpreadsheetColumns(QObject):
     def column_widget_callback(callback):
         def wrapper(self, *args, **kwargs):
             view = hiero.ui.activeView()
-            selection = [item for item in view.selection() \
-                        if isinstance(item.parent(), hiero.core.VideoTrack)]
+            selection = [
+                item
+                for item in view.selection()
+                if isinstance(item.parent(), hiero.core.VideoTrack)
+            ]
             project = selection[0].project()
 
             result = callback(self, selection, project, *args, **kwargs)
@@ -621,11 +641,9 @@ class CustomSpreadsheetColumns(QObject):
             return self.get_tags_string(item)
 
         elif current_column["name"] == "Colorspace":
-
             return item.sourceMediaColourTransform()
 
         elif current_column["name"] == "Notes":
-
             return self.get_notes(item)
 
         elif current_column["name"] == "FileType":
@@ -658,7 +676,6 @@ class CustomSpreadsheetColumns(QObject):
             return track_item_shot or "--"
 
         elif current_column["name"] == "Pixel Aspect":
-
             return str(item.source().format().pixelAspect())
 
         elif current_column["name"] == "Artist":
@@ -684,7 +701,8 @@ class CustomSpreadsheetColumns(QObject):
             asset = instance_data.get("asset")
             subset = instance_data.get("subset")
             last_version_doc = get_last_version_by_subset_name(
-                project_name, subset, asset_name=asset)
+                project_name, subset, asset_name=asset
+            )
 
             if last_version_doc:
                 last_version = last_version_doc["name"]
@@ -693,15 +711,12 @@ class CustomSpreadsheetColumns(QObject):
                 return "--"
 
         elif current_column["name"] == "ingest_res":
-
             return item.ingest_res_data().get("resolution", "--")
 
         elif current_column["name"] == "resize_type":
-
             return item.ingest_res_data().get("resize", "--")
 
         elif current_column["name"] == "edit_note":
-
             return item.edit_note_data().get("note", "--")
 
         elif current_column["name"] == "ingest_effects":
@@ -756,20 +771,13 @@ class CustomSpreadsheetColumns(QObject):
             return str([item.name() for item in item.tags()])
 
         elif current_column["name"] == "Episode":
-            return (
-                "Episode name of current track item if valid otherwise --"
-            )
+            return "Episode name of current track item if valid otherwise --"
 
         elif current_column["name"] == "Sequence":
-            return (
-                "Sequence name of current track item if valid otherwise --"
-            )
+            return "Sequence name of current track item if valid otherwise --"
 
         elif current_column["name"] == "Shot":
-            return (
-                "Shot name of current track item if valid otherwise --"
-            )
-
+            return "Shot name of current track item if valid otherwise --"
 
         elif current_column["name"] == "ingest_res":
             return (
@@ -785,14 +793,10 @@ class CustomSpreadsheetColumns(QObject):
             )
 
         elif current_column["name"] == "ingest_effects":
-            return (
-                "Effects to apply to track item on ingest"
-            )
+            return "Effects to apply to track item on ingest"
 
         elif current_column["name"] == "cur_version":
-            return (
-                "Current ingested items latest current published version"
-            )
+            return "Current ingested items latest current published version"
 
         elif current_column["name"] == "cur_grade":
             return (
@@ -863,14 +867,11 @@ class CustomSpreadsheetColumns(QObject):
         elif current_column["name"] == "op_family":
             return "Ingest family."
 
-
         elif current_column["name"] == "op_handle_start":
             return "Ingest head handle duration."
 
-
         elif current_column["name"] == "op_handle_end":
             return "Ingest tail handle duration."
-
 
         elif current_column["name"] == "op_subset":
             return (
@@ -953,7 +954,7 @@ class CustomSpreadsheetColumns(QObject):
                 painter.setPen(ODD_COLUMN_COLOR)
 
         else:
-            painter.setPen(QColor(195,195,195))
+            painter.setPen(QColor(195, 195, 195))
 
         current_column = self.column_list[column]
         if current_column["name"] == "Tags":
@@ -972,9 +973,7 @@ class CustomSpreadsheetColumns(QObject):
             if len(tags) > 0:
                 painter.setClipRect(option.rect)
                 for tag in item.tags():
-                    QIcon(tag.icon()).paint(
-                        painter, rectangle, Qt.AlignCenter
-                    )
+                    QIcon(tag.icon()).paint(painter, rectangle, Qt.AlignCenter)
                     rectangle.translate(rectangle.width() + 2, 0)
 
                 painter.restore()
@@ -990,7 +989,7 @@ class CustomSpreadsheetColumns(QObject):
                     painter.setPen(ODD_COLUMN_COLOR)
 
             else:
-                painter.setPen(QColor(195,195,195))
+                painter.setPen(QColor(195, 195, 195))
 
             ingest_grade = item.openpype_instance_data().get("ingested_grade")
 
@@ -1003,10 +1002,12 @@ class CustomSpreadsheetColumns(QObject):
                 return True
 
             margin = QMargins(0, 0, 5, 0)
-            text = option.fontMetrics.elidedText(ingest_grade, Qt.ElideLeft,
-                                            option.rect.width())
-            painter.drawText(option.rect-margin, Qt.AlignRight | Qt.AlignVCenter,
-                             text)
+            text = option.fontMetrics.elidedText(
+                ingest_grade, Qt.ElideLeft, option.rect.width()
+            )
+            painter.drawText(
+                option.rect - margin, Qt.AlignRight | Qt.AlignVCenter, text
+            )
 
             painter.restore()
             return True
@@ -1047,9 +1048,9 @@ class CustomSpreadsheetColumns(QObject):
         self.currentView = view
         current_column = self.column_list[column]
 
-        if (current_column["cellType"] == "readonly"
-            or not isinstance(item.parent(), hiero.core.VideoTrack)
-            ):
+        if current_column["cellType"] == "readonly" or not isinstance(
+            item.parent(), hiero.core.VideoTrack
+        ):
             # readonly is done by removing visibility and useability of the
             # returned widget to the widget viewer
             edit_widget = QLabel()
@@ -1071,10 +1072,13 @@ class CustomSpreadsheetColumns(QObject):
             resolution_combo = IngestResWidget(item, current_format)
 
             resolution_combo.currentIndexChanged.connect(
-                lambda: self.ingest_res_changed(resolution_combo, "index"))
+                lambda: self.ingest_res_changed(resolution_combo, "index")
+            )
             resolution_combo.lineEdit().returnPressed.connect(
-                lambda: self.ingest_res_changed(resolution_combo.lineEdit()
-                                                , "return"))
+                lambda: self.ingest_res_changed(
+                    resolution_combo.lineEdit(), "return"
+                )
+            )
 
             return resolution_combo
 
@@ -1100,14 +1104,16 @@ class CustomSpreadsheetColumns(QObject):
             resize_index = resize_type.findText(current_resize_type)
             resize_type.setCurrentIndex(resize_index)
             resize_type.currentIndexChanged.connect(
-                lambda: self.ingest_res_type_changed(resize_type))
+                lambda: self.ingest_res_type_changed(resize_type)
+            )
 
             return resize_type
 
         elif current_column["name"] == "ingest_effects":
             ingest_effects_state = item.ingest_effects_data()
             ingest_effects_edit_widget = IngestEffectsWidget(
-                ingest_effects_state)
+                ingest_effects_state
+            )
             ingest_effects_edit_widget.root_menu.aboutToHide.connect(
                 lambda: self.ingest_effect_changed(ingest_effects_edit_widget)
             )
@@ -1145,7 +1151,8 @@ class CustomSpreadsheetColumns(QObject):
             edit_widget.setText(current_edit_note)
 
             edit_widget.returnPressed.connect(
-                lambda: self.edit_note_changed(edit_widget))
+                lambda: self.edit_note_changed(edit_widget)
+            )
 
             return edit_widget
 
@@ -1160,7 +1167,8 @@ class CustomSpreadsheetColumns(QObject):
             edit_widget = QLineEdit(current_text)
             edit_widget.setObjectName(tag_key)
             edit_widget.returnPressed.connect(
-                lambda: self.cut_info_changed(edit_widget))
+                lambda: self.cut_info_changed(edit_widget)
+            )
 
             return edit_widget
 
@@ -1221,7 +1229,8 @@ class CustomSpreadsheetColumns(QObject):
             edit_widget = QLineEdit(current_text)
             edit_widget.setObjectName(instance_key)
             edit_widget.returnPressed.connect(
-                lambda: self.openpype_instance_changed(edit_widget))
+                lambda: self.openpype_instance_changed(edit_widget)
+            )
 
             return edit_widget
 
@@ -1289,8 +1298,7 @@ class CustomSpreadsheetColumns(QObject):
                 track_item.setSourceMediaColourTransform(colorspace)
 
     @column_widget_callback
-    def ingest_res_changed(self,
-                           selection, project, sender, signal_type):
+    def ingest_res_changed(self, selection, project, sender, signal_type):
         if signal_type == "index":
             # Don't want current text incase it's from line edit?
             ingest_resolution = sender.currentText()
@@ -1309,9 +1317,11 @@ class CustomSpreadsheetColumns(QObject):
                 for track_item in selection:
                     ingest_res_tag = track_item.get_ingest_res()
                     if ingest_res_tag:
-                        log.info(f"{track_item.parent().name()}."
-                                 f"{track_item.name()}: "
-                                 "Removing 'Ingest Resolution' tag")
+                        log.info(
+                            f"{track_item.parent().name()}."
+                            f"{track_item.name()}: "
+                            "Removing 'Ingest Resolution' tag"
+                        )
                         track_item.removeTag(ingest_res_tag)
 
     @column_widget_callback
@@ -1324,8 +1334,9 @@ class CustomSpreadsheetColumns(QObject):
                 track_item.set_ingest_res(key, resize_type)
 
     @column_widget_callback
-    def ingest_effect_changed(self,
-                              selection, project, ingest_effects_edit_widget):
+    def ingest_effect_changed(
+        self, selection, project, ingest_effects_edit_widget
+    ):
         ingest_effects_edit_widget.set_effects_data()
         effect_states = ingest_effects_edit_widget.effects_data
 
@@ -1356,9 +1367,11 @@ class CustomSpreadsheetColumns(QObject):
                 for track_item in selection:
                     edit_note_tag = track_item.get_edit_note()
                     if edit_note_tag:
-                        log.info(f"{track_item.parent().name()}."
-                                 f"{track_item.name()}: "
-                                 "Removing 'Edit Note' tag")
+                        log.info(
+                            f"{track_item.parent().name()}."
+                            f"{track_item.name()}: "
+                            "Removing 'Edit Note' tag"
+                        )
                         track_item.removeTag(edit_note_tag)
 
     @column_widget_callback
@@ -1385,9 +1398,11 @@ class CustomSpreadsheetColumns(QObject):
                 for track_item in selection:
                     cut_info_tag = track_item.get_cut_info()
                     if cut_info_tag:
-                        log.info(f"{track_item.parent().name()}."
-                                 f"{track_item.name()}: "
-                                 "Removing 'Cut Info' tag")
+                        log.info(
+                            f"{track_item.parent().name()}."
+                            f"{track_item.name()}: "
+                            "Removing 'Cut Info' tag"
+                        )
                         track_item.removeTag(cut_info_tag)
 
     @column_widget_callback
@@ -1404,9 +1419,11 @@ class CustomSpreadsheetColumns(QObject):
                 for track_item in selection:
                     openpype_instance = track_item.get_openpype_instance()
                     if openpype_instance:
-                        log.info(f"{track_item.parent().name()}."
-                                 f"{track_item.name()}: "
-                                 "Removing 'Cut Info' tag")
+                        log.info(
+                            f"{track_item.parent().name()}."
+                            f"{track_item.name()}: "
+                            "Removing 'Cut Info' tag"
+                        )
                         track_item.removeTag(openpype_instance)
             else:
                 for track_item in selection:
@@ -1430,7 +1447,9 @@ def _set_cut_info(self, key, value, operate):
         cut_tag = hiero.core.Tag("Cut Info")
         cut_tag.setIcon("icons:TagKeylight.png")
         project_name = get_current_project_name()
-        frame_start, handle_start, handle_end = get_frame_defaults(project_name)
+        frame_start, handle_start, handle_end = get_frame_defaults(
+            project_name
+        )
 
         frame_offset = frame_start + handle_start
         if value:
@@ -1469,9 +1488,11 @@ def _set_cut_info(self, key, value, operate):
                 # Frames must be integers
                 value = str(int(eval(operation)))
             except SyntaxError:
-                log.info(f"{self.parent().name()}.{self.name()}: "
-                         f"{value} must be properly formatted. Read"
-                         "tooltip for more information")
+                log.info(
+                    f"{self.parent().name()}.{self.name()}: "
+                    f"{value} must be properly formatted. Read"
+                    "tooltip for more information"
+                )
                 return
 
         cut_tag.metadata().setValue(f"tag.{key}", value)
@@ -1620,8 +1641,10 @@ def _set_openpype_instance(self, key, value):
         # Skip validation if user simply wants to create default tag
         if value:
             if not value.isdigit():
-                log.info(f"{self.parent().name()}.{self.name()}: "
-                         f"{key} must be a valid number")
+                log.info(
+                    f"{self.parent().name()}.{self.name()}: "
+                    f"{key} must be a valid number"
+                )
                 return
 
     convert_keys = {
@@ -1639,12 +1662,16 @@ def _set_openpype_instance(self, key, value):
     # if not don't create instance
     if not is_valid_asset(self):
         if instance_tag:
-            log.info(f"{self.parent().name()}.{self.name()}: "
-                    "Track item name no longer valid. Removing Openpype tag")
+            log.info(
+                f"{self.parent().name()}.{self.name()}: "
+                "Track item name no longer valid. Removing Openpype tag"
+            )
             self.removeTag(instance_tag)
         else:
-            log.info(f"{self.parent().name()}.{self.name()}: "
-                     "Track item name not found in DB!")
+            log.info(
+                f"{self.parent().name()}.{self.name()}: "
+                "Track item name not found in DB!"
+            )
 
         return
     else:
@@ -1662,12 +1689,14 @@ def _set_openpype_instance(self, key, value):
             families = ["review"]
             family = "plate"
 
-
         hierarchy_data = get_hierarchy_data(
-            asset_doc, project_name, track_name)
+            asset_doc, project_name, track_name
+        )
         hierarchy_path = get_hierarchy_path(asset_doc)
         hierarchy_parents = get_hierarchy_parents(hierarchy_data)
-        frame_start, handle_start, handle_end = get_frame_defaults(project_name)
+        frame_start, handle_start, handle_end = get_frame_defaults(
+            project_name
+        )
 
         instance_data["hierarchyData"] = hierarchy_data
         instance_data["hierarchy"] = hierarchy_path
@@ -1677,10 +1706,10 @@ def _set_openpype_instance(self, key, value):
         instance_data["family"] = family
         instance_data["families"] = str(families)
         instance_data["workfileFrameStart"] = frame_start
-        instance_data["handleStart"] = handle_start \
-            if family == "plate" else "0"
-        instance_data["handleEnd"] = handle_end \
-            if family == "plate" else "0"
+        instance_data["handleStart"] = (
+            handle_start if family == "plate" else "0"
+        )
+        instance_data["handleEnd"] = handle_end if family == "plate" else "0"
 
         # Constants
         instance_data["audio"] = "True"
@@ -1694,16 +1723,16 @@ def _set_openpype_instance(self, key, value):
         instance_data["ingested_grade"] = "None"
 
     if value:
-        print(key, 'key')
+        print(key, "key")
         # When family is changed the families need to adapt
         if key == "family":
-            print('is family')
+            print("is family")
             families = ["clip"]
             if value == "plate":
-                print('is plate adding review')
+                print("is plate adding review")
                 families.append("review")
 
-            print(families, 'families')
+            print(families, "families")
             instance_data.update({"families": families})
 
         instance_data.update({key: value})
@@ -1728,7 +1757,7 @@ def _set_ingest_effects(self, states):
         # Remove tag if all states are False
         if not [
             effect_tag for effect_tag in states if states[effect_tag] == True
-            ]:
+        ]:
             self.removeTag(effect_tag)
             return
 
@@ -1738,6 +1767,7 @@ def _set_ingest_effects(self, states):
         # Convert to string to match tag metadata needs
         value = "True" if value else "False"
         effect_tag_meta.setValue(f"tag.{key}", value)
+
 
 def _set_sg_tags(self, states):
     sg_tag = self.get_sg_tags()
@@ -1780,7 +1810,6 @@ def _set_ingest_res(self, key, value):
             if not isinstance(value, str):
                 value = str(value)
             ingest_res_tag.metadata().setValue(f"tag.{key}", value)
-
 
         self.sequence().editFinished()
         self.addTag(ingest_res_tag)
@@ -1836,7 +1865,8 @@ def _update_op_instance_asset(event):
             continue
 
         hierarchy_data = get_hierarchy_data(
-            asset_doc, project_name, track_name)
+            asset_doc, project_name, track_name
+        )
         hierarchy_path = get_hierarchy_path(asset_doc)
         hierarchy_parents = get_hierarchy_parents(hierarchy_data)
 
@@ -1865,11 +1895,13 @@ def _update_op_instance_asset(event):
                 update = True
 
         if update:
-            log.info(f"{track_name}.{track_item_name}: "
-                     "OP Instance updated - data modified")
+            log.info(
+                f"{track_name}.{track_item_name}: "
+                "OP Instance updated - data modified"
+            )
 
 
-class TrackRenameEvent():
+class TrackRenameEvent:
     previous_track_item = ()
 
     def __init__(self):
@@ -1968,15 +2000,19 @@ def _update_avalon_track_item(event):
 # Attach tag setters, getters and tag data get into hiero.core.TrackItem
 hiero.core.TrackItem.set_ingest_res = _set_ingest_res
 hiero.core.TrackItem.get_ingest_res = lambda self: get_tag(
-    self, "Ingest Resolution")
+    self, "Ingest Resolution"
+)
 hiero.core.TrackItem.ingest_res_data = lambda self: get_tag_data(
-    self, "Ingest Resolution")
+    self, "Ingest Resolution"
+)
 
 hiero.core.TrackItem.set_ingest_effects = _set_ingest_effects
 hiero.core.TrackItem.get_ingest_effects = lambda self: get_tag(
-    self, "Ingest Effects")
+    self, "Ingest Effects"
+)
 hiero.core.TrackItem.ingest_effects_data = lambda self: get_tag_data(
-    self, "Ingest Effects")
+    self, "Ingest Effects"
+)
 
 hiero.core.TrackItem.set_sg_tags = _set_sg_tags
 hiero.core.TrackItem.get_sg_tags = lambda self: get_tag(self, "SG Tags")
@@ -1985,18 +2021,22 @@ hiero.core.TrackItem.sg_tags_data = lambda self: get_tag_data(self, "SG Tags")
 hiero.core.TrackItem.set_edit_note = _set_edit_note
 hiero.core.TrackItem.get_edit_note = lambda self: get_tag(self, "Edit Note")
 hiero.core.TrackItem.edit_note_data = lambda self: get_tag_data(
-    self, "Edit Note")
+    self, "Edit Note"
+)
 
 hiero.core.TrackItem.set_cut_info = _set_cut_info
 hiero.core.TrackItem.get_cut_info = lambda self: get_tag(self, "Cut Info")
 hiero.core.TrackItem.cut_info_data = lambda self: get_tag_data(
-    self, "Cut Info")
+    self, "Cut Info"
+)
 
 hiero.core.TrackItem.set_openpype_instance = _set_openpype_instance
 hiero.core.TrackItem.get_openpype_instance = lambda self: get_tag(
-    self, OPENPYPE_TAG_NAME, contains=True)
+    self, OPENPYPE_TAG_NAME, contains=True
+)
 hiero.core.TrackItem.openpype_instance_data = lambda self: get_tag_data(
-    self, OPENPYPE_TAG_NAME, contains=True)
+    self, OPENPYPE_TAG_NAME, contains=True
+)
 
 
 # Register openpype instance update event
