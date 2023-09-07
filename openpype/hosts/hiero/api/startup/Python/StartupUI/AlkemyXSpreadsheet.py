@@ -111,7 +111,7 @@ class CheckboxMenu(QMenu):
     mouse_in_view = True
 
     def __init__(self, *args, **kwargs):
-        QMenu.__init__(self, *args, **kwargs)
+        super().__init__(*args, **kwargs)
 
     def accept(self, event):
         if self.can_close:
@@ -152,7 +152,7 @@ class CheckboxMenu(QMenu):
 
 class ColorspaceWidget(QMainWindow):
     def __init__(self, ocio_config, parent=None):
-        super(ColorspaceWidget, self).__init__(parent)
+        super().__init__(parent)
 
         # Change how roles are added - add them to the base menu using the
         # getRoles method
@@ -316,7 +316,7 @@ class ColorspaceWidget(QMainWindow):
 
 class IngestResWidget(QComboBox):
     def __init__(self, item, current_format):
-        QComboBox.__init__(self)
+        super().__init__()
         if "x" in current_format:
             default_format_width, default_format_height = current_format.split(
                 "x"
@@ -377,7 +377,7 @@ class IngestEffectsWidget(QMainWindow):
     effect_actions = {}
 
     def __init__(self, tag_state):
-        QMainWindow.__init__(self)
+        super().__init__()
 
         self.effects_button = QPushButton("Effects")
 
@@ -409,7 +409,7 @@ class IngestEffectsWidget(QMainWindow):
 
 class CurrentGradeDialog(QDialog):
     def __init__(self, *args, **kwargs):
-        QDialog.__init__(self, *args, **kwargs)
+        super().__init__(*args, **kwargs)
 
     def leaveEvent(self, event):
         self.close()
@@ -418,7 +418,7 @@ class CurrentGradeDialog(QDialog):
 # QT widget type doesn't matter. Only used for the show event
 class CurrentGradeWidget(QLabel):
     def __init__(self, text):
-        QLabel.__init__(self)
+        super().__init__()
         self.ingest_grade = text
 
     def showEvent(self, event):
@@ -459,7 +459,7 @@ class SGTagsWidget(QMainWindow):
     tag_actions = {}
 
     def __init__(self, tag_state):
-        QMainWindow.__init__(self)
+        super().__init__()
 
         self.sg_tags_button = QPushButton("SG Tags")
 
@@ -1903,9 +1903,6 @@ def _update_op_instance_asset(event):
 
 class TrackRenameEvent:
     previous_track_item = ()
-
-    def __init__(self):
-        pass
 
     def _update_op_instance_subset(self, event):
         video_track_change = False
