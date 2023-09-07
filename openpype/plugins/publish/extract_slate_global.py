@@ -286,7 +286,9 @@ class SlateCreator:
 
         return slate_rendered_paths[0]
 
-    def render_image_oiio(self, input, output, in_args=None, out_args=None, config_path=None):
+    def render_image_oiio(
+            self, input, output, in_args=None, out_args=None, ocio_config_path=None
+        ):
         """Call oiiotool to convert one image to another."""
         name = os.path.basename(input)
 
@@ -294,8 +296,10 @@ class SlateCreator:
             "oiiotool",
             # Don't add any additional attributes
             "--nosoftwareattrib",
-            "--colorconfig", config_path
         )
+        if ocio_config_path:
+            cmd.extend(["--colorconfig", ocio_config_path])
+
         if in_args:
             cmd.extend(in_args)
         cmd.extend(["-i", input])
@@ -588,12 +592,16 @@ class ExtractSlateGlobal(publish.Extractor):
                 )
             )
 
+            # Extract colorspace config path from representation
+            colorspace_data = repre.get("colorspaceData")
+            config_path = colorspace_data.get("config", {}).get("path")
+
             slate_creator.render_image_oiio(
                 temp_slate,
                 slate_final_path,
                 in_args=oiio_profile["oiio_args"].get("input") or [],
                 out_args=oiio_profile["oiio_args"].get("output") or [],
-                config_path=os.getenv("OCIO"),
+                ocio_config_path=config_path,
             )
 
             # update representations and instance
