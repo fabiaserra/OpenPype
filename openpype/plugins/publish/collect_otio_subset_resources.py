@@ -247,9 +247,9 @@ class CollectOtioSubsetResources(pyblish.api.InstancePlugin):
             self.log.debug("Adding 'shotgridreview' to representation tags")
             representation_data["tags"].append("shotgridreview")
 
-            if self.family in SG_GENERATE_REVIEW_FAMILIES:
-                self.log.debug("Adding 'review' to representation tags")
-                representation_data["tags"].append("review")
+        if self.family in SG_GENERATE_REVIEW_FAMILIES:
+            self.log.debug("Adding 'review' to representation tags")
+            representation_data["tags"].append("review")
 
             self.log.debug("Updated representation -> %s" % representation_data)
 
