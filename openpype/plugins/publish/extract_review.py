@@ -331,11 +331,11 @@ class ExtractReview(pyblish.api.InstancePlugin):
             outputs = self.filter_outputs_by_custom_tags(
                 profile_outputs, custom_tags)
             if not outputs:
-                self.log.info((
+                self.log.info(
                     "Skipped representation '%s'. All output definitions from"
                     " selected profile does not match to representation's"
-                    " custom tags. \"%s\""
-                ).format(repre_name, str(custom_tags)))
+                    " custom tags. \"%s\"", repre_name, str(custom_tags)
+                )
                 continue
 
             outputs_per_representations.append((repre, outputs))
