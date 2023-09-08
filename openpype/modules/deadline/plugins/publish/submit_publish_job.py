@@ -613,7 +613,7 @@ class ProcessSubmittedJobOnFarm(pyblish.api.InstancePlugin,
                     template_data["app"],
                     task_name=template_data["task"]["name"],
                     task_type=template_data["task"]["type"],
-                    family="render",
+                    family=family,
                     subset=subset,
                     project_settings=context.data["project_settings"]
                 )

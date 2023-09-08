@@ -190,10 +190,10 @@ class NukeSubmitDeadline(pyblish.api.InstancePlugin,
 
         # redefinition of families
         if "render" in instance.data["family"]:
-            instance.data['family'] = 'write'
+            # instance.data['family'] = 'write'
             families.insert(0, "render2d")
         elif "prerender" in instance.data["family"]:
-            instance.data['family'] = 'write'
+            # instance.data['family'] = 'write'
             families.insert(0, "prerender")
         instance.data["families"] = families
 

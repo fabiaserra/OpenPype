@@ -208,7 +208,8 @@ def deliver_version(
         representation_names, entity = delivery.get_representation_names_from_overrides(
             delivery_overrides, delivery_types
         )
-        logger.debug("%s representation names found at '%s': %s",
+        logger.debug(
+            "%s representation names found at '%s': %s",
             sg_version['code'],
             entity,
             representation_names
