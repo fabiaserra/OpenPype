@@ -3,10 +3,7 @@
     margin: 0;
 }
 body {
-    background-image: linear-gradient(
-        rgb(27, 27, 27) 0%,
-        rgb(14, 14, 14) 100%
-    );
+    background-color: rgb(75, 75, 75) 100%;
     font-family: Arial, sans-serif;
     font-size: 3vh;
     line-height: 3vh;
