@@ -548,7 +548,7 @@ class ProcessSubmittedJobOnFarm(pyblish.api.InstancePlugin,
             "version": instance.context.data["version"],  # workfile version
             "intent": instance.context.data.get("intent"),
             "comment": instance.context.data.get("comment"),
-            "jobs": render_jobs or None,
+            "job": render_jobs[0] or None,
             "session": legacy_io.Session.copy(),
             "instances": instances
         }
