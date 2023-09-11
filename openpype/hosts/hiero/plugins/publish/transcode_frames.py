@@ -44,18 +44,19 @@ class TranscodeFrames(publish.Extractor, publish.ColormanagedPyblishPluginMixin)
         "-d",
         "half",
         "--scanline",
+        "{input_args}",
         # "--sattrib",  # Can't add this meta until farm OIIO supports it
         # "original_meta",
-        # '"{{TOP.META}}"', # Add meta from current input for pass through
+        # '"{{TOP.META}}"',  # Add meta from current input for pass through
         "--attrib:subimages=1",
         "framesPerSecond",
         '"{fps}"',
-        "--colorconfig", # Add color config as an arg so that it can be traced
+        "--colorconfig",  # Add color config as an arg so that it can be traced
         '"{ocio_path}"',
         "--colorconvert",
         '"{src_media_color_transform}"',
         '"{dst_media_color_transform}"',
-        "--sansattrib", # Remove attrib/sattrib from command in software/exif
+        "--sansattrib",  # Remove attrib/sattrib from command in software/exif
         "-o",
         "{output_path}",
     ]
@@ -101,19 +102,7 @@ class TranscodeFrames(publish.Extractor, publish.ColormanagedPyblishPluginMixin)
 
         # Output variables
         staging_dir = os.path.join(work_root(legacy_io.Session), "temp_transcode")
-
-        # Create staging dir if it doesn't exist
-        try:
-            if not os.path.isdir(staging_dir):
-                os.makedirs(staging_dir, exist_ok=True)
-        except OSError:
-            # directory is not available
-            self.log.warning("Path is unreachable: `{}`".format(staging_dir))
-
         instance.data["stagingDir"] = staging_dir
-
-        output_template = os.path.join(staging_dir, instance.data["name"])
-        output_dir = os.path.dirname(output_template)
 
         # Determine color transformation
         src_media_color_transform = track_item.sourceMediaColourTransform()
@@ -130,66 +119,102 @@ class TranscodeFrames(publish.Extractor, publish.ColormanagedPyblishPluginMixin)
 
         anatomy = instance.context.data["anatomy"]
         padding = anatomy.templates.get("frame_padding", 4)
-        output_path = (
-            f"{output_template}.%0{padding}d.{self.output_ext}"
-        )
+        submission_jobs = []
 
-        self.log.info("Output path: %s", output_path)
-        self.log.info("Output ext: %s", self.output_ext)
-        self.log.info("Source ext: %s", source_ext.lower())
-        # If either source or output is a video format, transcode using Nuke
-        if (self.output_ext.lower() in self.movie_extensions or
-                source_ext.lower() in self.movie_extensions or
-                source_ext.lower() in self.nuke_specific_extensions) or \
-                instance.data.get("use_nuke", False):
-            # No need to raise error as Nuke raises an error exit value if something went wrong
-            self.log.info("Submitting Nuke transcode")
+        # For each output resolution we create a job in the farm
+        # for output_definition in instance.data["output_resolutions"]:
+        for resolution in ["fr", "wr"]:
+            # resolution_str = "{0}x{1}".format(
+                # output_definition["width"], output_definition["height"]
+            # )
+            representation_name = instance.data["name"]
+            if resolution == "fr":
+                representation_name += "_fr"
 
-            # Add environment variables required to run Nuke script
-            extra_env = {}
-            extra_env["_AX_TRANSCODE_NUKESCRIPT"] = self.nuke_transcode_script
-            extra_env["_AX_TRANSCODE_FRAMES"] = "{0}_{1}_{2}".format(
-                int(out_frame_start), int(out_frame_end), int(src_frame_start)
+            output_template = os.path.join(
+                staging_dir,
+                representation_name,
             )
-            extra_env["_AX_TRANSCODE_READTYPE"] = self.output_ext.lower()
-            extra_env["_AX_TRANSCODE_READPATH"] = input_path
-            extra_env["_AX_TRANSCODE_WRITEPATH"] = output_path
-            extra_env["_AX_TRANSCODE_READCOLORSPACE"] = src_media_color_transform
-            extra_env["_AX_TRANSCODE_TARGETCOLORSPACE"] = self.dst_media_color_transform
+            output_dir = os.path.dirname(output_template)
+            # Create output_dir if it doesn't exist
+            try:
+                if not os.path.isdir(output_dir):
+                    os.makedirs(output_dir, exist_ok=True)
+            except OSError:
+                # directory is not available
+                self.log.warning("Path is unreachable: `{}`".format(output_dir))
 
-            response = self.payload_submit(
-                instance,
-                output_path,
-                (out_frame_start, out_frame_end),
-                plugin="Nuke",
-                extra_env=extra_env,
-            )
-        else:
-            self.log.info("Submitting OIIO transcode")
-            oiio_args = " ".join(self.oiio_args).format(
-                input_path=input_path,
-                src_media_color_transform=src_media_color_transform,
-                dst_media_color_transform=self.dst_media_color_transform,
-                output_path=output_path,
-                fps=round(instance.data["fps"], 2),
-                ocio_path=ocio_path,
+            output_path = (
+                f"{output_template}.%0{padding}d.{self.output_ext}"
             )
 
-            # NOTE: We use src frame start/end because oiiotool doesn't support
-            # writing out a different frame range than input
-            response = self.payload_submit(
-                instance,
-                output_path,
-                (src_frame_start, src_frame_end),
-                plugin="CommandLine",
-                args=oiio_args,
-                executable="/usr/openpype/3.16/vendor/bin/oiio/linux/bin/oiiotool",
-            )
+            self.log.info("Output path: %s", output_path)
+            self.log.info("Output ext: %s", self.output_ext)
+            self.log.info("Source ext: %s", source_ext.lower())
+            # If either source or output is a video format, transcode using Nuke
+            if (self.output_ext.lower() in self.movie_extensions or
+                    source_ext.lower() in self.movie_extensions or
+                    source_ext.lower() in self.nuke_specific_extensions) or \
+                    instance.data.get("use_nuke", False):
+                # No need to raise error as Nuke raises an error exit value if
+                # something went wrong
+                self.log.info("Submitting Nuke transcode")
+
+                # Add environment variables required to run Nuke script
+                extra_env = {}
+                extra_env["_AX_TRANSCODE_NUKESCRIPT"] = self.nuke_transcode_script
+                extra_env["_AX_TRANSCODE_FRAMES"] = "{0}_{1}_{2}".format(
+                    int(out_frame_start), int(out_frame_end), int(src_frame_start)
+                )
+                extra_env["_AX_TRANSCODE_READTYPE"] = self.output_ext.lower()
+                extra_env["_AX_TRANSCODE_READPATH"] = input_path
+                extra_env["_AX_TRANSCODE_WRITEPATH"] = output_path
+                extra_env["_AX_TRANSCODE_READCOLORSPACE"] = src_media_color_transform
+                extra_env["_AX_TRANSCODE_TARGETCOLORSPACE"] = self.dst_media_color_transform
+
+                # TODO: Change the AxNuke plugin to improve monitored process when
+                # submitting "scriptJob" type Nuke jobs to not error out when
+                # exiting the script
+                response = self.payload_submit(
+                    instance,
+                    output_path,
+                    (out_frame_start, out_frame_end),
+                    plugin="AxNuke",
+                    extra_env=extra_env,
+                )
+            else:
+                input_args = ""
+                if resolution == "wr":
+                    input_args = "--crop 3776x3164+416+0 --fullpixels"
+
+                self.log.info("Submitting OIIO transcode")
+                oiio_args = " ".join(self.oiio_args).format(
+                    input_path=input_path,
+                    src_media_color_transform=src_media_color_transform,
+                    dst_media_color_transform=self.dst_media_color_transform,
+                    input_args=input_args,
+                    output_path=output_path,
+                    fps=round(instance.data["fps"], 2),
+                    ocio_path=ocio_path,
+                )
+
+                # NOTE: We use src frame start/end because oiiotool doesn't support
+                # writing out a different frame range than input
+                response = self.payload_submit(
+                    instance,
+                    output_path,
+                    (src_frame_start, src_frame_end),
+                    plugin="CommandLine",
+                    args=oiio_args,
+                    executable="/usr/openpype/3.16/vendor/bin/oiio/linux/bin/oiiotool",
+                )
+
+            submission_jobs.append(response.json())
 
         # Store output dir for unified publisher (filesequence)
-        instance.data["deadlineSubmissionJob"] = response.json()
-        instance.data["outputDir"] = output_dir
+        instance.data["deadlineSubmissionJobs"] = submission_jobs
         instance.data["publishJobState"] = "Suspended"
+        instance.data["outputDir"] = staging_dir
 
         # Remove source representation as its replaced by the transcoded frames
         ext_representations = [
@@ -215,6 +240,7 @@ class TranscodeFrames(publish.Extractor, publish.ColormanagedPyblishPluginMixin)
         args=None,
         extra_env=None,
         response_data=None,
+        representation_name=None,
     ):
         render_dir = os.path.normpath(os.path.dirname(render_path))
         jobname = "%s - %s" % (render_dir, instance.name)
@@ -362,7 +388,13 @@ class TranscodeFrames(publish.Extractor, publish.ColormanagedPyblishPluginMixin)
         self.log.info(json.dumps(payload, indent=4, sort_keys=True))
 
         # adding expected files to instance.data
-        self.expected_files(instance, render_path, out_framerange[0], out_framerange[1])
+        self.expected_files(
+            instance,
+            render_path,
+            out_framerange[0],
+            out_framerange[1],
+            representation_name
+        )
 
         self.log.debug(
             "__ expectedFiles: `{}`".format(instance.data["expectedFiles"])
@@ -379,7 +411,8 @@ class TranscodeFrames(publish.Extractor, publish.ColormanagedPyblishPluginMixin)
         instance,
         path,
         out_frame_start,
-        out_frame_end
+        out_frame_end,
+        representation_name=None
     ):
         """Create expected files in instance data"""
         if not instance.data.get("expectedFiles"):

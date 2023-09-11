@@ -181,7 +181,7 @@ class ProcessSubmittedJobOnFarm(pyblish.api.InstancePlugin,
     # poor man exclusion
     skip_integration_repre_list = []
 
-    def _submit_deadline_post_job(self, instance, job, instances):
+    def _submit_deadline_post_job(self, instance, jobs, instances):
         """Submit publish job to Deadline.
 
         Deadline specific code separated from :meth:`process` for sake of
@@ -257,7 +257,9 @@ class ProcessSubmittedJobOnFarm(pyblish.api.InstancePlugin,
                 environment[env_key] = os.environ[env_key]
 
         # pass environment keys from self.environ_job_filter
-        job_environ = job["Props"].get("Env", {})
+        job_environ = {}
+        for job in jobs:
+            job_environ.update(job["Props"].get("Env", {}))
         for env_j_key in self.environ_job_filter:
             if job_environ.get(env_j_key):
                 environment[env_j_key] = job_environ[env_j_key]
@@ -335,7 +337,8 @@ class ProcessSubmittedJobOnFarm(pyblish.api.InstancePlugin,
                     job_index)] = assembly_id  # noqa: E501
                 job_index += 1
         elif job.get("_id"):
-            payload["JobInfo"]["JobDependency0"] = job["_id"]
+            for index, job in enumerate(jobs):
+                payload["JobInfo"][f"JobDependency{index}"] = job["_id"]
 
         for index, (key_, value_) in enumerate(environment.items()):
             payload["JobInfo"].update(
@@ -468,21 +471,25 @@ class ProcessSubmittedJobOnFarm(pyblish.api.InstancePlugin,
 
         '''
 
-        render_job = None
+        render_jobs = None
         submission_type = ""
         if instance.data.get("toBeRenderedOn") == "deadline":
-            render_job = instance.data.pop("deadlineSubmissionJob", None)
+            # If we have multiple submission jobs, we grab that key instead
+            if "deadlineSubmissionJobs" in instance.data:
+                render_jobs = instance.data.pop("deadlineSubmissionJobs", None)
+            else:
+                render_jobs = [instance.data.pop("deadlineSubmissionJob", None)]
             submission_type = "deadline"
 
         if instance.data.get("toBeRenderedOn") == "muster":
-            render_job = instance.data.pop("musterSubmissionJob", None)
+            render_jobs = [instance.data.pop("musterSubmissionJob", None)]
             submission_type = "muster"
 
-        if not render_job and instance.data.get("tileRendering") is False:
+        if not render_jobs and instance.data.get("tileRendering") is False:
             raise AssertionError(("Cannot continue without valid Deadline "
                                   "or Muster submission."))
 
-        if not render_job:
+        if not render_jobs:
             import getpass
 
             render_job = {}
@@ -509,6 +516,7 @@ class ProcessSubmittedJobOnFarm(pyblish.api.InstancePlugin,
                 "FTRACK_API_KEY": os.environ.get("FTRACK_API_KEY"),
                 "FTRACK_SERVER": os.environ.get("FTRACK_SERVER"),
             }
+            render_jobs = [render_job]
 
         deadline_publish_job_id = None
         metadata_path = ""
@@ -521,7 +529,7 @@ class ProcessSubmittedJobOnFarm(pyblish.api.InstancePlugin,
             assert self.deadline_url, "Requires Deadline Webservice URL"
 
             deadline_publish_job_id, metadata_path = \
-                self._submit_deadline_post_job(instance, render_job, instances)
+                self._submit_deadline_post_job(instance, render_jobs, instances)
 
             # Inject deadline url to instances.
             for inst in instances:
@@ -538,7 +546,7 @@ class ProcessSubmittedJobOnFarm(pyblish.api.InstancePlugin,
             "version": instance.context.data["version"],  # workfile version
             "intent": instance.context.data.get("intent"),
             "comment": instance.context.data.get("comment"),
-            "job": render_job or None,
+            "jobs": render_jobs or None,
             "session": legacy_io.Session.copy(),
             "instances": instances
         }
