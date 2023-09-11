@@ -6,7 +6,7 @@ from openpype.modules import (
     ITrayModule,
     IPluginPaths,
 )
-from openpype.modules.shotgrid.scripts import populate_tasks, create_project, ingest_outsource
+from openpype.modules.shotgrid.scripts import populate_tasks, create_project
 
 
 SHOTGRID_MODULE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -73,11 +73,6 @@ def create_project_command(project_code):
     """Given a SG project code, populate the default tasks to all its entities."""
     return create_project.create_project(project_code)
 
-@click.command("ingest_outsource")
-def ingest_outsource_command(project_code):
-    """Given a SG project code, populate the default tasks to all its entities."""
-    return ingest_outsource.ingest_outsource(project_code)
-
 
 @click.group(ShotgridModule.name, help="Shotgrid CLI")
 def cli_main():
@@ -86,7 +81,6 @@ def cli_main():
 
 cli_main.add_command(populate_tasks_command)
 cli_main.add_command(create_project_command)
-cli_main.add_command(ingest_outsource_command)
 
 
 if __name__ == "__main__":
