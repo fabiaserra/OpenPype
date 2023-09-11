@@ -240,10 +240,9 @@ class TranscodeFrames(publish.Extractor, publish.ColormanagedPyblishPluginMixin)
         args=None,
         extra_env=None,
         response_data=None,
-        representation_name=None,
     ):
         render_dir = os.path.normpath(os.path.dirname(render_path))
-        jobname = "%s - %s" % (render_dir, instance.name)
+        jobname = "%s - %s" % (render_dir, os.path.basename(render_path))
 
         output_filename_0 = self.preview_fname(render_path)
 
@@ -392,8 +391,7 @@ class TranscodeFrames(publish.Extractor, publish.ColormanagedPyblishPluginMixin)
             instance,
             render_path,
             out_framerange[0],
-            out_framerange[1],
-            representation_name
+            out_framerange[1]
         )
 
         self.log.debug(
@@ -412,7 +410,6 @@ class TranscodeFrames(publish.Extractor, publish.ColormanagedPyblishPluginMixin)
         path,
         out_frame_start,
         out_frame_end,
-        representation_name=None
     ):
         """Create expected files in instance data"""
         if not instance.data.get("expectedFiles"):
