@@ -110,10 +110,6 @@ class CollectIngestData(pyblish.api.InstancePlugin):
         self.log.info("Shot/Asset working resolution found on track item: %s",
                       instance.data["asset_working_resolution"]
         )
-        # Update shot/asset doc with proper working res.
-        asset_doc = instance.data["assetEntity"]
-        asset_doc["data"]["resolutionWidth"] = width
-        asset_doc["data"]["resolutionHeight"] = height
 
     def collect_working_res(self, instance, track_item):
         """Hierarchial search for ingest resolution
