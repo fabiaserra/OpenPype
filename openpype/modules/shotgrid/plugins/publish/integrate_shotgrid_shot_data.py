@@ -1,4 +1,7 @@
 import getpass
+
+from openpype.client.operations import OperationsSession
+from openpype.pipeline.context_tools import get_current_project_name
 import pyblish.api
 
 
@@ -47,7 +50,7 @@ class IntegrateShotgridShotData(pyblish.api.InstancePlugin):
 
         self.update_cut_info(track_item, sg_shot)
         self.update_shot_tags(track_item, sg_shot)
-        self.update_working_resolution(track_item, sg_shot)
+        self.update_working_resolution(instance, track_item)
         self.update_edit_note(track_item, sg_shot)
 
         result = self.sg.batch(self.sg_batch)
@@ -117,8 +120,7 @@ class IntegrateShotgridShotData(pyblish.api.InstancePlugin):
             if sg_tag_data[key] == "True":
                 tag_updates.append(tag)
 
-        # compare tag_updates to current tags
-
+        # Compare tag_updates to current tags
         shot_tags = self.sg.find_one(
             "Shot", [["id", "is", sg_shot["id"]]], ["code", "tags"]
         ).get("tags")
@@ -146,13 +148,58 @@ class IntegrateShotgridShotData(pyblish.api.InstancePlugin):
         }
         self.sg_batch.append(sg_tag_batch)
 
-    def update_working_resolution(self, track_item, sg_shot):
-        # How to know if this plate should update the working resolution?
-        # Only set working res if plate is on track one.
-        # Find reliable way to get ingest resolution. This may come from SG
-        # or from the ingest resolution tag in hiero or the native pull
-        # resolution
-        pass
+    def update_working_resolution(self, instance, track_item):
+        if instance.data["family"] == "reference":
+            self.log.info(
+                "Reference family set. Skipping working resolution "
+                "integration."
+            )
+            return
+
+        main_plate_track = None
+        for track in track_item.sequence().videoTracks():
+            if not "ref" in track.name():
+                main_plate_track = track
+                break
+
+        if not main_plate_track:
+            self.log.warning(
+                "Could not determine main track in sequence. "
+                "Ignoring working resolution integration"
+            )
+            return
+
+        # Keep in mind that when track items are duplicated, sometimes, they
+        # don't contain different object data. It's shared resulting in a
+        # possibility that the real parent track might be impossible to know
+        if not track_item.parentTrack() == main_plate_track:
+            self.log.info(
+                "Track Item track not determined to be main plate track. "
+                "Ignoring working resolution integration"
+            )
+            return
+
+        ingest_resolution = instance.data.get("ingest_resolution")
+        if ingest_resolution:
+            width = ingest_resolution["width"]
+            height = ingest_resolution["height"]
+        else:
+            track_item_format = track_item.source().format()
+            width = track_item_format.width()
+            height = track_item_format.height()
+
+        # Update shot/asset doc with proper working res.
+        asset_doc = instance.data["assetEntity"]
+        asset_doc["data"]["resolutionWidth"] = width
+        asset_doc["data"]["resolutionHeight"] = height
+
+        project_name = get_current_project_name()
+
+        op_session = OperationsSession()
+        op_session.update_entity(
+            project_name, asset_doc["type"], asset_doc["_id"], asset_doc
+        )
+        op_session.commit()
 
     def update_edit_note(self, track_item, sg_shot):
         # Check if track item had attached edit_note_data method
