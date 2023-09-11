@@ -137,7 +137,7 @@ class IntegrateShotgridShotData(pyblish.api.InstancePlugin):
     def update_working_resolution(self, instance):
         ingest_resolution = instance.data.get("asset_working_resolution")
         if not ingest_resolution:
-            self.info("No working resolution to integrate")
+            self.log.info("No working resolution to integrate")
             return
 
         # Update shot/asset doc with proper working res.
