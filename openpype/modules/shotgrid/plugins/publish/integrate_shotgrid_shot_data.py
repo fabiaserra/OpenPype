@@ -46,12 +46,10 @@ class IntegrateShotgridShotData(pyblish.api.InstancePlugin):
 
         sg_shot = shotgrid_version["entity"]
 
-        track_item = instance.data["item"]
-
-        self.update_cut_info(track_item, sg_shot)
-        self.update_shot_tags(track_item, sg_shot)
-        self.update_working_resolution(instance, track_item)
-        self.update_edit_note(track_item, sg_shot)
+        self.update_cut_info(instance, sg_shot)
+        self.update_shot_tags(instance, sg_shot)
+        self.update_working_resolution(instance)
+        self.update_edit_note(instance, sg_shot)
 
         result = self.sg.batch(self.sg_batch)
         if not result:
@@ -71,17 +69,12 @@ class IntegrateShotgridShotData(pyblish.api.InstancePlugin):
                 )
             )
 
-    def update_cut_info(self, track_item, sg_shot):
+    def update_cut_info(self, instance, sg_shot):
         # Check if track item had attached cut_info_data method
-        if not "cut_info_data" in track_item.__dir__():
+        cut_info = instance.data.get("cut_info_data")
+        if not cut_info:
             return
 
-        cut_info = track_item.cut_info_data()
-        if not cut_info:
-            self.log.info(
-                "No cut info found on instance track item. Ignoring cut update"
-            )
-            return
         cut_in = int(cut_info["cut_in"])
         cut_out = int(cut_info["cut_out"])
         head_in = cut_in - int(cut_info["head_handles"])
@@ -102,16 +95,10 @@ class IntegrateShotgridShotData(pyblish.api.InstancePlugin):
         }
         self.sg_batch.append(cut_info_batch)
 
-    def update_shot_tags(self, track_item, sg_shot):
+    def update_shot_tags(self, instance, sg_shot):
         # Check if track item had attached sg_tags_data method
-        if not "sg_tags_data" in track_item.__dir__():
-            return
-
-        sg_tag_data = track_item.sg_tags_data()
+        sg_tag_data = instance.data.get("sg_tags_data")
         if not sg_tag_data:
-            self.log.info(
-                "No sg shot tags found on instance track item. Ignoring sg shot tag update"
-            )
             return
 
         tag_updates = []
@@ -148,50 +135,15 @@ class IntegrateShotgridShotData(pyblish.api.InstancePlugin):
         }
         self.sg_batch.append(sg_tag_batch)
 
-    def update_working_resolution(self, instance, track_item):
-        if instance.data["family"] == "reference":
-            self.log.info(
-                "Reference family set. Skipping working resolution "
-                "integration."
-            )
+    def update_working_resolution(self, instance):
+        ingest_resolution = instance.data.get("asset_working_resolution")
+        if not ingest_resolution:
+            self.info("No working resolution to integrate")
             return
-
-        main_plate_track = None
-        for track in track_item.sequence().videoTracks():
-            if not "ref" in track.name():
-                main_plate_track = track
-                break
-
-        if not main_plate_track:
-            self.log.warning(
-                "Could not determine main track in sequence. "
-                "Ignoring working resolution integration"
-            )
-            return
-
-        # Keep in mind that when track items are duplicated, sometimes, they
-        # don't contain different object data. It's shared resulting in a
-        # possibility that the real parent track might be impossible to know
-        if not track_item.parentTrack() == main_plate_track:
-            self.log.info(
-                "Track Item track not determined to be main plate track. "
-                "Ignoring working resolution integration"
-            )
-            return
-
-        ingest_resolution = instance.data.get("ingest_resolution")
-        if ingest_resolution:
-            width = ingest_resolution["width"]
-            height = ingest_resolution["height"]
-        else:
-            track_item_format = track_item.source().format()
-            width = track_item_format.width()
-            height = track_item_format.height()
 
         # Update shot/asset doc with proper working res.
         asset_doc = instance.data["assetEntity"]
-        asset_doc["data"]["resolutionWidth"] = width
-        asset_doc["data"]["resolutionHeight"] = height
+        asset_doc["data"].update(ingest_resolution)
 
         project_name = get_current_project_name()
 
@@ -201,12 +153,9 @@ class IntegrateShotgridShotData(pyblish.api.InstancePlugin):
         )
         op_session.commit()
 
-    def update_edit_note(self, track_item, sg_shot):
+    def update_edit_note(self, instance, sg_shot):
         # Check if track item had attached edit_note_data method
-        if not "edit_note_data" in track_item.__dir__():
-            return
-        edit_note_text = track_item.edit_note_data()
-
+        edit_note_text = instance.data.get("edit_note_data").get("Note")
         if not edit_note_text:
             return
 
