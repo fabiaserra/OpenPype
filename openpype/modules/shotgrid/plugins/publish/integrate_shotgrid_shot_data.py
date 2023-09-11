@@ -135,14 +135,18 @@ class IntegrateShotgridShotData(pyblish.api.InstancePlugin):
         self.sg_batch.append(sg_tag_batch)
 
     def update_working_resolution(self, instance):
-        ingest_resolution = instance.data.get("asset_working_resolution")
-        if not ingest_resolution:
+        working_resolution = instance.data.get("asset_working_resolution")
+        if working_resolution:
+            self.log.info("Integrating working resolution: %s",
+                          working_resolution
+            )
+        else:
             self.log.info("No working resolution to integrate")
             return
 
         # Update shot/asset doc with proper working res.
         asset_doc = instance.data["assetEntity"]
-        asset_doc["data"].update(ingest_resolution)
+        asset_doc["data"].update(working_resolution)
 
         project_name = get_current_project_name()
 
@@ -154,7 +158,7 @@ class IntegrateShotgridShotData(pyblish.api.InstancePlugin):
 
     def update_edit_note(self, instance, sg_shot):
         # Check if track item had attached edit_note_data method
-        edit_note_text = instance.data.get("edit_note_data").get("Note")
+        edit_note_text = instance.data.get("edit_note_data", {}).get("Note")
         if not edit_note_text:
             return
 

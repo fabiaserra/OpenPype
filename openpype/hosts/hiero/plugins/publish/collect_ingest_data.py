@@ -25,14 +25,22 @@ class CollectIngestData(pyblish.api.InstancePlugin):
 
         cut_info_data = track_item.cut_info_data()
         instance.data["cut_info_data"] = cut_info_data
-        if not cut_info_data:
+        if cut_info_data:
+            self.log.info("Cut info found on instance track item: %s",
+                          cut_info_data
+            )
+        else:
             self.log.info(
                 "No cut info found on instance track item. Ignoring cut update"
             )
 
         sg_tags_data =  track_item.sg_tags_data()
         instance.data["sg_tags_data"] = sg_tags_data
-        if not sg_tags_data:
+        if sg_tags_data:
+            self.log.info("Sg shot tags found on instance track item: %s",
+                          sg_tags_data
+            )
+        else:
             self.log.info(
                 "No sg shot tags found on instance track item. Ignoring sg"
                 " shot tag update"
@@ -40,7 +48,11 @@ class CollectIngestData(pyblish.api.InstancePlugin):
 
         edit_note_data = track_item.edit_note_data()
         instance.data["edit_note_data"] = edit_note_data
-        if not edit_note_data:
+        if edit_note_data:
+            self.log.info("Edit note tag found on instance track item: %s",
+                          edit_note_data
+            )
+        else:
             self.log.info(
                 "No edit note tag found on instance track item. Ignoring edit"
                 " note update"
@@ -94,6 +106,10 @@ class CollectIngestData(pyblish.api.InstancePlugin):
             "resolutionWidth": width,
             "resolutionHeight": height,
         }
+
+        self.log.info("Shot/Asset working resolution found on track item: %s",
+                      instance.data["asset_working_resolution"]
+        )
         # Update shot/asset doc with proper working res.
         asset_doc = instance.data["assetEntity"]
         asset_doc["data"]["resolutionWidth"] = width
