@@ -1325,8 +1325,8 @@ class CustomSpreadsheetColumns(QObject):
                         track_item.removeTag(ingest_res_tag)
 
     @column_widget_callback
-    def ingest_res_type_changed(self, selection, project, sender, index):
-        resize_type = sender.itemText(index)
+    def ingest_res_type_changed(self, selection, project, sender):
+        resize_type = sender.currentText()
         key = "resize"
 
         with project.beginUndo("Set Ingest Resolution Resize Type"):
