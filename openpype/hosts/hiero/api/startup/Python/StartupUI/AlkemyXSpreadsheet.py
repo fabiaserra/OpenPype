@@ -1325,8 +1325,8 @@ class CustomSpreadsheetColumns(QObject):
                         track_item.removeTag(ingest_res_tag)
 
     @column_widget_callback
-    def ingest_res_type_changed(self, selection, project, sender, index):
-        resize_type = sender.itemText(index)
+    def ingest_res_type_changed(self, selection, project, sender):
+        resize_type = sender.currentText()
         key = "resize"
 
         with project.beginUndo("Set Ingest Resolution Resize Type"):
@@ -1686,7 +1686,7 @@ def _set_openpype_instance(self, key, value):
         if "ref" in track_name:
             family = "reference"
         else:
-            families = ["review"]
+            families.append("review")
             family = "plate"
 
         hierarchy_data = get_hierarchy_data(
@@ -1723,16 +1723,12 @@ def _set_openpype_instance(self, key, value):
         instance_data["ingested_grade"] = "None"
 
     if value:
-        print(key, "key")
         # When family is changed the families need to adapt
         if key == "family":
-            print("is family")
             families = ["clip"]
             if value == "plate":
-                print("is plate adding review")
                 families.append("review")
 
-            print(families, "families")
             instance_data.update({"families": families})
 
         instance_data.update({key: value})
