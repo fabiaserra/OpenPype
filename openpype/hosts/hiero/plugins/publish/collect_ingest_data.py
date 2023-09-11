@@ -13,7 +13,7 @@ class CollectIngestData(pyblish.api.InstancePlugin):
         The collected data may include ingest resolution and ingest effects.
     """
 
-    order = pyblish.api.CollectorOrder
+    order = pyblish.api.CollectorOrder + .499
     label = "Collect Ingest Data"
     hosts = ["hiero"]
     families = ["plate", "reference"]
