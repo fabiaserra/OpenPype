@@ -182,12 +182,42 @@ class ExtractReview(pyblish.api.InstancePlugin):
             delivery_types.append("final")
 
         # Adds support to define review profiles from SG instead of OP settings
-        sg_outputs, entity = self.get_sg_output_profiles(instance, delivery_types)
+        sg_outputs, entity = self.get_sg_output_profiles(
+            instance, delivery_types
+        )
         if sg_outputs:
             self.log.debug(
                 "Found some profile overrides on the SG instance at the entity " \
                 "level '%s': %s", sg_outputs, entity
             )
+            for out_name, out_def in sg_outputs.items():
+                # If SG output definition doesn't exist on the profile, add it
+                if out_name not in filtered_outputs:
+                    filtered_outputs[out_name] = out_def
+                    self.log.info(
+                        "Added SG output definition '%s' to profile.",
+                        out_name
+                    )
+                # Otherwise override output definitions but only if existing
+                # values aren't empty
+                else:
+                    filtered_outputs[out_name].update(
+                        {
+                            k: v
+                            for k, v in out_def.items()
+                            if v and v not in filtered_outputs[out_name]
+                        }
+                    )
+                    # Update ffmpeg_args separately because that one is always
+                    # coming from SG
+                    filtered_outputs[out_name]["ffmpeg_args"].update(
+                        out_def["ffmpeg_args"]
+                    )
+                    self.log.info(
+                        "Updated SG output definition %s with values from SG.",
+                        out_name
+                    )
+
             filtered_outputs.update(sg_outputs)
             self.log.info(
                 "Added SG output definitions '%s' to filtered outputs.",

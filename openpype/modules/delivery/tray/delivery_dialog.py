@@ -139,6 +139,72 @@ class DeliveryDialog(QtWidgets.QDialog):
 
         main_layout.addWidget(republish_media_btn)
 
+        #### GENERATE DELIVERY ####
+        # Widgets related to generate delivery functionality
+        generate_delivery_input_widget = QtWidgets.QWidget(self)
+        generate_delivery_input_layout = QtWidgets.QFormLayout(
+            generate_delivery_input_widget
+        )
+        generate_delivery_input_layout.setContentsMargins(5, 5, 5, 5)
+
+        self.description_combo = QtWidgets.QComboBox()
+        self.description_combo.addItems(
+            [
+                "blockvis",
+                "previs",
+                "techvis",
+                "postvis",
+                "color",
+                "dev",
+                "layout",
+                "anim",
+                "comp",
+                "precomp",
+                "prod",
+                "howto",
+            ]
+        )
+        generate_delivery_input_layout.addRow(
+            "Description type", self.description_combo
+        )
+        self.delivery_name_template_input = QtWidgets.QLineEdit(
+            "{SEQ}_{shotnum}_{description}_v{version:0>4}_ALKX<_{delivery_suffix}>"
+        )
+        self.delivery_version_input.setToolTip(
+            "Template string to use for delivery file name. All the fields that " \
+            "have the { } brackets will be replaced with the appropriate values " \
+            "dynamically."
+        )
+        generate_delivery_input_layout.addRow(
+            "Delivery name template", self.delivery_name_template_input
+        )
+
+        self.delivery_version_input = QtWidgets.QLineEdit("")
+        self.delivery_version_input.setToolTip(
+            "Override the version number of the delivery media. If left empty, " \
+            "the version will just be increased from the last existing version. "
+        )
+        # Set the validator for the QLineEdit to QIntValidator
+        self.delivery_version_input.setValidator(QtGui.QIntValidator())
+        generate_delivery_input_layout.addRow(
+            "Delivery version override", self.delivery_version_input
+        )
+
+        main_layout.addWidget(generate_delivery_input_widget)
+
+        generate_delivery_media_btn = QtWidgets.QPushButton(
+            "Generate delivery media"
+        )
+        generate_delivery_media_btn.setToolTip(
+            "Run the publish pipeline and ensure delivery media exists for all " \
+            "representations"
+        )
+        generate_delivery_media_btn.clicked.connect(
+            self._on_generate_delivery_media_clicked
+        )
+
+        main_layout.addWidget(generate_delivery_media_btn)
+
         #### REPORT ####
         self.text_area = QtWidgets.QTextEdit()
         self.text_area.setReadOnly(True)
@@ -218,6 +284,27 @@ class DeliveryDialog(QtWidgets.QDialog):
         self.text_area.setText(self._format_report(report_items, success))
         self.text_area.setVisible(True)
 
+    def _on_generate_delivery_media_clicked(self):
+        delivery_types = self._get_selected_delivery_types()
+
+        if self.playlist_radio_btn.isChecked():
+            pass
+            # report_items, success = sg_delivery.generate_delivery_playlist_id(
+            #     self.sg_playlist_id_input.text(),
+            #     delivery_types=delivery_types,
+            #     force=self.ensure_delivery_media_cb.isChecked(),
+            # )
+        else:
+            report_items, success = sg_delivery.generate_delivery_version_id(
+                self.sg_version_id_input.text(),
+                delivery_types=delivery_types,
+                force=self.ensure_delivery_media_cb.isChecked(),
+                description=self.description_combo.currentText(),
+                override_version=self.delivery_version_input.text(),
+            )
+
+        self.text_area.setText(self._format_report(report_items, success))
+        self.text_area.setVisible(True)
 
 def main():
     app_instance = QtWidgets.QApplication.instance()
