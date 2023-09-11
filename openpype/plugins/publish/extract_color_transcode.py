@@ -71,7 +71,7 @@ class ExtractOIIOTranscode(publish.Extractor):
         "colorspace": "",
         "display": "",
         "view": "",
-        "oiiotool_args": {"additional_command_args": ["-v"]},
+        "oiiotool_args": {"additional_command_args": ""},
         "tags": [],
         "custom_tags": [],
     }
