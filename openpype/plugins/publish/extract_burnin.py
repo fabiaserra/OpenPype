@@ -265,6 +265,27 @@ class ExtractBurnin(publish.Extractor):
             if camera_name:
                 burnin_data["camera_name"] = camera_name
 
+            ### Starts Alkemy-X Override ###
+            # Inject delivery name data
+            delivery_overrides_dict = instance.context.data["shotgridOverrides"]
+
+            project_overrides = delivery_overrides_dict.get("Project")
+            if project_overrides:
+                project_name = project_overrides.get("sg_delivery_name")
+                if project_name:
+                    burnin_data["project"]["delivery_name"] = project_name
+                else:
+                    burnin_data["project"]["delivery_name"] = burnin_data["project"]["name"]
+
+            shot_overrides = delivery_overrides_dict.get("Shot")
+            if shot_overrides:
+                asset_name = shot_overrides.get("sg_delivery_name")
+                if asset_name:
+                    burnin_data["delivery_name"] = asset_name
+                else:
+                    burnin_data["delivery_name"] = burnin_data["asset"]
+            ### Ends Alkemy-X Override ###
+
             first_output = True
 
             files_to_delete = []
