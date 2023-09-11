@@ -1723,16 +1723,12 @@ def _set_openpype_instance(self, key, value):
         instance_data["ingested_grade"] = "None"
 
     if value:
-        print(key, "key")
         # When family is changed the families need to adapt
         if key == "family":
-            print("is family")
             families = ["clip"]
             if value == "plate":
-                print("is plate adding review")
                 families.append("review")
 
-            print(families, "families")
             instance_data.update({"families": families})
 
         instance_data.update({key: value})
