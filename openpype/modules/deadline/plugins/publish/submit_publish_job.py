@@ -354,7 +354,7 @@ class ProcessSubmittedJobOnFarm(pyblish.api.InstancePlugin,
         payload["JobInfo"].pop("SecondaryPool", None)
 
         self.log.info("Submitting Deadline job ...")
-        self.log.debug("Payload: %s", payload")
+        self.log.debug("Payload: %s", payload)
 
         url = "{}/api/jobs".format(self.deadline_url)
         response = requests.post(url, json=payload, timeout=10)
