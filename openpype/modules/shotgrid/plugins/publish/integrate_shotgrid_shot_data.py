@@ -15,7 +15,6 @@ class IntegrateShotgridShotData(pyblish.api.InstancePlugin):
 
     order = pyblish.api.IntegratorOrder + 0.4999
     label = "Integrate Shotgrid Shot Data"
-    hosts = ["hiero"]
     families = ["reference", "plate"]
 
     optional = True
