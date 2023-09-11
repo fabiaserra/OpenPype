@@ -1686,7 +1686,7 @@ def _set_openpype_instance(self, key, value):
         if "ref" in track_name:
             family = "reference"
         else:
-            families = ["review"]
+            families.append("review")
             family = "plate"
 
         hierarchy_data = get_hierarchy_data(
