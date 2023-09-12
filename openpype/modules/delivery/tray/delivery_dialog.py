@@ -15,12 +15,12 @@ class DeliveryDialog(QtWidgets.QDialog):
         "Review",
     ]
 
-    TEMPLATE_ROOT = "{yyyy}{mm}{dd}_ALKX/_{representation}/{delivery_name}_{task[short]}"
+    TEMPLATE_ROOT = "{yyyy}{mm}{dd}_ALKX/_{representation}/{delivery_name}_{description}"
     DELIVERY_TEMPLATES = {
         "Single File": f"{TEMPLATE_ROOT}_v{{version:0>4}}_ALKX_<_{{delivery_suffix}}>.{{ext}}",
-        "Sequence": f"{TEMPLATE_ROOT}_v{{version:0>4}}/{{asset}}_{{task[short]}}_v{{version:0>4}}_ALKX_<.{{frame:0>4}}>.{{ext}}",
-        "V0 Single File": f"{TEMPLATE_ROOT}_v0000.{{ext}}",
-        "V0 Sequence": f"{TEMPLATE_ROOT}_v0000/{{asset}}_{{task[short]}}_v0<.{{frame:0>4}}>.{{ext}}",
+        "Sequence": f"{TEMPLATE_ROOT}_v{{version:0>4}}/{{SEQ}}_{{shotnum}}_{{description}}_v{{version:0>4}}_ALKX_<.{{frame:0>4}}>.{{ext}}",
+        "V0 Single File": f"{TEMPLATE_ROOT}_v0000_ALKX_<_{{delivery_suffix}}>.{{ext}}",
+        "V0 Sequence": f"{TEMPLATE_ROOT}_v0000/{{SEQ}}_{{shotnum}}_{{description}}_v0000_ALKX_<.{{frame:0>4}}>.{{ext}}",
     }
 
     def __init__(self, module, parent=None):
