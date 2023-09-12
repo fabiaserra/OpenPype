@@ -323,8 +323,8 @@ class ExtractReview(pyblish.api.InstancePlugin):
     def _get_outputs_per_representations(self, instance, profile_outputs):
         outputs_per_representations = []
         for repre in instance.data["representations"]:
-            self.log.debug("Getting outputs for repre '%s'", repre_name)
             repre_name = str(repre.get("name"))
+            self.log.debug("Getting outputs for repre '%s'", repre_name)
             tags = repre.get("tags") or []
             custom_tags = repre.get("custom_tags")
             if "review" not in tags:
