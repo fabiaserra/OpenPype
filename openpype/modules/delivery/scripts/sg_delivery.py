@@ -17,7 +17,7 @@ from openpype.client import (
 )
 from openpype.lib import Logger, collect_frames, get_datetime_data
 from openpype.lib.file_transaction import FileTransaction
-from openpype.pipeline import Anatomy, legacy_io
+from openpype.pipeline import Anatomy, legacy_io, context_tools
 from openpype.pipeline.load import get_representation_path_with_anatomy
 from openpype.pipeline.delivery import (
     check_destination_path,
@@ -26,7 +26,6 @@ from openpype.pipeline.delivery import (
 from openpype.settings import get_system_settings
 from openpype.modules.shotgrid.lib import credentials, delivery
 from openpype.modules.delivery.scripts import utils
-from openpype.hosts.hiero.api import work_root
 
 
 logger = Logger.get_logger(__name__)
@@ -236,6 +235,9 @@ def deliver_version(
         sub_msg = "All representations will be delivered."
         logger.info("%s: %s", msg, sub_msg)
         report_items[msg] = [sub_msg]
+
+    # Hard-code the addition of thumbnail to deliver
+    representation_names.append["thumbnail"]
 
     # Find the OP representations we want to deliver
     repres_to_deliver = list(
@@ -881,12 +883,6 @@ def generate_delivery_media_version(
             delivery_subset_name, description
         )
 
-
-    last_delivery_version = get_last_version_by_subset_name(
-        project_name,
-        delivery_subset_name
-    )
-
     # If we are not forcing the creation of representations we validate whether
     # the representations requested already exist
     if not force:
@@ -902,6 +898,10 @@ def generate_delivery_media_version(
                 representation_names
             )
 
+        last_delivery_version = get_last_version_by_subset_name(
+            project_name,
+            delivery_subset_name
+        )
         if last_delivery_version:
             representations = get_representations(
                 project_name,
@@ -919,15 +919,18 @@ def generate_delivery_media_version(
             logger.info("%s: %s", msg, sub_msg)
             return report_items, True
 
-    exr_path = exr_repre_doc["data"]["path"]
-    render_path = os.path.dirname(exr_path)
-
     # Add family for each delivery type to control which publish plugins
     # get executed
     families = []
     for delivery_type in delivery_types:
         families.append(f"client_{delivery_type}")
 
+    frame_start_handle = int(
+        version_doc["data"]["frameStart"] - version_doc["data"]["handleStart"]
+    )
+    frame_end_handle = int(
+        version_doc["data"]["frameEnd"] + version_doc["data"]["handleEnd"]
+    )
     instance_data = {
         "project": project_name,
         "family": exr_repre_doc["context"]["family"],
@@ -939,12 +942,8 @@ def generate_delivery_media_version(
         "frameEnd": version_doc["data"]["frameEnd"],
         "handleStart": version_doc["data"]["handleStart"],
         "handleEnd": version_doc["data"]["handleEnd"],
-        "frameStartHandle": int(
-            version_doc["data"]["frameStart"] - version_doc["data"]["handleStart"]
-        ),
-        "frameEndHandle": int(
-            version_doc["data"]["frameEnd"] + version_doc["data"]["handleEnd"]
-        ),
+        "frameStartHandle": frame_start_handle,
+        "frameEndHandle": frame_end_handle,
         "comment": version_doc["data"]["comment"],
         "fps": version_doc["data"]["fps"],
         "source": version_doc["data"]["source"],
@@ -954,7 +953,6 @@ def generate_delivery_media_version(
         ),
         "useSequenceForReview": True,
         "colorspace": version_doc["data"].get("colorspace"),
-        "outputDir": render_path,
         "customData": {"description": description}
     }
 
@@ -962,28 +960,33 @@ def generate_delivery_media_version(
     if override_version:
         instance_data["version"] = override_version
 
-    # Inject variables into session
-    legacy_io.Session["AVALON_ASSET"] = instance_data["asset"]
-    legacy_io.Session["AVALON_TASK"] = instance_data.get("task")
-    legacy_io.Session["AVALON_WORKDIR"] = render_path
-    legacy_io.Session["AVALON_PROJECT"] = project_name
-    legacy_io.Session["AVALON_APP"] = "traypublisher"
-
+    # Copy source files from original version to a temporary location which will be used
+    # for staging
+    exr_path = exr_repre_doc["data"]["path"]
     # Replace frame number with #'s for expected_files function
     hashes_path = re.sub(
         r"\d+(?=\.\w+$)", lambda m: "#" * len(m.group()) if m.group() else "#", exr_path
     )
-
     src_expected_files = utils.expected_files(
         hashes_path,
-        instance_data["frameStartHandle"],
-        instance_data["frameEndHandle"],
+        frame_start_handle,
+        frame_end_handle,
     )
     logger.debug("__ Source expectedFiles: `{}`".format(src_expected_files))
 
-    # Copy source files from original version to a temporary location which will be used
-    # for staging
-    temp_delivery_dir = os.path.join(work_root(legacy_io.Session), "temp_delivery")
+    # Inject variables into session
+    legacy_io.Session["AVALON_ASSET"] = instance_data["asset"]
+    legacy_io.Session["AVALON_TASK"] = instance_data.get("task")
+    legacy_io.Session["AVALON_PROJECT"] = project_name
+    legacy_io.Session["AVALON_APP"] = "traypublisher"
+
+    # Calculate temporary directory where we will copy the source files to
+    # and use as the delivery media staging directory while publishing
+    temp_delivery_dir = os.path.join(
+        context_tools.get_workdir_from_session(), "temp_delivery"
+    )
+    legacy_io.Session["AVALON_WORKDIR"] = temp_delivery_dir
+
     file_transactions = FileTransaction(
         log=logger,
         # Enforce unique transfers
@@ -997,6 +1000,17 @@ def generate_delivery_media_version(
         expected_files.append(dst_file)
 
     logger.debug("__ expectedFiles: `{}`".format(expected_files))
+
+    # TODO: do we need the publish directory in advance?
+    # output_dir = self._get_publish_folder(
+    #     anatomy,
+    #     deepcopy(instance.data["anatomyData"]),
+    #     instance.data.get("asset"),
+    #     instances[0]["subset"],
+    #     instance.context,
+    #     instances[0]["family"],
+    #     override_version
+    # )
 
     representations = utils.get_representations(
         instance_data,
@@ -1040,7 +1054,7 @@ def generate_delivery_media_version(
     logger.info("Metadata path: %s", metadata_path)
 
     deadline_publish_job_id = utils.submit_deadline_post_job(
-        instance_data, render_job, render_path, deadline_url, metadata_path
+        instance_data, render_job, temp_delivery_dir, deadline_url, metadata_path
     )
 
     report_items["Submitted generate delivery media job to Deadline"].append(
