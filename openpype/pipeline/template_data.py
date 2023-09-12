@@ -193,26 +193,26 @@ def get_template_data(
                 project_doc, asset_doc, task_name
             ))
 
-    ### Starts Alkemy-X Override ###
-    # Create context entries so we can use them on delivery templates
-    if template_data["asset"].startswith(project_doc.get("data", {}).get("code")):
-        tokens = template_data["asset"].split("_")
-        episode = None
-        sequence = None
-        if len(tokens) == 4:
-            _, episode, sequence, shot_num = tokens
-        elif len(tokens) == 3:
-            _, sequence, shot_num = tokens
-        else:
-            shot_num = template_data["asset"].rsplit("_", 1)[-1]
+        ### Starts Alkemy-X Override ###
+        # Create context entries so we can use them on delivery templates
+        if template_data["asset"].startswith(project_doc.get("data", {}).get("code")):
+            tokens = template_data["asset"].split("_")
+            episode = None
+            sequence = None
+            if len(tokens) == 4:
+                _, episode, sequence, shot_num = tokens
+            elif len(tokens) == 3:
+                _, sequence, shot_num = tokens
+            else:
+                shot_num = template_data["asset"].rsplit("_", 1)[-1]
 
-        if episode:
-            template_data["episode"] = episode
-        if sequence:
-            template_data["seq"] = sequence
+            if episode:
+                template_data["episode"] = episode
+            if sequence:
+                template_data["seq"] = sequence
 
-        template_data["shotnum"] = shot_num
-    ### Ends Alkemy-X Override ###
+            template_data["shotnum"] = shot_num
+        ### Ends Alkemy-X Override ###
 
     if host_name:
         template_data["app"] = host_name
