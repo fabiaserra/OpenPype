@@ -957,6 +957,7 @@ def generate_delivery_media_version(
         "useSequenceForReview": True,
         "colorspace": version_doc["data"].get("colorspace"),
         "outputDir": render_path,
+        "customData": {"description": description}
     }
 
     # If we are specifying the version to generate we set it on the instance
