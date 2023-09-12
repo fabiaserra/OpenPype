@@ -195,7 +195,7 @@ def get_template_data(
 
     ### Starts Alkemy-X Override ###
     # Create context entries so we can use them on delivery templates
-    if template_data["asset"].startswith(project_doc["code"]):
+    if template_data["asset"].startswith(project_doc.get("data", {}).get("code")):
         tokens = template_data["asset"].split("_")
         episode = None
         sequence = None
