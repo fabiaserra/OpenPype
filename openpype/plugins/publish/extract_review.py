@@ -323,6 +323,7 @@ class ExtractReview(pyblish.api.InstancePlugin):
     def _get_outputs_per_representations(self, instance, profile_outputs):
         outputs_per_representations = []
         for repre in instance.data["representations"]:
+            self.log.debug("Getting outputs for repre '%s'", repre_name)
             repre_name = str(repre.get("name"))
             tags = repre.get("tags") or []
             custom_tags = repre.get("custom_tags")
@@ -360,6 +361,11 @@ class ExtractReview(pyblish.api.InstancePlugin):
             # custom tags (optional)
             outputs = self.filter_outputs_by_custom_tags(
                 profile_outputs, custom_tags)
+            self.log.debug(
+                "Outputs for repre '%s': %s",
+                repre_name,
+                [_o["filename_suffix"] for _o in outputs]
+            )
             if not outputs:
                 self.log.info(
                     "Skipped representation '%s'. All output definitions from"
