@@ -194,24 +194,34 @@ def get_template_data(
             ))
 
         ### Starts Alkemy-X Override ###
+        hierarchy_items = template_data["hierarchy"].split("/")
+        tokens = template_data["asset"].split("_")
+
         # Create context entries so we can use them on delivery templates
-        if template_data["asset"].startswith(project_doc.get("data", {}).get("code")):
-            tokens = template_data["asset"].split("_")
+        if len(hierarchy_items) > 1:
+            shot_num = template_data["asset"].rsplit("_", 1)[-1]
+            template_data["shotnum"] = shot_num
+
             episode = None
             sequence = None
-            if len(tokens) == 4:
-                _, episode, sequence, shot_num = tokens
-            elif len(tokens) == 3:
-                _, sequence, shot_num = tokens
+
+            # If it starts with project code, ignore first token
+            if template_data["asset"].startswith(project_doc.get("data", {}).get("code")):
+                if len(tokens) == 4:
+                    _, episode, sequence, _ = tokens
+                elif len(tokens) == 3:
+                    _, sequence, _ = tokens
             else:
-                shot_num = template_data["asset"].rsplit("_", 1)[-1]
+                if len(tokens) == 3:
+                    episode, sequence, _ = tokens
+                elif len(tokens) == 2:
+                    sequence, _ = tokens
 
             if episode:
                 template_data["episode"] = episode
+
             if sequence:
                 template_data["seq"] = sequence
-
-            template_data["shotnum"] = shot_num
         ### Ends Alkemy-X Override ###
 
     if host_name:
