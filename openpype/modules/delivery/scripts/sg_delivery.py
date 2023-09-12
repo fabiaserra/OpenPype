@@ -922,11 +922,9 @@ def generate_delivery_media_version(
     exr_path = exr_repre_doc["data"]["path"]
     render_path = os.path.dirname(exr_path)
 
-    families = version_doc["data"]["families"]
-    families.append("review")
-
     # Add family for each delivery type to control which publish plugins
     # get executed
+    families = []
     for delivery_type in delivery_types:
         families.append(f"client_{delivery_type}")
 
