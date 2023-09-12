@@ -13,7 +13,6 @@ from openpype.client import (
     get_representations,
     get_representation_by_name,
     get_subset_by_id,
-    get_subset_by_name,
     get_last_version_by_subset_name,
 )
 from openpype.lib import Logger, collect_frames, get_datetime_data
@@ -698,8 +697,76 @@ def republish_version(
     return report_items, True
 
 
+def generate_delivery_media_playlist_id(
+    playlist_id,
+    delivery_types,
+    representation_names=None,
+    force=False,
+    description=None,
+    override_version=None,
+):
+    """Given a SG playlist id, deliver all the versions associated to it.
 
-def generate_delivery_version_id(
+    Args:
+        playlist_id (int): Shotgrid playlist id to republish.
+        delivery_types (list[str]): What type(s) of delivery it is
+            (i.e., ["final", "review"])
+        representation_names (list): List of representation names that should exist on
+            the representations being published.
+        force (bool): Whether to force the creation of the delivery representations or not.
+
+    Returns:
+        tuple: A tuple containing a dictionary of report items and a boolean indicating
+            whether the republish was successful.
+    """
+    report_items = collections.defaultdict(list)
+
+    sg = credentials.get_shotgrid_session()
+
+    sg_playlist = sg.find_one(
+        "Playlist",
+        [
+            ["id", "is", int(playlist_id)],
+        ],
+        ["project"],
+    )
+
+    # Get the project name associated with the selected entities
+    project_name = sg_playlist["project"]["name"]
+
+    project_doc = get_project(project_name, fields=["name"])
+    if not project_doc:
+        return report_items[f"Didn't find project '{project_name}' in avalon."], False
+
+    # Get all the SG versions associated to the playlist
+    sg_versions = sg.find(
+        "Version",
+        [["playlists", "in", sg_playlist]],
+        ["project", "code", "entity", "sg_op_instance_id"],
+    )
+
+    success = True
+    for sg_version in sg_versions:
+        new_report_items, new_success = generate_delivery_media_version(
+            sg_version,
+            project_name,
+            delivery_types,
+            representation_names,
+            force,
+            description,
+            override_version,
+        )
+        if new_report_items:
+            report_items.update(new_report_items)
+
+        if not new_success:
+            success = False
+
+    click.echo(report_items)
+    return report_items, success
+
+
+def generate_delivery_media_version_id(
     version_id,
     delivery_types,
     representation_names=None,
@@ -731,17 +798,18 @@ def generate_delivery_version_id(
         ],
         ["project", "code", "entity", "sg_op_instance_id"],
     )
-    return generate_delivery_version(
+    return generate_delivery_media_version(
         sg_version,
         sg_version["project"]["name"],
         delivery_types,
         representation_names,
         force,
+        description,
         override_version,
     )
 
 
-def generate_delivery_version(
+def generate_delivery_media_version(
     sg_version,
     project_name,
     delivery_types,
@@ -774,7 +842,7 @@ def generate_delivery_version(
     op_version_id = sg_version["sg_op_instance_id"]
     if not op_version_id or op_version_id == "-":
         msg = "Missing 'sg_op_instance_id' field on SG Versions"
-        sub_msg = f"{sg_version['code']} - id: {sg_version['id']}<br>"
+        sub_msg = f"{project_name} - {sg_version['code']} - id: {sg_version['id']}<br>"
         logger.error("%s: %s", msg, sub_msg)
         report_items[msg].append(sub_msg)
         return report_items, False
@@ -803,7 +871,7 @@ def generate_delivery_version(
 
     # Query subset of the version so we can construct its equivalent delivery
     # subset
-    subset_doc = get_subset_by_id(version_doc["parent"])
+    subset_doc = get_subset_by_id(project_name, version_doc["parent"], fields=["name"])
 
     delivery_subset_name = "delivery_{}".format(subset_doc["name"])
     if description:
@@ -811,17 +879,11 @@ def generate_delivery_version(
             delivery_subset_name, description
         )
 
-    # if override_version:
 
     last_delivery_version = get_last_version_by_subset_name(
         project_name,
         delivery_subset_name
     )
-
-    # # Query last versions based on subset ids
-    # last_versions_by_subset_id = get_last_versions(
-    #     project_name, subset_ids=subset_ids, fields=["_id", "parent"]
-    # )
 
     # If we are not forcing the creation of representations we validate whether
     # the representations requested already exist
@@ -963,7 +1025,9 @@ def generate_delivery_version(
         instance_data, render_job, render_path, deadline_url, metadata_path
     )
 
-    report_items["Submitted republish job to Deadline"].append(deadline_publish_job_id)
+    report_items["Submitted generate delivery media job to Deadline"].append(
+        deadline_publish_job_id
+    )
 
     # Inject deadline url to instances.
     for inst in instances:
