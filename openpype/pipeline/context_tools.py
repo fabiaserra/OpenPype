@@ -584,7 +584,6 @@ def get_hierarchy_env(project_doc, asset_doc, skip_empty=True):
         "Episode": "EPISODE",
         "Sequence": "SEQ",
         "Shot": "SHOT",
-        "Asset": "ASSET_TYPE",
     }
 
     # We create a default env with None values so when we switch context, we can remove
@@ -595,7 +594,6 @@ def get_hierarchy_env(project_doc, asset_doc, skip_empty=True):
         "EPISODE": None,
         "SEQ": None,
         "SHOT": None,
-        "SHOTNUM": None,
         "ASSET_TYPE": None,
     }
 
@@ -605,11 +603,6 @@ def get_hierarchy_env(project_doc, asset_doc, skip_empty=True):
         env_key = sg_to_env_map.get(sg_entity_type)
         if env_key:
             env[env_key] = parent["name"]
-
-    # Fill up SHOTNUM assuming it's the last token part of the SHOT env
-    # variable
-    if env.get("SHOT"):
-        env["SHOTNUM"] = env["SHOT"].split("_")[-1]
 
     # Remove empty values from env if 'skip_empty' is set to True
     if skip_empty:
