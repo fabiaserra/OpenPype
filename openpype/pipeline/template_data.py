@@ -211,7 +211,7 @@ def get_template_data(
         if sequence:
             template_data["seq"] = sequence
 
-        template_data["shot_num"] = shot_num
+        template_data["shotnum"] = shot_num
     ### Ends Alkemy-X Override ###
 
     if host_name:
