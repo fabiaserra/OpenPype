@@ -164,6 +164,11 @@ class ExtractOIIOTranscode(publish.Extractor):
                 # Otherwise override output definitions but only if values from SG
                 # aren't empty
                 else:
+                    # Remove "oiiotool_args" from SG definitions as we aren't defining
+                    # those and because of the update logic not considering the empty
+                    # values of child dictionaries it overrides possible existing
+                    # additional args from the existing profiles
+                    out_def.pop("oiiotool_args")
                     profile["outputs"][out_name].update(
                         {k: v for k, v in out_def.items() if v}
                     )

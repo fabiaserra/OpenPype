@@ -593,7 +593,7 @@ class ExtractSlateGlobal(publish.Extractor):
             )
 
             # Extract colorspace config path from representation
-            colorspace_data = repre.get("colorspaceData")
+            colorspace_data = repre.get("colorspaceData", {})
             config_path = colorspace_data.get("config", {}).get("path")
 
             slate_creator.render_image_oiio(
