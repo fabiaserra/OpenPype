@@ -58,12 +58,16 @@ class DeliveryDialog(QtWidgets.QDialog):
         self.input_group.setExclusive(True)
 
         self.sg_playlist_id_input = QtWidgets.QLineEdit()
+        self.sg_playlist_id_input.setToolTip("Integer id of the SG Playlist (i.e., '3909')")
+        self.sg_playlist_id_input.editingFinished.connect(self.handle_playlist_id_changed)
         self.playlist_radio_btn = QtWidgets.QRadioButton("SG Playlist Id")
         self.playlist_radio_btn.setChecked(True)
         self.input_group.addButton(self.playlist_radio_btn)
         sg_input_layout.addRow(self.playlist_radio_btn, self.sg_playlist_id_input)
 
         self.sg_version_id_input = QtWidgets.QLineEdit()
+        self.sg_version_id_input.setToolTip("Integer id of the SG Version (i.e., '314726')")
+        self.sg_version_id_input.editingFinished.connect(self.handle_version_id_changed)
         self.version_radio_btn = QtWidgets.QRadioButton("SG Version Id")
         self.input_group.addButton(self.version_radio_btn)
         sg_input_layout.addRow(self.version_radio_btn, self.sg_version_id_input)
@@ -72,7 +76,7 @@ class DeliveryDialog(QtWidgets.QDialog):
         self.delivery_type_checkboxes = {}
         for delivery_type in self.DELIVERY_TYPES:
             checkbox = QtWidgets.QCheckBox()
-            checkbox.setChecked(False)
+            checkbox.setChecked(True)
 
             self.delivery_type_checkboxes[delivery_type] = checkbox
             # TODO: if we want to add some control
@@ -170,7 +174,7 @@ class DeliveryDialog(QtWidgets.QDialog):
         self.delivery_name_template_input = QtWidgets.QLineEdit(
             "{SEQ}_{shotnum}_{description}_v{version:0>4}_ALKX<_{delivery_suffix}>"
         )
-        self.delivery_version_input.setToolTip(
+        self.delivery_name_template_input.setToolTip(
             "Template string to use for delivery file name. All the fields that " \
             "have the { } brackets will be replaced with the appropriate values " \
             "dynamically."
@@ -212,6 +216,15 @@ class DeliveryDialog(QtWidgets.QDialog):
 
         main_layout.addWidget(self.text_area)
 
+    def handle_playlist_id_changed(self, text):
+        # If there's a comma in the text, remove it and set the modified text
+        if "," in text:
+            self.sg_playlist_id_input.setText(text.replace(",", ""))
+
+    def handle_version_id_changed(self, text):
+        # If there's a comma in the text, remove it and set the modified text
+        if "," in text:
+            self.sg_version_id_input.setText(text.replace(",", ""))
 
     def _format_report(self, report_items, success):
         """Format final result and error details as html."""
@@ -288,14 +301,15 @@ class DeliveryDialog(QtWidgets.QDialog):
         delivery_types = self._get_selected_delivery_types()
 
         if self.playlist_radio_btn.isChecked():
-            pass
-            # report_items, success = sg_delivery.generate_delivery_playlist_id(
-            #     self.sg_playlist_id_input.text(),
-            #     delivery_types=delivery_types,
-            #     force=self.ensure_delivery_media_cb.isChecked(),
-            # )
+            report_items, success = sg_delivery.generate_delivery_media_playlist_id(
+                self.sg_playlist_id_input.text(),
+                delivery_types=delivery_types,
+                force=self.ensure_delivery_media_cb.isChecked(),
+                description=self.description_combo.currentText(),
+                override_version=self.delivery_version_input.text(),
+            )
         else:
-            report_items, success = sg_delivery.generate_delivery_version_id(
+            report_items, success = sg_delivery.generate_delivery_media_version_id(
                 self.sg_version_id_input.text(),
                 delivery_types=delivery_types,
                 force=self.ensure_delivery_media_cb.isChecked(),
