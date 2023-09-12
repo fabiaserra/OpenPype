@@ -206,7 +206,9 @@ def get_template_data(
             sequence = None
 
             # If it starts with project code, ignore first token
-            if template_data["asset"].startswith(project_doc.get("data", {}).get("code")):
+            if template_data["asset"].startswith(
+                project_doc.get("data", {}).get("code")
+            ):
                 if len(tokens) == 4:
                     _, episode, sequence, _ = tokens
                 elif len(tokens) == 3:
