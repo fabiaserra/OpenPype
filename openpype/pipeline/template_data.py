@@ -209,7 +209,7 @@ def get_template_data(
         if episode:
             template_data["episode"] = episode
         if sequence:
-            template_data["sequence"] = sequence
+            template_data["seq"] = sequence
 
         template_data["shot_num"] = shot_num
     ### Ends Alkemy-X Override ###
