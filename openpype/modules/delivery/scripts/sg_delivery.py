@@ -16,6 +16,7 @@ from openpype.client import (
     get_last_version_by_subset_name,
 )
 from openpype.lib import Logger, collect_frames, get_datetime_data
+from openpype.lib.file_transaction import FileTransaction
 from openpype.pipeline import Anatomy, legacy_io
 from openpype.pipeline.load import get_representation_path_with_anatomy
 from openpype.pipeline.delivery import (
@@ -25,6 +26,7 @@ from openpype.pipeline.delivery import (
 from openpype.settings import get_system_settings
 from openpype.modules.shotgrid.lib import credentials, delivery
 from openpype.modules.delivery.scripts import utils
+from openpype.hosts.hiero.api import work_root
 
 
 logger = Logger.get_logger(__name__)
@@ -973,11 +975,28 @@ def generate_delivery_media_version(
         r"\d+(?=\.\w+$)", lambda m: "#" * len(m.group()) if m.group() else "#", exr_path
     )
 
-    expected_files = utils.expected_files(
+    src_expected_files = utils.expected_files(
         hashes_path,
         instance_data["frameStartHandle"],
         instance_data["frameEndHandle"],
     )
+    logger.debug("__ Source expectedFiles: `{}`".format(src_expected_files))
+
+    # Copy source files from original version to a temporary location which will be used
+    # for staging
+    temp_delivery_dir = os.path.join(work_root(legacy_io.Session), "temp_delivery")
+    file_transactions = FileTransaction(
+        log=logger,
+        # Enforce unique transfers
+        allow_queue_replacements=False
+    )
+    expected_files = []
+    for src_file in src_expected_files:
+        filename = os.path.basename(src_file)
+        dst_file = os.path.join(temp_delivery_dir, filename)
+        file_transactions.add(src_file, dst_file)
+        expected_files.append(dst_file)
+
     logger.debug("__ expectedFiles: `{}`".format(expected_files))
 
     representations = utils.get_representations(
