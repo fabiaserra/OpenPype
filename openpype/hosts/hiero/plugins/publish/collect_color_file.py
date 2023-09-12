@@ -702,6 +702,19 @@ class CollectColorFile(pyblish.api.InstancePlugin):
         """
 
         source_name = source_name.lower()
+        source_name_no_color = source_name
+        # Color file may be wack but source name may also be wack
+        if (
+            source_name_no_color.endswith("_ccc")
+            or source_name_no_color.endswith("_cc")
+            or source_name_no_color.endswith("_cdl")
+        ):
+            source_name_no_color = (
+                source_name_no_color.replace("_ccc", "")
+                .replace("_cc", "")
+                .replace("_cdl", "")
+            )
+
         matches = []
         for color_ext in COLOR_FILE_EXTS:
             ext_color_files = color_files.get(color_ext)
@@ -718,22 +731,25 @@ class CollectColorFile(pyblish.api.InstancePlugin):
                     color_file_name = os.path.splitext(
                         os.path.basename(color_file)
                     )[0].lower()
-                    # Incase file name is wack
-                    if (
-                        color_file_name.endswith("_ccc")
-                        or color_file_name.endswith("_cc")
-                        or color_file_name.endswith("_cdl")
-                    ):
-                        color_file_name = (
-                            color_file_name.replace("_ccc", "")
-                            .replace("_cc", "")
-                            .replace("_cdl", "")
-                        )
 
                     if source_name == color_file_name:
                         priority = 0
                     elif item_name == color_file_name:
                         priority = 8
+                    else:
+                        # Incase file name is wack
+                        if (
+                            color_file_name.endswith("_ccc")
+                            or color_file_name.endswith("_cc")
+                            or color_file_name.endswith("_cdl")
+                        ):
+                            color_file_name = (
+                                color_file_name.replace("_ccc", "")
+                                .replace("_cc", "")
+                                .replace("_cdl", "")
+                            )
+                        if source_name_no_color == color_file_name:
+                            priority = 4
 
                     # Need to compare to None since priority can be 0
                     if priority is not None:
