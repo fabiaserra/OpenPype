@@ -2610,6 +2610,40 @@ def get_write_node_template_attr(node):
     )
 
 
+### Starts Alkemy-X Override ###
+def get_all_dependent_nodes(node, expression=True, links=True, hidden_input=True):
+    """Find all dependent nodes connected to node.
+
+    This function explores the graph of dependent nodes starting
+    from the given node and collects all nodes that directly depend on it
+
+    Args:
+        node (nuke.Node): The node for which dependent nodes are to be found.
+
+    Returns:
+        nodes (list): A list of dependent nodes connected to the input node.
+
+    Note: No dependencies are returned. In Nuke terms dependencies rely on this
+        node and dependents read this node
+    """
+    expression_flag = nuke.EXPRESSIONS if expression else 0
+    links_flag = nuke.LINKINPUTS if links else 0
+    hidden_input_flag = nuke.HIDDEN_INPUTS if hidden_input else 0
+    dependency_flags = expression_flag | links_flag | hidden_input_flag | nuke.INPUTS
+
+    dependents = []
+    branches = [node]
+    while branches:
+        branch = branches.pop(0)
+        # Always pass if input is visible
+        branch_dependents = branch.dependent(dependency_flags)
+        branches.extend(branch_dependents)
+        dependents.extend(branch_dependents)
+
+    return dependents
+### Ends Alkemy-X Override ###
+
+
 def get_dependent_nodes(nodes):
     """Get all dependent nodes connected to the list of nodes.
 
