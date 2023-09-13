@@ -12,7 +12,9 @@ class CollectSlateGlobal(pyblish.api.InstancePlugin):
     order = pyblish.api.CollectorOrder + 0.499
     families = [
         "review",
-        "render"
+        "render",
+        "client_review",
+        "client_final"
     ]
 
     def process(self, instance):
