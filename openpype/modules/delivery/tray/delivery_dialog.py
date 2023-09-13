@@ -216,15 +216,19 @@ class DeliveryDialog(QtWidgets.QDialog):
 
         main_layout.addWidget(self.text_area)
 
-    def handle_playlist_id_changed(self, text):
+    def handle_playlist_id_changed(self):
         # If there's a comma in the text, remove it and set the modified text
-        if "," in text:
-            self.sg_playlist_id_input.setText(text.replace(",", ""))
+        cur_text = self.sg_playlist_id_input.text()
+        new_text = cur_text.strip()
+        new_text = cur_text.replace(",", "")
+        self.sg_playlist_id_input.setText(new_text)
 
-    def handle_version_id_changed(self, text):
+    def handle_version_id_changed(self):
         # If there's a comma in the text, remove it and set the modified text
-        if "," in text:
-            self.sg_version_id_input.setText(text.replace(",", ""))
+        cur_text = self.sg_version_id_input.text()
+        new_text = cur_text.strip()
+        new_text = cur_text.replace(",", "")
+        self.sg_version_id_input.setText(new_text)
 
     def _format_report(self, report_items, success):
         """Format final result and error details as html."""
