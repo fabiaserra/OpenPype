@@ -109,6 +109,13 @@ class ExtractReview(pyblish.api.InstancePlugin):
             "line_color": [255, 0, 0, 255],
         },
     }
+
+    NON_SUPPORTED_SG_FIELDS = [
+        "letter_box",
+        "bg_color",
+        "overscan_crop",
+        "overscan_color",
+    ]
     ### Ends Alkemy-X Override ###
 
     def process(self, instance):
@@ -201,12 +208,32 @@ class ExtractReview(pyblish.api.InstancePlugin):
                 # Otherwise override output definitions but only if existing
                 # values aren't empty
                 else:
+                    # Remove all the attributes from SG definitions that we aren't
+                    # exposing on SG yet because we don't want to override those
+                    # from possible existing profiles
+                    for non_sg_field in self.NON_SUPPORTED_SG_FIELDS:
+                        out_def.pop(non_sg_field)
+
+                    # Also ignore other fields if they are already defined
+                    if filtered_outputs[out_name]["filter"]["custom_tags"]:
+                        out_def.pop("filter")
+
+                    if filtered_outputs[out_name]["width"]:
+                        out_def.pop("width")
+
+                    if filtered_outputs[out_name]["height"]:
+                        out_def.pop("height")
+
+                    self.log.debug(
+                        "Existing filtered output for '%s': %s",
+                        out_name,
+                        filtered_outputs[out_name]
+                    )
+                    self.log.debug(
+                        "Getting overridden with: %s", out_def
+                    )
                     filtered_outputs[out_name].update(
-                        {
-                            k: v
-                            for k, v in out_def.items()
-                            if v and v not in filtered_outputs[out_name]
-                        }
+                        {k: v for k, v in out_def.items() if v}
                     )
                     # Update ffmpeg_args separately because that one is always
                     # coming from SG
@@ -214,14 +241,16 @@ class ExtractReview(pyblish.api.InstancePlugin):
                         out_def["ffmpeg_args"]
                     )
                     self.log.info(
-                        "Updated SG output definition %s with values from SG.",
+                        "Updated SG output definition '%s' with values from SG.",
                         out_name
                     )
+                    self.log.debug(
+                        "Filtered output result: %s", filtered_outputs[out_name]
+                    )
 
-            filtered_outputs.update(sg_outputs)
             self.log.info(
-                "Added SG output definitions '%s' to filtered outputs.",
-                sg_outputs.keys()
+                "Added SG output definitions '%s' to filtered outputs: %s",
+                sg_outputs.keys(), filtered_outputs
             )
         ### Ends Alkemy-X Override ###
 
@@ -298,8 +327,8 @@ class ExtractReview(pyblish.api.InstancePlugin):
                     resolution = ent_overrides.get(f"sg_{delivery_type}_resolution")
                     if resolution:
                         width, height = resolution.split("x")
-                        sg_profiles[out_name]["resolutionWidth"] = width
-                        sg_profiles[out_name]["resolutionHeight"] = height
+                        sg_profiles[out_name]["width"] = width
+                        sg_profiles[out_name]["height"] = height
                     # Set final/review_colorspace tag so it uses the transcoded
                     # representations that have that tag
                     sg_profiles[out_name]["filter"]["custom_tags"] = [
@@ -311,6 +340,7 @@ class ExtractReview(pyblish.api.InstancePlugin):
                     for ffmpeg_arg in sg_profiles[out_name]["ffmpeg_args"].keys():
                         ffmpeg_val = out_fields.get(f"sg_ffmpeg_{ffmpeg_arg}")
                         if ffmpeg_val:
+                            self.log.debug("Adding ffmpeg arg '%s': %s", ffmpeg_arg, ffmpeg_val)
                             sg_profiles[out_name]["ffmpeg_args"][ffmpeg_arg] = [ffmpeg_val]
 
             # Found some overrides at the entity, return early
@@ -719,14 +749,8 @@ class ExtractReview(pyblish.api.InstancePlugin):
             "output_frame_start": int(output_frame_start),
             "output_frame_end": int(output_frame_end),
             "pixel_aspect": instance.data.get("pixelAspect", 1),
-            ### Starts Alkemy-X Override ###
-            # Grab resolution from SG delivery (i.e., review or final) if it
-            # exists, otherwise default to the project resolution
-            "resolution_width": output_def.get("resolutionWidth") or \
-                instance.data.get("resolutionWidth"),
-            "resolution_height": output_def.get("resolutionHeight") or \
-                instance.data.get("resolutionHeight"),
-            ### Ends Alkemy-X Override ###
+            "resolution_width": instance.data.get("resolutionWidth"),
+            "resolution_height": instance.data.get("resolutionHeight"),
             "origin_repre": repre,
             "input_is_sequence": input_is_sequence,
             "first_sequence_frame": first_sequence_frame,
