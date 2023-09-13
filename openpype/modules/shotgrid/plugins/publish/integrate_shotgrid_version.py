@@ -14,6 +14,14 @@ class IntegrateShotgridVersion(pyblish.api.InstancePlugin):
         "comment": (str, "description"),
         "family": (str, "sg_version_type"),
     }
+    families = [
+        "plate",
+        "render",
+        "reference",
+        "arnold_rop",
+        "mantra_rop",
+        "karma_rop"
+    ]
     ### Ends Alkemy-X Override ###
 
     sg = None
