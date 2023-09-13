@@ -189,17 +189,13 @@ class ExtractOIIOTranscode(publish.Extractor):
             if not self._repre_is_valid(repre):
                 continue
 
+            ### Starts Alkemy-X Override ###
+            # Filter out full resolution exr from getting transcodes
             if repre_name == "exr_fr":
                 self.log.debug("Full resolution representation, skipping.")
                 continue
 
             tags = repre.get("tags") or []
-            if "review" not in tags:
-                self.log.debug((
-                    "Repre: {} - Didn't found \"review\" in tags. Skipping"
-                ).format(repre_name))
-                continue
-
             if "thumbnail" in tags:
                 self.log.debug((
                     "Repre: {} - Found \"thumbnail\" in tags. Skipping"
@@ -211,6 +207,7 @@ class ExtractOIIOTranscode(publish.Extractor):
                     "Repre: {} - Found \"passing\" in tags. Skipping"
                 ).format(repre_name))
                 continue
+            ### Ends Alkemy-X Override ###
 
             added_representations = False
             added_review = False
