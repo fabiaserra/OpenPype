@@ -1089,8 +1089,10 @@ def convert_colorspace(
     oiio_cmd = get_oiio_tool_args(
         "oiiotool",
         input_path,
-        # Don't add any additional attributes
-        "--nosoftwareattrib",
+        #### Starts Alkemy-X Override ####
+        # Keep software attributes for debugging
+        # # Don't add any additional attributes
+        # "--nosoftwareattrib",
         "--colorconfig", config_path
     )
 

@@ -292,11 +292,7 @@ class SlateCreator:
         """Call oiiotool to convert one image to another."""
         name = os.path.basename(input)
 
-        cmd = get_oiio_tool_args(
-            "oiiotool",
-            # Don't add any additional attributes
-            "--nosoftwareattrib",
-        )
+        cmd = get_oiio_tool_args("oiiotool")
         if ocio_config_path:
             cmd.extend(["--colorconfig", ocio_config_path])
 
