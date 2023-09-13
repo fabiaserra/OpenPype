@@ -34,8 +34,8 @@ SG_SLATE_FIELDS = [
 
 # List of SG fields on the 'output_datatypes' entity that we care to query for
 SG_OUTPUT_DATATYPE_FIELDS = [
-    "sg_ffmpeg_input_args",
-    "sg_ffmpeg_output_args",
+    "sg_ffmpeg_input",
+    "sg_ffmpeg_output",
     "sg_ffmpeg_video_filters",
     "sg_ffmpeg_audio_filters",
     "sg_extension",
