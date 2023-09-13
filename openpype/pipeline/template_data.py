@@ -1,6 +1,7 @@
 from openpype.client import get_project, get_asset_by_name
 from openpype.settings import get_system_settings
 from openpype.lib.local_settings import get_openpype_username
+from openpype.pipeline import context_tools
 
 
 def get_general_template_data(system_settings=None):
@@ -194,37 +195,14 @@ def get_template_data(
             ))
 
         ### Starts Alkemy-X Override ###
-        hierarchy_items = template_data["hierarchy"].split("/")
-        tokens = template_data["asset"].split("_")
-
-        # Create context entries so we can use them on delivery templates
-        if len(hierarchy_items) > 1:
-            shot_num = template_data["asset"].rsplit("_", 1)[-1]
-            template_data["shotnum"] = shot_num
-
-            episode = None
-            sequence = None
-
-            # If it starts with project code, ignore first token
-            if template_data["asset"].startswith(
-                project_doc.get("data", {}).get("code")
-            ):
-                if len(tokens) == 4:
-                    _, episode, sequence, _ = tokens
-                elif len(tokens) == 3:
-                    _, sequence, _ = tokens
-            else:
-                if len(tokens) == 3:
-                    episode, sequence, _ = tokens
-                elif len(tokens) == 2:
-                    sequence, _ = tokens
-
-            if episode:
-                template_data["episode"] = episode
-
-            if sequence:
-                template_data["seq"] = sequence
-        ### Ends Alkemy-X Override ###
+        # Set hierarchy context data to anatomy so we can use it on templates
+        hierarchy_env = context_tools.get_hierarchy_env(project_doc, asset_doc)
+        template_data["episode"] = hierarchy_env.get("EPISODE") or ""
+        template_data["seq"] = hierarchy_env.get("SEQ") or ""
+        template_data["shot"] = hierarchy_env.get("SHOT") or ""
+        template_data["shotnum"] = hierarchy_env.get("SHOTNUM") or ""
+        template_data["asset_type"] = hierarchy_env.get("ASSET_TYPE") or ""
+        # ### Ends Alkemy-X Override ###
 
     if host_name:
         template_data["app"] = host_name
