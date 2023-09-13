@@ -1,3 +1,9 @@
+"""This plugin has been modified quite enough by Alkemy-X to fit our needs that we
+no longer add sandwiches on the overrides.
+
+We have changed the logic so if there's no "data_to_update" at all we don't integrate
+the version to SG at all.
+"""
 import re
 import pyblish.api
 
@@ -27,41 +33,83 @@ class IntegrateShotgridVersion(pyblish.api.InstancePlugin):
     sg = None
 
     def process(self, instance):
-        ### Starts Alkemy-X Override ###
         # Skip execution if instance is marked to be processed in the farm
         if instance.data.get("farm"):
             self.log.info(
                 "Instance is marked to be processed on farm. Skipping")
             return
-        ### Ends Alkemy-X Override ###
-
         context = instance.context
+
+        data_to_update = {}
+        for representation in instance.data.get("representations", []):
+            local_path = get_publish_repre_path(
+                instance, representation, False
+            )
+            self.log.debug(
+                "Checking whether to integrate representation '%s'.", representation
+            )
+            if "shotgridreview" in representation.get("tags", []):
+                self.log.debug("Integrating representation")
+                if representation["ext"] in ["mov", "avi", "mp4"]:
+                    data_to_update["sg_path_to_movie"] = local_path
+                    ### Starts Alkemy-X Override ###
+                    if (
+                        "slate" in instance.data["families"]
+                        and "slate-frame" in representation["tags"]
+                    ):
+                        data_to_update["sg_movie_has_slate"] = True
+                    ### Ends Alkemy-X Override ###
+
+                elif representation["ext"] in ["jpg", "png", "exr", "tga"]:
+                    # Define the pattern to match the frame number
+                    padding_pattern = r"\.\d+\."
+                    # Replace the frame number with '%04d'
+                    path_to_frame = re.sub(padding_pattern, ".%04d.", local_path)
+
+                    data_to_update["sg_path_to_frames"] = path_to_frame
+                    ### Starts Alkemy-X Override ###
+                    if "slate" in instance.data["families"]:
+                        data_to_update["sg_frames_have_slate"] = True
+                    ### Ends Alkemy-X Override ###
+
+        if not data_to_update:
+            self.log.info("No data to integrate to SG, skipping version creation.")
+            return
+
         self.sg = context.data.get("shotgridSession")
 
         # TODO: Use path template solver to build version code from settings
         anatomy = instance.data.get("anatomyData", {})
-        ### Starts Alkemy-X Override ###
         code = "{}_{}_{}".format(
             anatomy["asset"],
             instance.data["subset"],
             "v{:03}".format(int(anatomy["version"]))
         )
         self.log.info("Integrating Shotgrid version with code: {}".format(code))
-        ### Ends Alkemy-X Override ###
 
-        ### Starts Alkemy-X Override ###
         version = self._find_existing_version(code, context, instance)
-        ### Ends Alkemy-X Override ###
 
         if not version:
-            ### Starts Alkemy-X Override ###
+            self.log.info("Creating Shotgrid version: {}".format(version))
             version = self._create_version(code, context, instance)
-            ### Ends Alkemy-X Override ###
-            self.log.info("Create Shotgrid version: {}".format(version))
         else:
-            self.log.info("Use existing Shotgrid version: {}".format(version))
+            self.log.info("Using existing Shotgrid version: {}".format(version))
 
-        data_to_update = {}
+        # Upload movie to version
+        path_to_movie = data_to_update.get("sg_path_to_movie")
+        if path_to_movie:
+            self.log.info(
+                "Upload review: {} for version shotgrid {}".format(
+                    local_path, version.get("id")
+                )
+            )
+            self.sg.upload(
+                "Version",
+                version.get("id"),
+                local_path,
+                field_name="sg_uploaded_movie",
+            )
+
         intent = context.data.get("intent")
         if intent:
             data_to_update["sg_status_list"] = intent["value"]
@@ -102,49 +150,6 @@ class IntegrateShotgridVersion(pyblish.api.InstancePlugin):
             version_entity = "-"
         data_to_update["sg_op_instance_id"] = str(version_entity)
         ### Ends Alkemy-X Override ###
-
-        for representation in instance.data.get("representations", []):
-            local_path = get_publish_repre_path(
-                instance, representation, False
-            )
-            self.log.debug(
-                "Checking whether to integrate representation '%s'.", representation
-            )
-            if "shotgridreview" in representation.get("tags", []):
-                self.log.debug("Integrating representation")
-                if representation["ext"] in ["mov", "avi", "mp4"]:
-                    self.log.info(
-                        "Upload review: {} for version shotgrid {}".format(
-                            local_path, version.get("id")
-                        )
-                    )
-                    self.sg.upload(
-                        "Version",
-                        version.get("id"),
-                        local_path,
-                        field_name="sg_uploaded_movie",
-                    )
-
-                    data_to_update["sg_path_to_movie"] = local_path
-                    ### Starts Alkemy-X Override ###
-                    if (
-                        "slate" in instance.data["families"]
-                        and "slate-frame" in representation["tags"]
-                    ):
-                        data_to_update["sg_movie_has_slate"] = True
-                    ### Ends Alkemy-X Override ###
-
-                elif representation["ext"] in ["jpg", "png", "exr", "tga"]:
-                    # Define the pattern to match the frame number
-                    padding_pattern = r"\.\d+\."
-                    # Replace the frame number with '%04d'
-                    path_to_frame = re.sub(padding_pattern, ".%04d.", local_path)
-
-                    data_to_update["sg_path_to_frames"] = path_to_frame
-                    ### Starts Alkemy-X Override ###
-                    if "slate" in instance.data["families"]:
-                        data_to_update["sg_frames_have_slate"] = True
-                    ### Ends Alkemy-X Override ###
 
         self.log.info("Updating Shotgrid version with {}".format(data_to_update))
         self.sg.update("Version", version["id"], data_to_update)

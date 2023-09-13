@@ -42,6 +42,10 @@ class IntegrateShotgridPublish(pyblish.api.InstancePlugin):
             )
 
             if "shotgridreview" not in representation.get("tags", []):
+                self.log.debug(
+                    "No 'shotgridreview' tag on representation '%s', skipping.",
+                    representation.get("name")
+                )
                 continue
 
             ### Starts Alkemy-X Override ###
