@@ -931,6 +931,9 @@ def generate_delivery_media_version(
     frame_end_handle = int(
         version_doc["data"]["frameEnd"] + version_doc["data"]["handleEnd"]
     )
+    logger.debug("Frame start handle: %s", frame_start_handle)
+    logger.debug("Frame end handle: %s", frame_end_handle)
+
     instance_data = {
         "project": project_name,
         "family": exr_repre_doc["context"]["family"],
@@ -967,12 +970,12 @@ def generate_delivery_media_version(
     hashes_path = re.sub(
         r"\d+(?=\.\w+$)", lambda m: "#" * len(m.group()) if m.group() else "#", exr_path
     )
-    src_expected_files = utils.expected_files(
+    expected_files = utils.expected_files(
         hashes_path,
         frame_start_handle,
         frame_end_handle,
     )
-    logger.debug("__ Source expectedFiles: `{}`".format(src_expected_files))
+    logger.debug("__ Source expectedFiles: `{}`".format(expected_files))
 
     # Inject variables into session
     legacy_io.Session["AVALON_ASSET"] = instance_data["asset"]
@@ -986,22 +989,30 @@ def generate_delivery_media_version(
         context_tools.get_workdir_from_session(), "temp_delivery"
     )
     legacy_io.Session["AVALON_WORKDIR"] = temp_delivery_dir
+    # Set outputDir on instance data as that's used to define where
+    # to save the metadata path
+    instance_data["outputDir"] = temp_delivery_dir
 
-    file_transactions = FileTransaction(
-        log=logger,
-        # Enforce unique transfers
-        allow_queue_replacements=False
-    )
-    expected_files = []
-    for src_file in src_expected_files:
-        filename = os.path.basename(src_file)
-        dst_file = os.path.join(temp_delivery_dir, filename)
-        file_transactions.add(src_file, dst_file)
-        expected_files.append(dst_file)
+    # file_transactions = FileTransaction(
+    #     log=logger,
+    #     # Enforce unique transfers
+    #     allow_queue_replacements=False
+    # )
+    # expected_files = []
+    # for src_file in src_expected_files:
+    #     filename = os.path.basename(src_file)
+    #     dst_file = os.path.join(temp_delivery_dir, filename)
+    #     file_transactions.add(src_file, dst_file)
+    #     expected_files.append(dst_file)
+    # logger.debug("Copying source files to destination ...")
+    # file_transactions.process()
+    # logger.debug("Backed up existing files: {}".format(file_transactions.backups))
+    # logger.debug("Transferred files: {}".format(file_transactions.transferred))
 
     logger.debug("__ expectedFiles: `{}`".format(expected_files))
 
     # TODO: do we need the publish directory in advance?
+    # I think it's only required for Deadline to check output
     # output_dir = self._get_publish_folder(
     #     anatomy,
     #     deepcopy(instance.data["anatomyData"]),
