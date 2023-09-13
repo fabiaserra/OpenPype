@@ -267,7 +267,13 @@ def get_template_data_with_names(
         asset_doc = get_asset_by_name(
             project_name,
             asset_name,
-            fields=["name", "data.parents", "data.tasks"]
+            fields=[
+                "name",
+                "data.parents",
+                "data.tasks",
+                "data.visualParent",
+                "data.sgEntityType"
+            ]
         )
     return get_template_data(
         project_doc, asset_doc, task_name, host_name, system_settings

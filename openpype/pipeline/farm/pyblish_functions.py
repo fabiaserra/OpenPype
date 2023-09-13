@@ -376,14 +376,14 @@ def prepare_representations(skeleton_data, exp_files, anatomy, aov_filter,
         # as we can't be certain that clique.assemble always returns the
         # collections ordered so the `exr` that's from working resolution
         # always comes first
-        if collection.head.endswith("_fr"):
+        if "_fr" in collection.head:
             repre_name = "{}_fr".format(ext)
             preview = False
         # Leaving this one just in case for future cases where we might
         # have colliding representations as well
-        elif repre_name in existing_repres:
-            repre_name += "_{}".format(collection.head.rsplit("_", 1)[-1])
-            preview = False
+        # elif repre_name in existing_repres:
+            # repre_name += "_{}".format(collection.head.rsplit("_", 1)[-1])
+            # preview = False
 
         # explicitly disable review by user
         preview = preview and not do_not_add_review

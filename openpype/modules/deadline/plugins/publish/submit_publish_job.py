@@ -261,7 +261,8 @@ class ProcessSubmittedJobOnFarm(pyblish.api.InstancePlugin,
         # pass environment keys from self.environ_job_filter
         job_environ = {}
         for job in jobs:
-            job_environ.update(job["Props"].get("Env", {}))
+            job_environ.update(job.get("Props", {}).get("Env", {}))
+
         for env_j_key in self.environ_job_filter:
             if job_environ.get(env_j_key):
                 environment[env_j_key] = job_environ[env_j_key]
@@ -479,9 +480,11 @@ class ProcessSubmittedJobOnFarm(pyblish.api.InstancePlugin,
         if instance.data.get("toBeRenderedOn") == "deadline":
             # If we have multiple submission jobs, we grab that key instead
             if "deadlineSubmissionJobs" in instance.data:
-                render_jobs = instance.data.pop("deadlineSubmissionJobs", None)
+                render_jobs = instance.data.pop("deadlineSubmissionJobs", [])
             else:
-                render_jobs = [instance.data.pop("deadlineSubmissionJob", None)]
+                render_job = instance.data.pop("deadlineSubmissionJob", None)
+                if render_job:
+                    render_jobs = [render_job]
             submission_type = "deadline"
 
         if instance.data.get("toBeRenderedOn") == "muster":

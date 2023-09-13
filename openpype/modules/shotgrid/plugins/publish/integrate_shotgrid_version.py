@@ -154,7 +154,7 @@ class IntegrateShotgridVersion(pyblish.api.InstancePlugin):
             ### Ends Alkemy-X Override ###
             ["code", "is", code],
         ]
-        return self.sg.find_one("Version", filters, [])
+        return self.sg.find_one("Version", filters, ["entity"])
 
     ### Starts Alkemy-X Override ###
     def _create_version(self, code, context, instance):

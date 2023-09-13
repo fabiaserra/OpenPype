@@ -183,8 +183,33 @@ class ExtractOIIOTranscode(publish.Extractor):
         new_representations = []
         repres = instance.data["representations"]
         for idx, repre in enumerate(list(repres)):
-            self.log.debug("repre ({}): `{}`".format(idx + 1, repre["name"]))
+            repre_name = repre["name"]
+            self.log.debug("repre ({}): `{}`".format(idx + 1, repre_name))
+
             if not self._repre_is_valid(repre):
+                continue
+
+            if repre_name == "exr_fr":
+                self.log.debug("Full resolution representation, skipping.")
+                continue
+
+            tags = repre.get("tags") or []
+            if "review" not in tags:
+                self.log.debug((
+                    "Repre: {} - Didn't found \"review\" in tags. Skipping"
+                ).format(repre_name))
+                continue
+
+            if "thumbnail" in tags:
+                self.log.debug((
+                    "Repre: {} - Found \"thumbnail\" in tags. Skipping"
+                ).format(repre_name))
+                continue
+
+            if "passing" in tags:
+                self.log.debug((
+                    "Repre: {} - Found \"passing\" in tags. Skipping"
+                ).format(repre_name))
                 continue
 
             added_representations = False

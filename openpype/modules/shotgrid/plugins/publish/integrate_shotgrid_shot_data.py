@@ -39,11 +39,16 @@ class IntegrateShotgridShotData(pyblish.api.InstancePlugin):
 
         if not shotgrid_version:
             self.log.warning(
-                "No Shotgrid version collect. Collected shot data could not be integrated into Shotgrid"
+                "No Shotgrid version collected. Collected shot data could not be integrated into Shotgrid"
             )
             return
 
-        sg_shot = shotgrid_version["entity"]
+        sg_shot = shotgrid_version.get("entity")
+        if not sg_shot:
+            self.log.warning(
+                "Entity doesn't exist on shotgridVersion. Collected shot data could not be integrated into Shotgrid"
+            )
+            return
 
         self.update_cut_info(instance, sg_shot)
         self.update_shot_tags(instance, sg_shot)
