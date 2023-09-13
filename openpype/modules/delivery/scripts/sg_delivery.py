@@ -595,8 +595,9 @@ def republish_version(
         "fps": version_doc["data"]["fps"],
         "source": version_doc["data"]["source"],
         "overrideExistingFrame": False,
-        "jobBatchName": "Republish - {}_{}".format(
-            sg_version["code"], version_doc["name"]
+        "jobBatchName": "Republish - {} - {}".format(
+            sg_version["code"],
+            version_doc["name"]
         ),
         "useSequenceForReview": True,
         "colorspace": version_doc["data"].get("colorspace"),
@@ -951,8 +952,9 @@ def generate_delivery_media_version(
         "fps": version_doc["data"]["fps"],
         "source": version_doc["data"]["source"],
         "overrideExistingFrame": False,
-        "jobBatchName": "Generate delivery media - {}_{}".format(
-            sg_version["code"], delivery_subset_name
+        "jobBatchName": "Generate delivery media - {} - {}".format(
+            sg_version["code"],
+            delivery_subset_name
         ),
         "useSequenceForReview": True,
         "colorspace": version_doc["data"].get("colorspace"),
