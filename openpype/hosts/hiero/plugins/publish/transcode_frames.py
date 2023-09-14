@@ -4,7 +4,6 @@ import json
 import getpass
 import requests
 import pyblish.api
-import PyOpenColorIO
 
 import hiero
 
