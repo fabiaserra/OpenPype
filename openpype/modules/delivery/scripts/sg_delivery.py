@@ -16,7 +16,6 @@ from openpype.client import (
     get_last_version_by_subset_name,
 )
 from openpype.lib import Logger, collect_frames, get_datetime_data
-from openpype.lib.file_transaction import FileTransaction
 from openpype.pipeline import Anatomy, legacy_io, context_tools
 from openpype.pipeline.load import get_representation_path_with_anatomy
 from openpype.pipeline.delivery import (
@@ -1010,35 +1009,7 @@ def generate_delivery_media_version(
     # to save the metadata path
     instance_data["outputDir"] = temp_delivery_dir
 
-    # file_transactions = FileTransaction(
-    #     log=logger,
-    #     # Enforce unique transfers
-    #     allow_queue_replacements=False
-    # )
-    # expected_files = []
-    # for src_file in src_expected_files:
-    #     filename = os.path.basename(src_file)
-    #     dst_file = os.path.join(temp_delivery_dir, filename)
-    #     file_transactions.add(src_file, dst_file)
-    #     expected_files.append(dst_file)
-    # logger.debug("Copying source files to destination ...")
-    # file_transactions.process()
-    # logger.debug("Backed up existing files: {}".format(file_transactions.backups))
-    # logger.debug("Transferred files: {}".format(file_transactions.transferred))
-
     logger.debug("__ expectedFiles: `{}`".format(expected_files))
-
-    # TODO: do we need the publish directory in advance?
-    # I think it's only required for Deadline to check output
-    # output_dir = self._get_publish_folder(
-    #     anatomy,
-    #     deepcopy(instance.data["anatomyData"]),
-    #     instance.data.get("asset"),
-    #     instances[0]["subset"],
-    #     instance.context,
-    #     instances[0]["family"],
-    #     override_version
-    # )
 
     representations = utils.get_representations(
         instance_data,
