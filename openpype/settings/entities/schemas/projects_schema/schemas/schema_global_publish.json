@@ -413,7 +413,13 @@
                                             "highlight_content": true,
                                             "children": [
                                                 {
-                                                    "key": "additional_command_args",
+                                                    "key": "additional_pre_command_args",
+                                                    "label": "Arguments",
+                                                    "type": "list",
+                                                    "object_type": "text"
+                                                },
+                                                {
+                                                    "key": "additional_post_command_args",
                                                     "label": "Arguments",
                                                     "type": "list",
                                                     "object_type": "text"

@@ -71,7 +71,10 @@ class ExtractOIIOTranscode(publish.Extractor):
         "colorspace": "",
         "display": "",
         "view": "",
-        "oiiotool_args": {"additional_command_args": ""},
+        "oiiotool_args": {
+            "additional_pre_command_args": "",
+            "additional_post_command_args": "",
+        },
         "tags": [],
         "custom_tags": [],
     }
@@ -261,8 +264,12 @@ class ExtractOIIOTranscode(publish.Extractor):
                     new_repre["colorspaceData"]["colorspace"] = \
                         target_colorspace
 
-                additional_command_args = (output_def["oiiotool_args"]
-                                           ["additional_command_args"])
+                additional_pre_command_args = (output_def["oiiotool_args"]
+                                           ["additional_pre_command_args"])
+
+                additional_post_command_args = (output_def["oiiotool_args"]
+                                           ["additional_post_command_args"])
+
 
                 files_to_convert = self._translate_to_sequence(
                     files_to_convert)
@@ -280,7 +287,8 @@ class ExtractOIIOTranscode(publish.Extractor):
                         target_colorspace,
                         view,
                         display,
-                        additional_command_args,
+                        additional_pre_command_args,
+                        additional_post_command_args,
                         self.log
                     )
                     self.log.info(
@@ -410,7 +418,7 @@ class ExtractOIIOTranscode(publish.Extractor):
                         out_name, entity
                     )
 
-                    sg_profiles[out_name] = self.profile_output_skeleton.copy()
+                    sg_profiles[out_name] = copy.deepcopy(self.profile_output_skeleton)
                     sg_profiles[out_name]["extension"] = out_fields["sg_extension"]
                     # Ignoring tags as most of those only apply for the ExtractReview step
                     # Maybe in the future we want to split the tags for transcode / review
