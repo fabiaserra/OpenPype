@@ -244,9 +244,6 @@ class ExtractReview(pyblish.api.InstancePlugin):
                         "Updated SG output definition '%s' with values from SG.",
                         out_name
                     )
-                    self.log.debug(
-                        "Filtered output result: %s", filtered_outputs[out_name]
-                    )
 
             self.log.info(
                 "Added SG output definitions '%s' to filtered outputs: %s",
@@ -320,7 +317,7 @@ class ExtractReview(pyblish.api.InstancePlugin):
                         out_name, entity
                     )
 
-                    sg_profiles[out_name] = self.profile_output_skeleton.copy()
+                    sg_profiles[out_name] = copy.deepcopy(self.profile_output_skeleton)
                     sg_profiles[out_name]["ext"] = out_fields["sg_extension"]
                     sg_profiles[out_name]["tags"] = ent_overrides.get(f"sg_{delivery_type}_tags") or []
                     sg_profiles[out_name]["fps"] = ent_overrides.get(f"sg_{delivery_type}_fps")
@@ -337,10 +334,9 @@ class ExtractReview(pyblish.api.InstancePlugin):
 
                     # Iterate over the different keys of the ffmpeg_args dictionary of
                     # the profile and fill them up with the SG entity fields (if set)
-                    for ffmpeg_arg in sg_profiles[out_name]["ffmpeg_args"].keys():
+                    for ffmpeg_arg in self.profile_output_skeleton["ffmpeg_args"].keys():
                         ffmpeg_val = out_fields.get(f"sg_ffmpeg_{ffmpeg_arg}")
                         if ffmpeg_val:
-                            self.log.debug("Adding ffmpeg arg '%s': %s", ffmpeg_arg, ffmpeg_val)
                             sg_profiles[out_name]["ffmpeg_args"][ffmpeg_arg] = [ffmpeg_val]
 
             # Found some overrides at the entity, return early
