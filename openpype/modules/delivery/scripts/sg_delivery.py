@@ -961,6 +961,21 @@ def generate_delivery_media_version(
         "customData": {"description": description}
     }
 
+    # Find the OP representations we want to deliver
+    thumbnail_repre_doc = get_representation_by_name(
+        project_name,
+        "thumbnail",
+        version_id=op_version_id,
+    )
+    if not thumbnail_repre_doc:
+        msg = "No 'thumbnail' representation found on SG versions"
+        sub_msg = f"{sg_version['code']} - id: {sg_version['id']}<br>"
+        logger.error("%s: %s", msg, sub_msg)
+        report_items[msg].append(sub_msg)
+        return report_items, False
+
+    instance_data["thumbnailSource"] = thumbnail_repre_doc["data"]["path"]
+
     # If we are specifying the version to generate we set it on the instance
     if override_version:
         instance_data["version"] = override_version
