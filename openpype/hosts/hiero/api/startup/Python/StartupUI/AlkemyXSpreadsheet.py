@@ -1451,16 +1451,29 @@ def _set_cut_info(self, key, value, operate):
             project_name
         )
 
-        frame_offset = frame_start + handle_start
-        if value:
-            if key == "cut_in":
-                frame_offset = int(value)
-            elif key == "cut_out":
-                frame_offset = int(value) - self.duration() + 1
+        if not frame_start or not handle_start:
+            frame_start = None
+        if not handle_start:
+            handle_start = None
+
+        if frame_start and handle_start:
+            frame_offset = frame_start + handle_start
+            if value:
+                if key == "cut_in":
+                    frame_offset = int(value)
+                elif key == "cut_out":
+                    frame_offset = int(value) - self.duration() + 1
+
+            cut_in = frame_offset
+            cut_out = frame_offset + self.duration() - 1
+
+        else:
+            cut_in = None
+            cut_out = None
 
         cut_data = {}
-        cut_data["cut_in"] = frame_offset
-        cut_data["cut_out"] = frame_offset + self.duration() - 1
+        cut_data["cut_in"] = cut_in
+        cut_data["cut_out"] = cut_out
         cut_data["head_handles"] = handle_start
         cut_data["tail_handles"] = handle_end
 

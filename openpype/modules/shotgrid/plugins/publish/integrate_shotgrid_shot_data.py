@@ -140,7 +140,7 @@ class IntegrateShotgridShotData(pyblish.api.InstancePlugin):
         self.sg_batch.append(sg_tag_batch)
 
     def update_working_resolution(self, instance, sg_shot):
-        working_resolution = instance.data.get("asset_working_resolution")
+        working_resolution = instance.data.get("asset_working_format")
         if working_resolution:
             self.log.info(
                 "Integrating working resolution: %s", working_resolution
@@ -169,6 +169,7 @@ class IntegrateShotgridShotData(pyblish.api.InstancePlugin):
             "data": {
                 "sg_resolution_width": working_resolution["resolutionWidth"],
                 "sg_resolution_height": working_resolution["resolutionHeight"],
+                "sg_pixel_aspect": working_resolution["pixelAspect"],
             },
         }
         self.sg_batch.append(working_res_batch)

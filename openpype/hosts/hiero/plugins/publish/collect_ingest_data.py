@@ -58,8 +58,8 @@ class CollectIngestData(pyblish.api.InstancePlugin):
                 " note update"
             )
 
-        self.collect_avalon_working_res(instance, track_item)
         self.collect_working_res(instance, track_item)
+        self.collect_avalon_working_res(instance, track_item)
         self.collect_ingest_effect(instance, track_item)
 
     def collect_avalon_working_res(self, instance, track_item):
@@ -102,13 +102,14 @@ class CollectIngestData(pyblish.api.InstancePlugin):
             width = track_item_format.width()
             height = track_item_format.height()
 
-        instance.data["asset_working_resolution"] = {
+        instance.data["asset_working_format"] = {
             "resolutionWidth": width,
             "resolutionHeight": height,
+            "pixelAspect": track_item_format.pixelAspect(),
         }
 
         self.log.info("Shot/Asset working resolution found on track item: %s",
-                      instance.data["asset_working_resolution"]
+                      instance.data["asset_working_format"]
         )
 
     def collect_working_res(self, instance, track_item):
