@@ -413,8 +413,14 @@
                                             "highlight_content": true,
                                             "children": [
                                                 {
-                                                    "key": "additional_command_args",
-                                                    "label": "Arguments",
+                                                    "key": "additional_pre_command_args",
+                                                    "label": "Pre Color Transform Arguments",
+                                                    "type": "list",
+                                                    "object_type": "text"
+                                                },
+                                                {
+                                                    "key": "additional_post_command_args",
+                                                    "label": "Post Color Transform Arguments",
                                                     "type": "list",
                                                     "object_type": "text"
                                                 }

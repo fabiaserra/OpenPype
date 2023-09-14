@@ -8,7 +8,7 @@ from openpype.modules.delivery.scripts import sg_delivery
 
 class DeliveryDialog(QtWidgets.QDialog):
     SIZE_W = 1000
-    SIZE_H = 500
+    SIZE_H = 650
 
     DELIVERY_TYPES = [
         "Final",
@@ -219,14 +219,16 @@ class DeliveryDialog(QtWidgets.QDialog):
     def handle_playlist_id_changed(self):
         # If there's a comma in the text, remove it and set the modified text
         cur_text = self.sg_playlist_id_input.text()
-        new_text = cur_text.strip()
+        new_text = cur_text.replace("\t", "")
+        new_text = cur_text.replace(" ", "")
         new_text = cur_text.replace(",", "")
         self.sg_playlist_id_input.setText(new_text)
 
     def handle_version_id_changed(self):
         # If there's a comma in the text, remove it and set the modified text
         cur_text = self.sg_version_id_input.text()
-        new_text = cur_text.strip()
+        new_text = cur_text.replace("\t", "")
+        new_text = cur_text.replace(" ", "")
         new_text = cur_text.replace(",", "")
         self.sg_version_id_input.setText(new_text)
 

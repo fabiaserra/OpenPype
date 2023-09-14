@@ -595,8 +595,9 @@ def republish_version(
         "fps": version_doc["data"]["fps"],
         "source": version_doc["data"]["source"],
         "overrideExistingFrame": False,
-        "jobBatchName": "Republish - {}_{}".format(
-            sg_version["code"], version_doc["name"]
+        "jobBatchName": "Republish - {} - {}".format(
+            sg_version["code"],
+            version_doc["name"]
         ),
         "useSequenceForReview": True,
         "colorspace": version_doc["data"].get("colorspace"),
@@ -951,13 +952,29 @@ def generate_delivery_media_version(
         "fps": version_doc["data"]["fps"],
         "source": version_doc["data"]["source"],
         "overrideExistingFrame": False,
-        "jobBatchName": "Generate delivery media - {}_{}".format(
-            sg_version["code"], delivery_subset_name
+        "jobBatchName": "Generate delivery media - {} - {}".format(
+            sg_version["code"],
+            delivery_subset_name
         ),
         "useSequenceForReview": True,
         "colorspace": version_doc["data"].get("colorspace"),
         "customData": {"description": description}
     }
+
+    # Find the OP representations we want to deliver
+    thumbnail_repre_doc = get_representation_by_name(
+        project_name,
+        "thumbnail",
+        version_id=op_version_id,
+    )
+    if not thumbnail_repre_doc:
+        msg = "No 'thumbnail' representation found on SG versions"
+        sub_msg = f"{sg_version['code']} - id: {sg_version['id']}<br>"
+        logger.error("%s: %s", msg, sub_msg)
+        report_items[msg].append(sub_msg)
+        return report_items, False
+
+    instance_data["thumbnailSource"] = thumbnail_repre_doc["data"]["path"]
 
     # If we are specifying the version to generate we set it on the instance
     if override_version:

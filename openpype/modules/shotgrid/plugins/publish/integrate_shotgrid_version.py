@@ -23,6 +23,7 @@ class IntegrateShotgridVersion(pyblish.api.InstancePlugin):
     families = [
         "plate",
         "render",
+        "prerender",
         "reference",
         "arnold_rop",
         "mantra_rop",

@@ -224,7 +224,7 @@ def expected_files(path, out_frame_start, out_frame_end):
 
 
 def submit_deadline_post_job(
-    instance_data, job, output_dir, deadline_url, metadata_path
+    instance_data, job, output_dir, deadline_url, metadata_path, job_name=None
 ):
     """Submit publish job to Deadline.
 
@@ -235,8 +235,8 @@ def submit_deadline_post_job(
     Returns:
         (str): deadline_publish_job_id
     """
-    subset = instance_data["subset"]
-    job_name = f"Republish - {instance_data['asset']} - {subset}"
+    if not job_name:
+        job_name = job["Props"]["Batch"]
 
     # Transfer the environment from the original job to this dependent
     # job so they use the same environment

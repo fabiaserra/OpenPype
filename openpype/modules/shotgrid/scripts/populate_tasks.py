@@ -40,6 +40,12 @@ def add_tasks_to_sg_entities(project, sg_entities, entity_type, tasks):
     for sg_entity in sg_entities:
         for task_data in tasks_data:
             task_data["entity"] = sg_entity
+            existing_task = sg.find("Task", [["entity", "is", sg_entity]])
+            if existing_task:
+                logger.info(
+                    "Task '%s' already existed at '%s'.",
+                    task_data["content"], sg_entity["code"]
+                )
             sg.create("Task", task_data)
             logger.info(
                 "Task '%s' created at '%s'", task_data["content"], sg_entity["code"]
