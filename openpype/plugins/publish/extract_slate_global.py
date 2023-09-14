@@ -11,6 +11,7 @@ from openpype.lib import (
     get_ffprobe_streams,
     get_chrome_tool_path,
     run_subprocess,
+    StringTemplate,
 )
 from openpype.pipeline import publish
 
@@ -205,8 +206,12 @@ class SlateCreator:
                     self.data["{}_optional".format(match)] = hidden_string
 
         try:
-            template_string_computed = self._template_string.format(
-                **self.data)
+            self.data["seq"] = self.data["seq"].upper()
+            filename = StringTemplate.format_template(
+                "{seq}_{shotnum}_{task[short]}_{@version}_ALKX", self.data
+            )
+            self.data["filename"] = filename
+            template_string_computed = self._template_string.format(**self.data)
             self.log.debug("Computed Template string: '%s'",
                            template_string_computed)
             self.log.debug("Data: %s", self.data)
@@ -609,7 +614,7 @@ class ExtractSlateGlobal(publish.Extractor):
                     )
                 )
                 repre["frameStart"] = slate_creator.data["real_frameStart"]
-                self.log.debug("Updated 'frameStart' to '%s'.",  repre["frameStart"])
+                self.log.debug("Updated 'frameStart' to '%s'.", repre["frameStart"])
             else:
                 if not instance.data.get("slateFrames"):
                     instance.data["slateFrames"] = {"*": slate_final_path}
