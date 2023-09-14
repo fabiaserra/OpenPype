@@ -287,7 +287,7 @@ class TranscodeFrames(publish.Extractor, publish.ColormanagedPyblishPluginMixin)
         }
 
         plugin_overrides = {}
-        if plugin == "Nuke":
+        if plugin == "AxNuke":
             plugin_overrides = {
                 "ScriptJob": True,
                 "ScriptFilename": self.nuke_transcode_py,
