@@ -122,7 +122,7 @@ class ExtractOIIOTranscode(publish.Extractor):
                 "review" in instance.data.get("families"):
             self.log.debug("Adding 'review' as delivery type for SG outputs.")
             delivery_types.append("review")
-        else:
+        elif "exr_review" in profile["outputs"]:
             self.log.debug(
                 "Removing 'exr_review' from profile because 'client_review' or" \
                 " 'review' are not part of the families."
@@ -132,7 +132,7 @@ class ExtractOIIOTranscode(publish.Extractor):
         if "client_final" in instance.data.get("families"):
             self.log.debug("Adding 'final' as delivery type for SG outputs.")
             delivery_types.append("final")
-        else:
+        elif "exr_final" in profile["outputs"]:
             self.log.debug(
                 "Removing 'exr_final' from profile because 'client_final' is " \
                 "not part of the families."
