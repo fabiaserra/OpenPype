@@ -24,7 +24,7 @@ class ExtractReviewSlate(publish.Extractor):
 
     label = "Review with Slate frame"
     order = pyblish.api.ExtractorOrder + 0.031
-    families = ["slate", "review", "client_review", "client_final"]
+    families = ["slate", "review"]
     match = pyblish.api.Subset
 
     SUFFIX = "_slate"
