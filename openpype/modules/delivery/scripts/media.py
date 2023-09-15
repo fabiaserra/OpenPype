@@ -1,40 +1,34 @@
 
 """Module for handling generation of delivery media of SG playlists and versions"""
 import os
-import re
 import collections
+import copy
+import re
 import click
-import getpass
-import json
 
-from openpype.client import (
-    get_project,
-    get_version_by_id,
-    get_representations,
-    get_representation_by_name,
-    get_subset_by_id,
-    get_last_version_by_subset_name,
-)
-from openpype.lib import Logger
-from openpype.pipeline import legacy_io, context_tools
-from openpype.settings import get_system_settings
-from openpype.modules.shotgrid.lib import credentials, delivery
-from openpype.modules.delivery.scripts import utils
+from openpype import client as op_cli
+from openpype.lib import Logger, StringTemplate, get_datetime_data
+from openpype.pipeline import delivery
+from openpype.modules.deadline.lib import submit
+from openpype.modules.shotgrid.lib import credentials
 
 
 logger = Logger.get_logger(__name__)
 
 
 NUKE_DELIVERY_PY_DEFAULT = "/pipe/hiero/templates/nuke_delivery.py"
-NUKE_DELIVERY_PY_SCRIPT = "/pipe/hiero/templates/nuke_delivery.nk"
+NUKE_DELIVERY_SCRIPT_DEFAULT = "/pipe/hiero/templates/nuke_delivery.nk"
+
+DELIVERY_STAGING_DIR = "/proj/{proj[code]}/io/delivery/ready_to_deliver/{yyyy}{mm}{dd}/{package_name}"
+
+
+SG_FIELD_MEDIA_GENERATED = "sg_op_delivery_media_generated"
+SG_FIELD_MEDIA_PATH = "sg_op_delivery_media_path"
 
 
 def generate_delivery_media_playlist_id(
     playlist_id,
     delivery_types,
-    representation_names=None,
-    force=False,
-    description=None,
     override_version=None,
 ):
     """Given a SG playlist id, generate all the delivery media for all the versions associated to it.
@@ -43,9 +37,6 @@ def generate_delivery_media_playlist_id(
         playlist_id (int): Shotgrid playlist id to republish.
         delivery_types (list[str]): What type(s) of delivery it is
             (i.e., ["final", "review"])
-        representation_names (list): List of representation names that should exist on
-            the representations being published.
-        force (bool): Whether to force the creation of the delivery representations or not.
 
     Returns:
         tuple: A tuple containing a dictionary of report items and a boolean indicating
@@ -66,7 +57,7 @@ def generate_delivery_media_playlist_id(
     # Get the project name associated with the selected entities
     project_name = sg_playlist["project"]["name"]
 
-    project_doc = get_project(project_name, fields=["name"])
+    project_doc = op_cli.get_project(project_name, fields=["name"])
     if not project_doc:
         return report_items[f"Didn't find project '{project_name}' in avalon."], False
 
@@ -82,11 +73,7 @@ def generate_delivery_media_playlist_id(
         new_report_items, new_success = generate_delivery_media_version(
             sg_version,
             project_name,
-            delivery_types,
-            representation_names,
-            force,
-            description,
-            override_version,
+            delivery_types
         )
         if new_report_items:
             report_items.update(new_report_items)
@@ -101,9 +88,6 @@ def generate_delivery_media_playlist_id(
 def generate_delivery_media_version_id(
     version_id,
     delivery_types,
-    representation_names=None,
-    force=False,
-    description=None,
     override_version=None,
 ):
     """Given a SG version id, generate its corresponding delivery so it
@@ -113,9 +97,6 @@ def generate_delivery_media_version_id(
         version_id (int): Shotgrid version id to republish.
         delivery_types (list[str]): What type(s) of delivery it is so we
             regenerate those representations.
-        representation_names (list): List of representation names that should exist on
-            the representations being published.
-        force (bool): Whether to force the creation of the delivery representations or not.
 
     Returns:
         tuple: A tuple containing a dictionary of report items and a boolean indicating
@@ -134,10 +115,6 @@ def generate_delivery_media_version_id(
         sg_version,
         sg_version["project"]["name"],
         delivery_types,
-        representation_names,
-        force,
-        description,
-        override_version,
     )
 
 
@@ -145,10 +122,9 @@ def generate_delivery_media_version(
     sg_version,
     project_name,
     delivery_types,
-    representation_names=None,
-    force=False,
-    description=None,
+    delivery_args=None,
     override_version=None,
+    out_filename_template=None,
 ):
     """
     Generate the corresponding delivery version given SG version by creating a new
@@ -180,7 +156,7 @@ def generate_delivery_media_version(
         return report_items, False
 
     # Get OP version corresponding to the SG version
-    version_doc = get_version_by_id(project_name, op_version_id)
+    version_doc = op_cli.get_version_by_id(project_name, op_version_id)
     if not version_doc:
         msg = "No OP version found for SG versions"
         sub_msg = f"{sg_version['code']} - id: {sg_version['id']}<br>"
@@ -189,7 +165,7 @@ def generate_delivery_media_version(
         return report_items, False
 
     # Find the OP representations we want to deliver
-    exr_repre_doc = get_representation_by_name(
+    exr_repre_doc = op_cli.get_representation_by_name(
         project_name,
         "exr",
         version_id=op_version_id,
@@ -201,11 +177,17 @@ def generate_delivery_media_version(
         report_items[msg].append(sub_msg)
         return report_items, False
 
-    # Add family for each delivery type to control which publish plugins
-    # get executed
-    families = []
-    for delivery_type in delivery_types:
-        families.append(f"client_{delivery_type}")
+    # TODO: move this on the dialog
+    sg = credentials.get_shotgrid_session()
+    representation_names, entity = delivery.get_representation_names(
+        sg, sg_version["id"], "Version", delivery_types
+    )
+    logger.debug(
+        "%s representation names found at '%s': %s",
+        sg_version['code'],
+        entity,
+        representation_names
+    )
 
     frame_start_handle = int(
         version_doc["data"]["frameStart"] - version_doc["data"]["handleStart"]
@@ -220,7 +202,7 @@ def generate_delivery_media_version(
     out_frame_end = frame_end_handle
 
     # Find the OP representations we want to deliver
-    thumbnail_repre_doc = get_representation_by_name(
+    thumbnail_repre_doc = op_cli.get_representation_by_name(
         project_name,
         "thumbnail",
         version_id=op_version_id,
@@ -232,109 +214,64 @@ def generate_delivery_media_version(
         report_items[msg].append(sub_msg)
         return report_items, False
 
-
-    exr_path = exr_repre_doc["data"]["path"]
+    input_path = exr_repre_doc["data"]["path"]
     # Replace frame number with #'s for expected_files function
     hashes_path = re.sub(
-        r"\d+(?=\.\w+$)", lambda m: "#" * len(m.group()) if m.group() else "#", exr_path
+        r"\d+(?=\.\w+$)", lambda m: "#" * len(m.group()) if m.group() else "#",
+        input_path
     )
 
-    # No need to raise error as Nuke raises an error exit value if
-    # something went wrong
-    logger.info("Submitting Nuke transcode")
+    anatomy_data = copy.deepcopy(exr_repre_doc["context"])
+    anatomy_data.update(get_datetime_data())
+    for representation_name in representation_names:
+        # repre_report_items, dest_path = delivery.check_destination_path(
+        #     delivery_name,
+        #     anatomy=None,
+        #     anatomy_data,
+        #     get_datetime_data(),
+        #     delivery_template_name,
+        #     delivery_template,
+        #     return_dest_path=True,
+        # )
+        output_path_template = os.path.join(
+            DELIVERY_STAGING_DIR, out_filename_template
+        )
+        output_delivery_path = StringTemplate.format_template(
+            output_path_template, anatomy_data
+        )
 
-    # Add environment variables required to run Nuke script
-    extra_env = {}
-    extra_env["_AX_DELIVERY_NUKESCRIPT"] = NUKE_DELIVERY_PY_SCRIPT
-    extra_env["_AX_DELIVERY_FRAMES"] = "{0}_{1}_{2}".format(
-        int(out_frame_start), int(out_frame_end), int(out_frame_start)
-    )
-    extra_env["_AX_DELIVERY_READTYPE"] = self.output_ext.lower()
-    extra_env["_AX_DELIVERY_READPATH"] = exr_path
-    extra_env["_AX_DELIVERY_WRITEPATH"] = output_path
+        # No need to raise error as Nuke raises an error exit value if
+        # something went wrong
+        logger.info("Submitting Nuke transcode")
 
-    # TODO: Change the AxNuke plugin to improve monitored process when
-    # submitting "scriptJob" type Nuke jobs to not error out when
-    # exiting the script
-    response = deadline.payload_submit(
-        instance,
-        output_path,
-        (out_frame_start, out_frame_end),
-        plugin="AxNuke",
-        extra_env=extra_env,
-    )
-    # expected_files = utils.expected_files(
-    #     hashes_path,
-    #     frame_start_handle,
-    #     frame_end_handle,
-    # )
-    # # logger.debug("__ Source expectedFiles: `{}`".format(expected_files))
+        # Add environment variables required to run Nuke script
+        extra_env = {}
+        extra_env["_AX_DELIVERY_NUKESCRIPT"] = NUKE_DELIVERY_SCRIPT_DEFAULT
+        extra_env["_AX_DELIVERY_FRAMES"] = "{0}_{1}_{2}".format(
+            int(out_frame_start), int(out_frame_end), int(out_frame_start)
+        )
+        extra_env["_AX_DELIVERY_READPATH"] = input_path
+        extra_env["_AX_DELIVERY_WRITEPATH"] = output_delivery_path
 
-    # # Inject variables into session
-    # legacy_io.Session["AVALON_ASSET"] = instance_data["asset"]
-    # legacy_io.Session["AVALON_TASK"] = instance_data.get("task")
-    # legacy_io.Session["AVALON_PROJECT"] = project_name
-    # legacy_io.Session["AVALON_APP"] = "traypublisher"
+        plugin_data = {
+            "ScriptJob": True,
+            "ScriptFilename": NUKE_DELIVERY_PY_DEFAULT,
+            # the Version entry is kind of irrelevant as our Deadline workers only
+            # contain a single DCC version at the time of writing this
+            "Version": "14.0",
+            "UseGpu": False,
+        }
 
-    # legacy_io.Session["AVALON_WORKDIR"] = temp_delivery_dir
-    # # Set outputDir on instance data as that's used to define where
-    # # to save the metadata path
-    # instance_data["outputDir"] = temp_delivery_dir
-
-    # render_job = {}
-    # render_job["Props"] = {}
-    # # Render job doesn't exist because we do not have prior submission.
-    # # We still use data from it so lets fake it.
-    # #
-    # # Batch name reflect original scene name
-
-    # render_job["Props"]["Batch"] = instance_data.get("jobBatchName")
-
-    # # User is deadline user
-    # render_job["Props"]["User"] = getpass.getuser()
-
-    # # get default deadline webservice url from deadline module
-    # deadline_url = get_system_settings()["modules"]["deadline"]["deadline_urls"][
-    #     "default"
-    # ]
-
-    # metadata_path = utils.create_metadata_path(instance_data)
-    # logger.info("Metadata path: %s", metadata_path)
-
-    # deadline_publish_job_id = utils.submit_deadline_post_job(
-    #     instance_data, render_job, temp_delivery_dir, deadline_url, metadata_path
-    # )
-
-    # report_items["Submitted generate delivery media job to Deadline"].append(
-    #     deadline_publish_job_id
-    # )
-
-    # # Inject deadline url to instances.
-    # for inst in instances:
-    #     inst["deadlineUrl"] = deadline_url
-
-    # # publish job file
-    # publish_job = {
-    #     "asset": instance_data["asset"],
-    #     "frameStart": instance_data["frameStartHandle"],
-    #     "frameEnd": instance_data["frameEndHandle"],
-    #     "fps": instance_data["fps"],
-    #     "source": instance_data["source"],
-    #     "user": getpass.getuser(),
-    #     "version": None,  # this is workfile version
-    #     "intent": None,
-    #     "comment": instance_data["comment"],
-    #     "job": render_job or None,
-    #     "session": legacy_io.Session.copy(),
-    #     "instances": instances,
-    # }
-
-    # if deadline_publish_job_id:
-    #     publish_job["deadline_publish_job_id"] = deadline_publish_job_id
-
-    logger.info("Writing json file: {}".format(metadata_path))
-    with open(metadata_path, "w") as f:
-        json.dump(publish_job, f, indent=4, sort_keys=True)
+        # TODO: Change the AxNuke plugin to improve monitored process when
+        # submitting "scriptJob" type Nuke jobs to not error out when
+        # exiting the script
+        response = submit.payload_submit(
+            output_delivery_path,
+            (out_frame_start, out_frame_end),
+            plugin="AxNuke",
+            plugin_data=plugin_data,
+            extra_env=extra_env,
+        )
 
     click.echo(report_items)
     return report_items, True
