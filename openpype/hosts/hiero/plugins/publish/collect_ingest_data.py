@@ -97,15 +97,17 @@ class CollectIngestData(pyblish.api.InstancePlugin):
         if ingest_resolution:
             width = ingest_resolution["width"]
             height = ingest_resolution["height"]
+            pixel_aspect = ingest_resolution["pixel_aspect"]
         else:
             track_item_format = track_item.source().format()
             width = track_item_format.width()
             height = track_item_format.height()
+            pixel_aspect = track_item_format.pixelAspect()
 
         instance.data["asset_working_format"] = {
             "resolutionWidth": width,
             "resolutionHeight": height,
-            "pixelAspect": track_item_format.pixelAspect(),
+            "pixelAspect": pixel_aspect,
         }
 
         self.log.info("Shot/Asset working resolution found on track item: %s",
