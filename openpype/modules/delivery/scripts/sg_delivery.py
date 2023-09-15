@@ -29,14 +29,6 @@ from openpype.modules.delivery.scripts import utils
 
 logger = Logger.get_logger(__name__)
 
-# List of SG fields from context entities (i.e., Project, Shot) that we care to
-# query for delivery purposes
-SG_DELIVERY_FIELDS = [
-    "sg_delivery_name",
-    "sg_final_output_type",
-    "sg_review_output_type",
-]
-
 
 def deliver_playlist_id(
     playlist_id,
@@ -143,7 +135,6 @@ def deliver_version_id(
     if not sg_version:
         report_items["SG Version not found"].append(version_id)
         return report_items, False
-
 
     return deliver_version(
         sg_version,
