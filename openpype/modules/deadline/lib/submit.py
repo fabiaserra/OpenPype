@@ -18,21 +18,29 @@ CONCURRENT_TASKS = 1
 GROUP = "nuke-cpu-epyc"
 DEPARTMENT = "Editorial"
 
-DEADLINE_URL = ""
+DEADLINE_URL = "http://webserver-deadline-10-1-23-6:8082"
 
 PLUGINS_DATA_MAP = {
-    "Nuke":
-
+    "AxNuke": [
+        "ScriptJob",
+        "ScriptFilename",
+        "Version",
+        "UseGpu",
+    ],
+    "CommandLine": [
+        "Executable",
+        "Arguments",
+        "UseGpu",
+        "WorkingDirectory",
+    ]
 }
 
 
 def payload_submit(
-    instance,
     render_path,
     out_framerange,
     plugin,
-    executable=None,
-    args=None,
+    plugin_data,
     comment=None,
     extra_env=None,
     response_data=None,
@@ -83,23 +91,11 @@ def payload_submit(
         "AuxFiles": [],
     }
 
+    # Set plugin overrides data from plugin data
     plugin_overrides = {}
-    if plugin == "Nuke":
-        plugin_overrides = {
-            "ScriptJob": True,
-            "ScriptFilename": self.nuke_transcode_py,
-            "SceneFile": self.nuke_transcode_py,
-            "Version": self._ver,
-            "UseGpu": False,
-        }
-
-    elif plugin == "CommandLine":
-        plugin_overrides = {
-            "Executable": executable,
-            "Arguments": args,
-            "UseGpu": False,
-            "WorkingDirectory": render_dir,
-        }
+    for key in PLUGINS_DATA_MAP[plugin]:
+        if plugin_data.get(key):
+            plugin_overrides[key] = plugin_data[key]
 
     # Update plugin info with overrides
     payload["PluginInfo"].update(plugin_overrides)
@@ -137,10 +133,6 @@ def payload_submit(
     if is_running_from_build():
         keys.append("OPENPYPE_VERSION")
 
-    # Add mongo url if it's enabled
-    if instance.context.data.get("deadlinePassMongoUrl"):
-        keys.append("OPENPYPE_MONGO")
-
     environment = dict(
         {key: os.environ[key] for key in keys if key in os.environ},
         **legacy_io.Session,
@@ -172,17 +164,6 @@ def payload_submit(
     logger.info("Submitting..")
     logger.info(json.dumps(payload, indent=4, sort_keys=True))
 
-    # # adding expected files to instance.data
-    # self.expected_files(
-    #     instance,
-    #     render_path,
-    #     out_framerange[0],
-    #     out_framerange[1]
-    )
-
-    logger.debug(
-        "__ expectedFiles: `{}`".format(instance.data["expectedFiles"])
-    )
     response = requests.post(DEADLINE_URL, json=payload, timeout=10)
 
     if not response.ok:
