@@ -293,8 +293,8 @@ class DeliveryDialog(QtWidgets.QDialog):
             "Template string used as a replacement for where the delivery media "
             "will be written to.\nAvailable tokens: {}\nTo make a token optional"
             "so it's ignored if it's not available on the entity you can just "
-            "wrap it with '<' and '>' (i.e., <{frame}> will only be added in the "
-            "case where {frame} doesn't exist on that output)".format(
+            "wrap it with '<' and '>' (i.e., <{{frame}}> will only be added in the "
+            "case where {{frame}} doesn't exist on that output)".format(
                 self.TOKENS_HELP
             )
         )
