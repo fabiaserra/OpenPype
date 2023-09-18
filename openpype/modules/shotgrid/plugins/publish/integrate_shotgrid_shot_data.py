@@ -173,7 +173,7 @@ class IntegrateShotgridShotData(pyblish.api.InstancePlugin):
                 "sg_resolution_height": int(
                     working_resolution["resolutionHeight"]
                 ),
-                "sg_pixel_aspect": int(working_resolution["pixelAspect"]),
+                "sg_pixel_aspect": float(working_resolution["pixelAspect"]),
             },
         }
         self.sg_batch.append(working_res_batch)
