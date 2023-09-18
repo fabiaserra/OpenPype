@@ -194,7 +194,9 @@ class ProcessSubmittedJobOnFarm(pyblish.api.InstancePlugin,
         """
         data = instance.data.copy()
         subset = data["subset"]
-        job_name = "Publish - {subset}".format(subset=subset)
+        job_name = "Publish - {asset} - {subset}".format(
+            asset=instance.data.get("asset"), subset=subset
+        )
 
         anatomy = instance.context.data['anatomy']
 
