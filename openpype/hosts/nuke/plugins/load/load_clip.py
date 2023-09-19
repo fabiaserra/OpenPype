@@ -153,6 +153,10 @@ class LoadClip(plugin.NukeLoader):
 
         read_name = self._get_node_name(representation)
 
+        # Set frame to anything other than first frame so format read correct
+        # file header. Needed for when slate exists
+        nuke.frame(last)
+        nuke.updateUI()
         # Create the Loader with the filename path set
         read_node = nuke.createNode(
             "Read",
@@ -171,6 +175,16 @@ class LoadClip(plugin.NukeLoader):
 
             # fromUserText let's Nuke automatically fill frame details
             read_node["file"].fromUserText(formatted_filepath)
+
+            # Override root setting of format. Read format shouldn't be dynamic
+            for format in nuke.formats():
+                if read_node.height() == format.height() and \
+                    read_node.width() == format.width() and \
+                    read_node.pixelAspect() == format.pixelAspect():
+                    print(format.name(), 'format.name()')
+                    read_node["format"].setValue(format.name())
+                    print(f"setting format on read node {read_node.name()}")
+                    break
 
             used_colorspace = self._set_colorspace(
                 read_node, version_data, representation["data"], filepath)
@@ -223,7 +237,7 @@ class LoadClip(plugin.NukeLoader):
                 context=context,
                 loader=self.__class__.__name__,
                 data=data_imprint)
-        print(read_node['before'].value(), "2read_node['before'].value()")
+
         if add_retime and version_data.get("retime", None):
             self._make_retimes(read_node, version_data)
 
