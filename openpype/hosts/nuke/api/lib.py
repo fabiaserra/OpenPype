@@ -2555,7 +2555,9 @@ Reopening Nuke should synchronize these paths and resolve any discrepancies.
         # replace reset resolution from avalon core to pype's
         self.reset_frame_range_handles()
         # add colorspace menu item
-        self.set_colorspace()
+        ### Starts Alkemy-x Override ###
+        # self.set_colorspace()
+        ### Ends Alkemy-x Override ###
 
     def set_favorites(self):
         from .utils import set_context_favorites
