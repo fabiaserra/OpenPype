@@ -332,11 +332,11 @@ def generate_delivery_media_version(
     out_frame_end = frame_end_handle
 
     # Find the OP representations we want to deliver
-    # thumbnail_repre_doc = op_cli.get_representation_by_name(
-    #     project_name,
-    #     "thumbnail",
-    #     version_id=op_version_id,
-    # )
+    thumbnail_repre_doc = op_cli.get_representation_by_name(
+        project_name,
+        "thumbnail",
+        version_id=op_version_id,
+    )
     # if not thumbnail_repre_doc:
     #     msg = "No 'thumbnail' representation found on SG versions"
     #     sub_msg = f"{sg_version['code']} - id: {sg_version['id']}<br>"
@@ -384,8 +384,7 @@ def generate_delivery_media_version(
         output_path_template = os.path.join(
             package_path, delivery_data["template_path"]
         )
-        # import rpdb
-        # rpdb.set_trace()
+
         repre_report_items, dest_path = delivery.check_destination_path(
             output_name,
             None,
@@ -414,6 +413,9 @@ def generate_delivery_media_version(
         extra_env["_AX_DELIVERY_ARTIST"] = anatomy_data.get("user")
         extra_env["_AX_DELIVERY_READPATH"] = input_hashes_path
         extra_env["_AX_DELIVERY_WRITEPATH"] = dest_path
+
+        if thumbnail_repre_doc:
+            extra_env["_AX_DELIVERY_THUMBNAIL_PATH"] = thumbnail_repre_doc["data"]["path"]
 
         plugin_data = {
             "ScriptJob": True,
