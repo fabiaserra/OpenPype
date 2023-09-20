@@ -689,6 +689,10 @@ def republish_version(
     with open(metadata_path, "w") as f:
         json.dump(publish_job, f, indent=4, sort_keys=True)
 
+    # sg = credentials.get_shotgrid_session()
+    # neat_vid_reformat_tag = {"id": 6211, "name": "neat_vid_reformat", "type": "Tag"}
+    # sg.update("Version", sg_version["id"], {"tags": [neat_vid_reformat_tag]})
+
     click.echo(report_items)
     return report_items, True
 
