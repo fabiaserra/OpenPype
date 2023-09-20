@@ -186,8 +186,8 @@ class TranscodeFrames(publish.Extractor, publish.ColormanagedPyblishPluginMixin)
                 )
             else:
                 input_args = ""
-                if resolution == "wr":
-                    input_args = "--crop 3776x3164+416+0 --cut 3776x3164"
+                if os.getenv("SHOW") == "uni" and resolution == "wr":
+                    input_args = "--cut 3776x3164+416+0"
 
                 self.log.info("Submitting OIIO transcode")
                 oiio_args = " ".join(self.oiio_args).format(
