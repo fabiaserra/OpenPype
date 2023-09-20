@@ -228,7 +228,7 @@ class ExtractOIIOTranscode(publish.Extractor):
                 new_repre = copy.deepcopy(repre)
 
                 original_staging_dir = new_repre["stagingDir"]
-                new_staging_dir = get_transcode_temp_directory()
+                new_staging_dir = os.path.join(original_staging_dir, "ExtractOIIOTranscode")
                 new_repre["stagingDir"] = new_staging_dir
 
                 if isinstance(new_repre["files"], list):
