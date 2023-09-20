@@ -11,19 +11,23 @@ from openpype.pipeline import legacy_io
 
 logger = Logger.get_logger(__name__)
 
-
+# Default Deadline job
 PRIORITY = 50
 CHUNK_SIZE = 9999
 CONCURRENT_TASKS = 1
 GROUP = "nuke-cpu-epyc"
 DEPARTMENT = "Editorial"
 
+# URL for REST API of Deadline
 DEADLINE_URL = "http://webserver-deadline-10-1-23-6:8082"
 
+# Dictionary that maps each Deadline plugin with the required arguments
+# for the plugin that will be passed as plugin_data dictionary
 PLUGINS_DATA_MAP = {
     "AxNuke": [
         "ScriptJob",
         "ScriptFilename",
+        "SceneFile",
         "Version",
         "UseGpu",
     ],
@@ -41,18 +45,16 @@ def payload_submit(
     out_framerange,
     plugin,
     plugin_data,
-    comment=None,
+    batch_name,
+    task_name=None,
+    comment="",
     extra_env=None,
     response_data=None,
 ):
-    render_dir = os.path.normpath(os.path.dirname(render_path))
-    jobname = "%s - %s" % (render_dir, os.path.basename(render_path))
-
-    output_filename_0 = preview_fname(render_path)
-
     if not response_data:
         response_data = {}
 
+    render_dir = os.path.normpath(os.path.dirname(render_path))
     try:
         # Ensure render folder exists
         os.makedirs(render_dir)
@@ -62,24 +64,24 @@ def payload_submit(
     payload = {
         "JobInfo": {
             # Top-level group name
-            "BatchName": render_dir,
+            "BatchName": batch_name,
             # Job name, as seen in Monitor
-            "Name": jobname,
+            "Name": task_name or os.path.basename(render_path),
             # Arbitrary username, for visualisation in Monitor
             "UserName": getpass.getuser(),
             "Priority": PRIORITY,
             "ChunkSize": CHUNK_SIZE,
             "ConcurrentTasks": CONCURRENT_TASKS,
             "Department": DEPARTMENT,
-            "Pool": None,
-            "SecondaryPool": None,
+            "Pool": "",
+            "SecondaryPool": "",
             "Group": GROUP,
             "Plugin": plugin,
             "Frames": f"{out_framerange[0]}-{out_framerange[1]}",
-            "Comment": comment,
+            "Comment": comment or "",
             # Optional, enable double-click to preview rendered
             # frames from Deadline Monitor
-            "OutputFilename0": output_filename_0.replace("\\", "/"),
+            "OutputFilename0": preview_fname(render_path).replace("\\", "/"),
         },
         "PluginInfo": {
             # Output directory and filename
@@ -164,12 +166,13 @@ def payload_submit(
     logger.info("Submitting..")
     logger.info(json.dumps(payload, indent=4, sort_keys=True))
 
-    response = requests.post(DEADLINE_URL, json=payload, timeout=10)
+    url = "{}/api/jobs".format(DEADLINE_URL)
+    response = requests.post(url, json=payload, timeout=10)
 
     if not response.ok:
         raise Exception(response.text)
 
-    return response
+    return response.json()
 
 
 def preview_fname(path):
