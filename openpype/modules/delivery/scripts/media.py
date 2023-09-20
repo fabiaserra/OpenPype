@@ -8,7 +8,7 @@ import click
 
 from openpype import client as op_cli
 from openpype.lib import Logger, StringTemplate, get_datetime_data
-from openpype.pipeline import delivery, template_data
+from openpype.pipeline import delivery, template_data, legacy_io
 from openpype.modules.deadline.lib import submit
 from openpype.modules.shotgrid.lib import credentials
 
@@ -426,6 +426,12 @@ def generate_delivery_media_version(
             "Version": "14.0",
             "UseGpu": False,
         }
+
+        # Inject variables into session
+        legacy_io.Session["AVALON_ASSET"] = anatomy_data["asset"]
+        legacy_io.Session["AVALON_TASK"] = anatomy_data["task"]["name"]
+        legacy_io.Session["AVALON_PROJECT"] = project_name
+        legacy_io.Session["AVALON_APP_NAME"] = "traypublisher"
 
         # TODO: Change the AxNuke plugin to improve monitored process when
         # submitting "scriptJob" type Nuke jobs to not error out when
