@@ -1,8 +1,10 @@
 import platform
+import json
 from qtpy import QtCore, QtWidgets, QtGui
 
 from openpype import style
 from openpype import resources
+from openpype.lib import Logger
 from openpype.client import get_projects
 from openpype.pipeline import AvalonMongoDB
 from openpype.tools.utils import lib as tools_lib
@@ -10,18 +12,21 @@ from openpype.modules.shotgrid.lib import delivery, credentials
 from openpype.modules.delivery.scripts import media
 
 
+logger = Logger.get_logger(__name__)
+
+
 class DeliveryOutputsWidget(QtWidgets.QWidget):
-    def __init__(self, delivery_output_names=None):
+    def __init__(self):
         super().__init__()
 
         # Create the layout
         self.layout = QtWidgets.QFormLayout(self)
         self.setLayout(self.layout)
 
-        self.delivery_outputs = {}
-        self.update(delivery_output_names)
+        self.delivery_widgets = {}
+        self.delivery_extensions = {}
 
-    def update(self, delivery_output_names):
+    def update(self, outputs_name_ext):
         # Remove all existing rows
         for i in reversed(range(self.layout.count())):
             item = self.layout.itemAt(i)
@@ -30,27 +35,29 @@ class DeliveryOutputsWidget(QtWidgets.QWidget):
             self.layout.removeItem(item)
 
         self.delivery_outputs = {}
-        if not delivery_output_names:
+        if not outputs_name_ext:
             return
 
         # Add the new rows
-        for output_name in delivery_output_names:
-            label = QtWidgets.QLabel(f"{output_name}")
+        for name_ext in outputs_name_ext:
+            name, ext = name_ext
+            label = QtWidgets.QLabel(f"{name}")
             checkbox = QtWidgets.QCheckBox()
             checkbox.setChecked(True)
-            # template_input = QtWidgets.QLineEdit()
-            self.delivery_outputs[output_name] = checkbox
+            self.delivery_widgets[name] = checkbox
+            self.delivery_extensions[name] = ext
             self.layout.addRow(label, checkbox)
 
     def get_selected_outputs(self):
         return [
-            output_name
-            for output_name, checkbox in self.delivery_outputs.items()
+            (output_name, self.delivery_extensions[output_name])
+            for output_name, checkbox in self.delivery_widgets.items()
             if checkbox.isChecked()
         ]
 
 
 class KeyValueWidget(QtWidgets.QWidget):
+    """Widget to define key value pairs of strings."""
     def __init__(self):
         super().__init__()
 
@@ -104,16 +111,15 @@ class KeyValueWidget(QtWidgets.QWidget):
                 break
 
         # Remove the key-value pair from the layout and the list
-        pair_layout = key_input.parent()
-        self.scroll_layout.removeItem(pair_layout)
-        pair_layout.deleteLater()
+        pair_widget = delete_button.parent()
+        pair_widget.deleteLater()
         self.pairs.remove((key_input, value_input, delete_button))
 
     def get_pairs(self):
         # Return the key-value pairs as a dictionary
         return {
             key_input.text(): value_input.text()
-            for key_input, value_input in self.pairs
+            for key_input, value_input, _ in self.pairs
         }
 
 
@@ -125,6 +131,9 @@ class DeliveryDialog(QtWidgets.QDialog):
 
     SIZE_W = 1200
     SIZE_H = 650
+
+    # File path to json file that contains defaults for the Delivery dialog inputs
+    PROJ_DELIVERY_CONFIG = "/proj/{project_code}/config/delivery/defaults.json"
 
     TOKENS_HELP = """
         {project[name]}: Project's full name
@@ -141,14 +150,6 @@ class DeliveryDialog(QtWidgets.QDialog):
         {representation}: Representation name
         {frame}: Frame number for sequence files.
     """
-
-    DELIVERY_TYPES = [
-        "Final",
-        "Review",
-    ]
-
-    DELIVERY_TEMPLATE_DEFAULT = "{package_name}/{output}/<{is_sequence}<{filename}/>>{filename}_<.{frame:0>4}>.{ext}"
-    FILENAME_TEMPLATE_DEFAULT = "{SEQ}_{shotnum}_{task[short]}_v{version:0>4}_{vendor}"
 
     def __init__(self, module, parent=None):
         super(DeliveryDialog, self).__init__(parent)
@@ -199,37 +200,21 @@ class DeliveryDialog(QtWidgets.QDialog):
         input_layout.addRow("Project", projects_combobox)
 
         delivery_outputs = DeliveryOutputsWidget()
-        self._delivery_outputs = delivery_outputs
         input_layout.addRow("Outputs {output}", delivery_outputs)
-
-        # Add combobox to choose which delivery type to do
-        # delivery_type_widget = QtWidgets.QWidget()
-        # delivery_type_layout = QtWidgets.QFormLayout(delivery_type_widget)
-        # self.delivery_type_checkboxes = {}
-        # for delivery_type in self.DELIVERY_TYPES:
-        #     checkbox = QtWidgets.QCheckBox()
-        #     checkbox.setChecked(True)
-
-        #     self.delivery_type_checkboxes[delivery_type] = checkbox
-        #     # TODO: if we want to add some control
-        #     # checkbox.stateChanged.connect(self._update_delivery)
-        #     delivery_type_layout.addRow(delivery_type, checkbox)
-
-        # input_layout.addRow("Delivery Type", delivery_type_widget)
 
         # TODO: validate whether version has already been generated or not
         # Add checkbox to choose whether we want to force the media to be
         # regenerated or not
-        # ensure_delivery_media_cb = QtWidgets.QCheckBox()
-        # ensure_delivery_media_cb.setChecked(False)
-        # ensure_delivery_media_cb.setToolTip(
-        #     "Whether we want to force the generation of the delivery media "\
-        #     "representations regardless if they already exist or not " \
-        #     "(i.e., need to create new slates)"
-        # )
-        # main_layout.addRow(
-        #     "Force regeneration of media", ensure_delivery_media_cb
-        # )
+        force_delivery_media_cb = QtWidgets.QCheckBox()
+        force_delivery_media_cb.setChecked(False)
+        force_delivery_media_cb.setToolTip(
+            "Whether we want to force the generation of the delivery media "\
+            "representations regardless if that version already exists or not " \
+            "(i.e., need to create new slates)"
+        )
+        input_layout.addRow(
+            "Force regeneration of media", force_delivery_media_cb
+        )
 
         vendor_input = QtWidgets.QLineEdit(
             "ALKX"
@@ -247,12 +232,6 @@ class DeliveryDialog(QtWidgets.QDialog):
         )
         input_layout.addRow("Package name {package_name}", package_name_input)
 
-        filename_input = QtWidgets.QLineEdit(self.FILENAME_TEMPLATE_DEFAULT)
-        filename_input.setToolTip(
-            "Template string used as a replacement of {filename} on the path template."
-        )
-        input_layout.addRow("File name {filename}", filename_input)
-
         version_input = QtWidgets.QLineEdit("")
         version_input.setToolTip(
             "Override the version number of the delivery media. If left empty, " \
@@ -267,7 +246,7 @@ class DeliveryDialog(QtWidgets.QDialog):
         task_override_combo = QtWidgets.QComboBox()
         task_override_combo.addItems(
             [
-                "-- Use source task --",
+                media.USE_SOURCE_VALUE,
                 "blockvis",
                 "previs",
                 "techvis",
@@ -283,12 +262,34 @@ class DeliveryDialog(QtWidgets.QDialog):
             ]
         )
         task_override_combo.setEditable(True)
-        input_layout.addRow("Task code {task[code]}", task_override_combo)
+        input_layout.addRow("Task short {task[short]}", task_override_combo)
 
-        common_key_values = KeyValueWidget()
-        input_layout.addRow("Custom tokens", common_key_values)
+        comment_input = QtWidgets.QLineEdit("")
+        comment_input.setToolTip(
+            "Override the submission notes/comment of the delivery media. If left empty, " \
+            "the comment will just be picked up from the SG version description. "
+        )
+        # Set the validator for the QLineEdit to QIntValidator
+        comment_input.setValidator(QtGui.QIntValidator())
+        input_layout.addRow(
+            "Submission notes override {comment}", comment_input
+        )
 
-        template_input = QtWidgets.QLineEdit(self.DELIVERY_TEMPLATE_DEFAULT)
+        custom_tokens = KeyValueWidget()
+        custom_tokens.setToolTip(
+            "Key value pairs of new tokens to create so they can be used on "
+            "template path. If you prefix the key with an output name, that "
+            " key will only exist for that output (i.e., 'prores422_final:suffix')"
+        )
+        input_layout.addRow("Custom tokens", custom_tokens)
+
+        filename_input = QtWidgets.QLineEdit(media.FILENAME_TEMPLATE_DEFAULT)
+        filename_input.setToolTip(
+            "Template string used as a replacement of {filename} on the path template."
+        )
+        input_layout.addRow("File name {filename}", filename_input)
+
+        template_input = QtWidgets.QLineEdit(media.DELIVERY_TEMPLATE_DEFAULT)
         template_input.setToolTip(
             "Template string used as a replacement for where the delivery media "
             "will be written to.\nAvailable tokens: {}\nTo make a token optional"
@@ -312,24 +313,25 @@ class DeliveryDialog(QtWidgets.QDialog):
 
         sg_playlist_id_input = QtWidgets.QLineEdit()
         sg_playlist_id_input.setToolTip("Integer id of the SG Playlist (i.e., '3909')")
-        sg_playlist_id_input.editingFinished.connect(self._playlist_id_changed)
-        self.playlist_radio_btn = QtWidgets.QRadioButton("SG Playlist Id")
-        self.playlist_radio_btn.setChecked(True)
-        input_group.addButton(self.playlist_radio_btn)
-        input_layout.addRow(self.playlist_radio_btn, sg_playlist_id_input)
+        sg_playlist_id_input.textEdited.connect(self._playlist_id_edited)
+        playlist_radio_btn = QtWidgets.QRadioButton("SG Playlist Id")
+        playlist_radio_btn.setChecked(True)
+        input_group.addButton(playlist_radio_btn)
+        input_layout.addRow(playlist_radio_btn, sg_playlist_id_input)
 
         sg_version_id_input = QtWidgets.QLineEdit()
         sg_version_id_input.setToolTip("Integer id of the SG Version (i.e., '314726')")
-        sg_version_id_input.editingFinished.connect(self._version_id_changed)
-        self.version_radio_btn = QtWidgets.QRadioButton("SG Version Id")
-        input_group.addButton(self.version_radio_btn)
-        input_layout.addRow(self.version_radio_btn, sg_version_id_input)
+        sg_version_id_input.textEdited.connect(self._version_id_edited)
+        version_radio_btn = QtWidgets.QRadioButton("SG Version Id")
+        input_group.addButton(version_radio_btn)
+        input_layout.addRow(version_radio_btn, sg_version_id_input)
 
         main_layout.addWidget(sg_input_widget)
 
         generate_delivery_media_btn = QtWidgets.QPushButton(
             "Generate delivery media"
         )
+        generate_delivery_media_btn.setDefault(True)
         generate_delivery_media_btn.setToolTip(
             "Run the delivery media pipeline and ensure delivery media exists for all " \
             "outputs (Final Output, Review Output in ShotGrid)"
@@ -350,10 +352,21 @@ class DeliveryDialog(QtWidgets.QDialog):
         # Assign widgets we want to reuse to class instance
 
         self._projects_combobox = projects_combobox
-        self._sg_playlist_id_input = sg_playlist_id_input
-        self._sg_version_id_input = sg_version_id_input
-        self._text_area = text_area
+        self._delivery_outputs = delivery_outputs
+        self._force_delivery_media_cb = force_delivery_media_cb
+        self._vendor_input = vendor_input
+        self._package_name_input = package_name_input
+        self._filename_input = filename_input
+        self._version_input = version_input
         self._task_override_combo = task_override_combo
+        self._comment_input = comment_input
+        self._custom_tokens = custom_tokens
+        self._template_input = template_input
+        self._sg_playlist_id_input = sg_playlist_id_input
+        self._sg_playlist_btn = playlist_radio_btn
+        self._sg_version_id_input = sg_version_id_input
+        self._sg_version_btn = version_radio_btn
+        self._text_area = text_area
 
     def showEvent(self, event):
         super(DeliveryDialog, self).showEvent(event)
@@ -366,21 +379,21 @@ class DeliveryDialog(QtWidgets.QDialog):
             self._initial_refresh = True
             self.refresh()
 
-    def _playlist_id_changed(self):
+    def _playlist_id_edited(self, text):
         # If there's a comma in the text, remove it and set the modified text
-        cur_text = self._sg_playlist_id_input.text()
-        new_text = cur_text.replace("\t", "")
-        new_text = cur_text.replace(" ", "")
-        new_text = cur_text.replace(",", "")
-        self._sg_playlist_id_input.setText(new_text)
+        text = text.replace("\t", "")
+        text = text.replace(" ", "")
+        text = text.replace(",", "")
+        self._sg_playlist_id_input.setText(text)
+        self._sg_playlist_btn.setChecked(True)
 
-    def _version_id_changed(self):
+    def _version_id_edited(self, text):
         # If there's a comma in the text, remove it and set the modified text
-        cur_text = self._sg_version_id_input.text()
-        new_text = cur_text.replace("\t", "")
-        new_text = cur_text.replace(" ", "")
-        new_text = cur_text.replace(",", "")
-        self._sg_version_id_input.setText(new_text)
+        text = text.replace("\t", "")
+        text = text.replace(" ", "")
+        text = text.replace(",", "")
+        self._sg_version_id_input.setText(text)
+        self._sg_version_btn.setChecked(True)
 
     def _refresh(self):
         if not self._initial_refresh:
@@ -443,22 +456,56 @@ class DeliveryDialog(QtWidgets.QDialog):
 
         self.dbcon.Session["AVALON_PROJECT"] = project_name
 
-        sg_project = self.sg.find_one("Project", [["name", "is", project_name]])
-        representation_names, _ = delivery.get_representation_names(
-            self.sg, sg_project["id"], "Project", ["review", "final"]
+        delivery_types = ["review", "final"]
+        sg_project = self.sg.find_one(
+            "Project",
+            [["name", "is", project_name]],
+            delivery.SG_DELIVERY_OUTPUT_FIELDS + ["sg_code"]
         )
-        self._delivery_outputs.update(representation_names)
+        project_overrides = delivery.get_entity_overrides(
+            self.sg,
+            sg_project,
+            delivery_types,
+            query_fields=delivery.SG_DELIVERY_OUTPUT_FIELDS,
+            query_ffmpeg_args=True
+        )
+
+        logger.debug("Found project overrides: %s", project_overrides)
+        # Create list of tuples of output name and its extension
+        outputs_name_ext = []
+        for delivery_type in delivery_types:
+            out_data_types = project_overrides.get(f"sg_{delivery_type}_output_type", [])
+            for data_type_name, data_type_args in out_data_types.items():
+                out_name = f"{data_type_name.lower().replace(' ', '')}_{delivery_type}"
+                out_extension = data_type_args["sg_extension"]
+                outputs_name_ext.append((out_name, out_extension))
+
+        logger.debug("Found outputs: %s", outputs_name_ext)
+        self._delivery_outputs.update(outputs_name_ext)
 
         project_name = self.dbcon.active_project() or "No project selected"
         title = "{} - {}".format(self.tool_title, project_name)
         self.setWindowTitle(title)
 
-    # -------------------------------
-    # Delay calling blocking methods
-    # -------------------------------
+        # Store some useful variables
+        project_code = sg_project.get("sg_code")
+        self._load_project_config(project_code)
+        # self._current_project_code = project_code
 
-    def refresh(self):
-        tools_lib.schedule(self._refresh, 50, channel="mongo")
+    def _save_project(self, project_code):
+        config_path = self.PROJ_DELIVERY_CONFIG.format(project_code=project_code)
+
+        delivery_data = self._get_delivery_data()
+        with open(config_path, "w") as f:
+            json.dump(delivery_data, f)
+
+    def _load_project_config(self, project_code):
+        delivery_data = {}
+        config_path = self.PROJ_DELIVERY_CONFIG.format(project_code=project_code)
+        with open(config_path, "r") as f:
+            delivery_data = json.load(f)
+
+        # for
 
     def _format_report(self, report_items, success):
         """Format final result and error details as html."""
@@ -475,28 +522,45 @@ class DeliveryDialog(QtWidgets.QDialog):
 
         return txt
 
-    def _on_generate_delivery_media_clicked(self):
-        output_names = self._delivery_outputs.get_selected_outputs()
+    def _get_delivery_data(self):
+        """Get all relevant data for the delivery"""
+        delivery_data = {}
+        delivery_data["output_names_ext"] = self._delivery_outputs.get_selected_outputs()
+        delivery_data["force_delivery_media"] = self._force_delivery_media_cb.isChecked()
+        delivery_data["vendor_override"] = self._vendor_input.text()
+        delivery_data["package_name_override"] = self._package_name_input.text()
+        delivery_data["version_override"] = self._version_input.text()
+        delivery_data["task[short]_override"] = self._task_override_combo.currentText()
+        delivery_data["comment_override"] = self._comment_input.text()
+        delivery_data["custom_tokens"] = self._custom_tokens.get_pairs()
+        delivery_data["filename_override"] = self._filename_input.text()
+        delivery_data["template_path"] = self._template_input.text()
 
-        if self.playlist_radio_btn.isChecked():
+        return delivery_data
+
+    def _on_generate_delivery_media_clicked(self):
+        delivery_data = self._get_delivery_data()
+
+        if self._sg_playlist_btn.isChecked():
             report_items, success = media.generate_delivery_media_playlist_id(
                 self._sg_playlist_id_input.text(),
-                delivery_types=output_names,
-                force=self._ensure_delivery_media_cb.isChecked(),
-                description=self._task_override_combo.currentText(),
-                override_version=self.version_input.text(),
+                delivery_data=delivery_data,
             )
         else:
             report_items, success = media.generate_delivery_media_version_id(
                 self._sg_version_id_input.text(),
-                delivery_types=output_names,
-                force=self._ensure_delivery_media_cb.isChecked(),
-                description=self._task_override_combo.currentText(),
-                override_version=self.version_input.text(),
+                delivery_data=delivery_data,
             )
 
         self._text_area.setText(self._format_report(report_items, success))
         self._text_area.setVisible(True)
+
+    # -------------------------------
+    # Delay calling blocking methods
+    # -------------------------------
+
+    def refresh(self):
+        tools_lib.schedule(self._refresh, 50, channel="mongo")
 
 
 def main():

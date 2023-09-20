@@ -84,7 +84,7 @@ def get_representation_names_from_overrides(
         if not entity_overrides:
             continue
         for delivery_type in delivery_types:
-            output_names = entity_overrides[f"sg_{delivery_type}_output_type"]
+            output_names = entity_overrides.get(f"sg_{delivery_type}_output_type", [])
             # Convert list from output names to representation names
             delivery_rep_names = [
                 f"{name.lower().replace(' ', '')}_{delivery_type}"
