@@ -431,6 +431,7 @@ def generate_delivery_media_version(
             plugin="AxNuke",
             plugin_data=plugin_data,
             batch_name=f"Delivery media - {package_path}",
+            task_name=f"{output_name} - {output_anatomy_data['filename']}",
             extra_env=extra_env,
         )
         report_items["Submitted delivery media job to Deadline"].append(
