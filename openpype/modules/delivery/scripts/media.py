@@ -18,6 +18,9 @@ from openpype.modules.shotgrid.lib import credentials
 NUKE_DELIVERY_PY_DEFAULT = "/pipe/nuke/templates/delivery_template.py"
 NUKE_DELIVERY_SCRIPT_DEFAULT = "/pipe/nuke/templates/delivery_template.nk"
 
+# Path where Nuke template script would live for a project
+PROJ_NUKE_DELIVERY_SCRIPT = "/proj/{proj_code}/resources/delivery/delivery_template.nk"
+
 # Root path where delivery media gets generated
 DELIVERY_STAGING_DIR = "/proj/{project[code]}/io/delivery/ready_to_deliver/{yyyy}{mm}{dd}"
 
@@ -401,9 +404,9 @@ def generate_delivery_media_version(
 
         # Add environment variables required to run Nuke script
         extra_env = {}
-        extra_env["_AX_DELIVERY_NUKESCRIPT"] = NUKE_DELIVERY_SCRIPT_DEFAULT
-        extra_env["_AX_DELIVERY_FRAMES"] = "{0}_{1}_{2}".format(
-            int(out_frame_start), int(out_frame_end), int(out_frame_start)
+        extra_env["_AX_DELIVERY_NUKESCRIPT"] = delivery_data["nuke_template_script"]
+        extra_env["_AX_DELIVERY_FRAMES"] = "{0}_{1}".format(
+            int(out_frame_start), int(out_frame_end)
         )
         extra_env["_AX_DELIVERY_OUTPUT_NAME"] = output_name
         extra_env["_AX_DELIVERY_FILENAME"] = output_anatomy_data["filename"]

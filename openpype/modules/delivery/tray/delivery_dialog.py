@@ -582,6 +582,17 @@ class DeliveryDialog(QtWidgets.QDialog):
         delivery_data["filename_override"] = self._filename_input.text()
         delivery_data["template_path"] = self._template_input.text()
 
+        proj_code = self._current_project_code
+        template_script = media.NUKE_DELIVERY_SCRIPT_DEFAULT
+        if proj_code:
+            proj_template_script = media.PROJ_NUKE_DELIVERY_SCRIPT.format(
+                proj_code=proj_code
+            )
+            if os.path.exists(template_script):
+                template_script = proj_template_script
+
+        delivery_data["nuke_template_script"] = template_script
+
         return delivery_data
 
     def _on_generate_delivery_media_clicked(self):
