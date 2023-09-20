@@ -527,31 +527,31 @@ def republish_version(
 
     # If we are not forcing the creation of representations we validate whether the
     # representations requested already exist
-    if not force:
-        if not representation_names:
-            sg = credentials.get_shotgrid_session()
-            representation_names, entity = delivery.get_representation_names(
-                sg, sg_version["id"], "Version", delivery_types
-            )
-            logger.debug(
-                "%s representation names found at '%s': %s",
-                sg_version['code'],
-                entity,
-                representation_names
-            )
+    # if not force:
+    #     if not representation_names:
+    #         sg = credentials.get_shotgrid_session()
+    #         representation_names, entity = delivery.get_representation_names(
+    #             sg, sg_version["id"], "Version", delivery_types
+    #         )
+    #         logger.debug(
+    #             "%s representation names found at '%s': %s",
+    #             sg_version['code'],
+    #             entity,
+    #             representation_names
+    #         )
 
-        representations = get_representations(
-            project_name,
-            version_ids=[op_version_id],
-        )
-        existing_rep_names = {rep["name"] for rep in representations}
-        missing_rep_names = set(representation_names) - existing_rep_names
-        if not missing_rep_names:
-            msg = f"Requested '{delivery_types}' representations already exist"
-            sub_msg = f"{sg_version['code']} - id: {sg_version['id']}<br>"
-            report_items[msg].append(sub_msg)
-            logger.info("%s: %s", msg, sub_msg)
-            return report_items, True
+    #     representations = get_representations(
+    #         project_name,
+    #         version_ids=[op_version_id],
+    #     )
+    #     existing_rep_names = {rep["name"] for rep in representations}
+    #     missing_rep_names = set(representation_names) - existing_rep_names
+    #     if not missing_rep_names:
+    #         msg = f"Requested '{delivery_types}' representations already exist"
+    #         sub_msg = f"{sg_version['code']} - id: {sg_version['id']}<br>"
+    #         report_items[msg].append(sub_msg)
+    #         logger.info("%s: %s", msg, sub_msg)
+    #         return report_items, True
 
     exr_path = exr_repre_doc["data"]["path"]
     render_path = os.path.dirname(exr_path)
@@ -561,8 +561,8 @@ def republish_version(
 
     # Add family for each delivery type to control which publish plugins
     # get executed
-    for delivery_type in delivery_types:
-        families.append(f"client_{delivery_type}")
+    # for delivery_type in delivery_types:
+        # families.append(f"client_{delivery_type}")
 
     instance_data = {
         "project": project_name,
@@ -617,7 +617,8 @@ def republish_version(
     representations = utils.get_representations(
         instance_data,
         expected_files,
-        False,
+        do_not_add_review=False,
+        publish_to_sg=True,
     )
 
     # inject colorspace data
