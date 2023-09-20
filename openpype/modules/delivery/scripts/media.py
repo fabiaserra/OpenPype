@@ -419,7 +419,7 @@ def generate_delivery_media_version(
 
         plugin_data = {
             "ScriptJob": True,
-            "SceneFilename": NUKE_DELIVERY_SCRIPT_DEFAULT,
+            "SceneFile": NUKE_DELIVERY_SCRIPT_DEFAULT,
             "ScriptFilename": NUKE_DELIVERY_PY_DEFAULT,
             # the Version entry is kind of irrelevant as our Deadline workers only
             # contain a single DCC version at the time of writing this
@@ -431,7 +431,8 @@ def generate_delivery_media_version(
         legacy_io.Session["AVALON_ASSET"] = anatomy_data["asset"]
         legacy_io.Session["AVALON_TASK"] = anatomy_data["task"]["name"]
         legacy_io.Session["AVALON_PROJECT"] = project_name
-        legacy_io.Session["AVALON_APP_NAME"] = "traypublisher"
+        legacy_io.Session["AVALON_APP"] = "nukex"
+        legacy_io.Session["AVALON_APP_NAME"] = "nukex/14-03"
 
         # TODO: Change the AxNuke plugin to improve monitored process when
         # submitting "scriptJob" type Nuke jobs to not error out when
