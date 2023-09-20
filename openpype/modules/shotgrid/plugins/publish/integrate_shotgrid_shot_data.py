@@ -167,9 +167,13 @@ class IntegrateShotgridShotData(pyblish.api.InstancePlugin):
             "entity_type": "Shot",
             "entity_id": sg_shot["id"],
             "data": {
-                "sg_resolution_width": working_resolution["resolutionWidth"],
-                "sg_resolution_height": working_resolution["resolutionHeight"],
-                "sg_pixel_aspect": working_resolution["pixelAspect"],
+                "sg_resolution_width": int(
+                    working_resolution["resolutionWidth"]
+                ),
+                "sg_resolution_height": int(
+                    working_resolution["resolutionHeight"]
+                ),
+                "sg_pixel_aspect": float(working_resolution["pixelAspect"]),
             },
         }
         self.sg_batch.append(working_res_batch)
