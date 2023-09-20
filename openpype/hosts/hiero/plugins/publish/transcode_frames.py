@@ -120,9 +120,12 @@ class TranscodeFrames(publish.Extractor, publish.ColormanagedPyblishPluginMixin)
         padding = anatomy.templates.get("frame_padding", 4)
         submission_jobs = []
 
+        ingest_resolutions = ["wr"]
+        if os.getenv("SHOW") == "uni":
+            ingest_resolutions = ["fr", "wr"]
+
         # For each output resolution we create a job in the farm
-        # for output_definition in instance.data["output_resolutions"]:
-        for resolution in ["fr", "wr"]:
+        for resolution in ingest_resolutions:
             # resolution_str = "{0}x{1}".format(
                 # output_definition["width"], output_definition["height"]
             # )
@@ -184,7 +187,7 @@ class TranscodeFrames(publish.Extractor, publish.ColormanagedPyblishPluginMixin)
             else:
                 input_args = ""
                 if resolution == "wr":
-                    input_args = "--crop 3776x3164+416+0 --fullpixels"
+                    input_args = "--crop 3776x3164+416+0 --cut 3776x3164"
 
                 self.log.info("Submitting OIIO transcode")
                 oiio_args = " ".join(self.oiio_args).format(
