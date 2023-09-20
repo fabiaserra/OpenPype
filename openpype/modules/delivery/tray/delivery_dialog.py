@@ -1,3 +1,4 @@
+import os
 import platform
 import json
 from qtpy import QtCore, QtWidgets, QtGui
@@ -86,10 +87,10 @@ class KeyValueWidget(QtWidgets.QWidget):
         # Create the key-value pairs list
         self.pairs = []
 
-    def add_pair(self):
+    def add_pair(self, key="", value=""):
         # Create the key-value pair widgets
-        key_input = QtWidgets.QLineEdit()
-        value_input = QtWidgets.QLineEdit()
+        key_input = QtWidgets.QLineEdit(key)
+        value_input = QtWidgets.QLineEdit(value)
         delete_button = QtWidgets.QPushButton("Delete")
         delete_button.clicked.connect(lambda: self.delete_pair(delete_button))
 
@@ -130,7 +131,7 @@ class DeliveryDialog(QtWidgets.QDialog):
     tool_name = "sg_entity_delivery"
 
     SIZE_W = 1200
-    SIZE_H = 650
+    SIZE_H = 800
 
     # File path to json file that contains defaults for the Delivery dialog inputs
     PROJ_DELIVERY_CONFIG = "/proj/{project_code}/config/delivery/defaults.json"
@@ -174,6 +175,9 @@ class DeliveryDialog(QtWidgets.QDialog):
         self._first_show = True
         self._initial_refresh = False
         self._ignore_project_change = False
+
+        # Short code name for currently selected project
+        self._current_project_code = None
 
         dbcon = AvalonMongoDB()
         dbcon.install()
@@ -490,22 +494,64 @@ class DeliveryDialog(QtWidgets.QDialog):
         # Store some useful variables
         project_code = sg_project.get("sg_code")
         self._load_project_config(project_code)
-        # self._current_project_code = project_code
+        self._current_project_code = project_code
 
-    def _save_project(self, project_code):
+    def _save_project_config(self):
+        project_code = self._current_project_code
+        if not project_code:
+            logger.warning("No current project selected, can't save config")
+            return
+
         config_path = self.PROJ_DELIVERY_CONFIG.format(project_code=project_code)
+
+        config_path_dir = os.path.dirname(config_path)
+        if not os.path.exists(config_path_dir):
+            os.makedirs(config_path_dir)
 
         delivery_data = self._get_delivery_data()
         with open(config_path, "w") as f:
+            logger.info(
+                "Delivery config file for project created at '%s'",
+                config_path
+            )
             json.dump(delivery_data, f)
 
     def _load_project_config(self, project_code):
         delivery_data = {}
         config_path = self.PROJ_DELIVERY_CONFIG.format(project_code=project_code)
+
+        if not os.path.exists(config_path):
+            logger.info(
+                "Delivery config file for project doesn't exist at '%s'",
+                config_path
+            )
+            return
+
         with open(config_path, "r") as f:
             delivery_data = json.load(f)
 
-        # for
+        # TODO: abstract this away so it's simpler to add more widgets
+        # that need to get preserved across sessions
+        vendor_override = delivery_data.get("vendor_override")
+        if vendor_override:
+            self._vendor_input.setText(vendor_override)
+
+        package_name_override = delivery_data.get("package_name_override")
+        if package_name_override:
+            self._package_name_input.setText(package_name_override)
+
+        filename_override = delivery_data.get("filename_override")
+        if filename_override:
+            self._filename_input.setText(filename_override)
+
+        custom_token_pairs = delivery_data.get("custom_tokens")
+        if custom_token_pairs:
+            for key, value in custom_token_pairs.items():
+                self._custom_tokens.add_pair(key, value)
+
+        template_override = delivery_data.get("template_path")
+        if template_override:
+            self._template_input.setText(template_override)
 
     def _format_report(self, report_items, success):
         """Format final result and error details as html."""
@@ -554,6 +600,7 @@ class DeliveryDialog(QtWidgets.QDialog):
 
         self._text_area.setText(self._format_report(report_items, success))
         self._text_area.setVisible(True)
+        self._save_project_config()
 
     # -------------------------------
     # Delay calling blocking methods

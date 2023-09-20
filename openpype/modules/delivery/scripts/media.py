@@ -100,16 +100,7 @@ def get_output_anatomy_data(anatomy_data, delivery_data, output_name, output_ext
 
     output_anatomy_data = copy.deepcopy(anatomy_data)
 
-    # Create a dictionary with all the overrides specific to the output name
-    for custom_key, custom_value in delivery_data.get("custom_tokens", {}).items():
-        output_override = {}
-        if custom_key.startswith(output_name) and custom_value:
-            custom_key = custom_key.replace(f"{output_name}:", "")
-            custom_value = StringTemplate.format_template(custom_value, anatomy_data)
-            output_override[custom_key] = custom_value
-            anatomy_data.update(output_override)
-
-    # Extra tokens for output
+    # Specific tokens for output
 
     # Add output name
     output_anatomy_data["output"] = output_name
@@ -124,6 +115,53 @@ def get_output_anatomy_data(anatomy_data, delivery_data, output_name, output_ext
 
     # Add delivery type
     output_anatomy_data["delivery_type"] = output_name.rsplit("_", 1)[-1]
+
+    # Create a dictionary of all the tokens we will override
+    # anatomy data with
+    for key, value in delivery_data.items():
+
+        # Create a new dictionary on every iteration as we progressively
+        # update the delivery data with each new override
+        output_override = {}
+
+        if key.endswith("_override") and value and value != USE_SOURCE_VALUE:
+            # Remove the _override suffix
+            key = key.replace("_override", "")
+
+            # Fill up values of tokens that might be referencing other tokens
+            value = StringTemplate.format_template(value, output_anatomy_data)
+            logger.debug("Updated value '%s'", value)
+
+            # Check if key is a nested key (i.e., "task[code]_override")
+            # so if it's nested we create an inner dictionary with the
+            # value
+            nested_tokens_match = NESTED_TOKENS_RE.match(key)
+            if nested_tokens_match:
+                outer_key, inner_key = nested_tokens_match.groups()
+                output_override[outer_key] = {inner_key: value}
+            # Otherwise we simply assign the value to the key
+            else:
+                output_override[key] = value
+
+        # Add custom tokens
+        elif key == "custom_tokens":
+            # Create a dictionary with all the overrides specific to the output name
+            for custom_key, custom_value in value.items():
+                if custom_key.startswith(output_name) and custom_value:
+                    custom_key = custom_key.replace(f"{output_name}:", "")
+                custom_value = StringTemplate.format_template(custom_value, output_anatomy_data)
+                output_override[custom_key] = custom_value
+
+        output_anatomy_data.update(output_override)
+
+    # Create a dictionary with all the overrides specific to the output name
+    for custom_key, custom_value in delivery_data.get("custom_tokens", {}).items():
+        output_override = {}
+        if custom_key.startswith(output_name) and custom_value:
+            custom_key = custom_key.replace(f"{output_name}:", "")
+            custom_value = StringTemplate.format_template(custom_value, anatomy_data)
+            output_override[custom_key] = custom_value
+            anatomy_data.update(output_override)
 
     return output_anatomy_data
 
@@ -323,8 +361,8 @@ def generate_delivery_media_version(
 
     logger.debug("Original anatomy data: %s", anatomy_data)
 
-    update_anatomy_with_delivery_data(anatomy_data, delivery_data)
-    logger.debug("Anatomy data with global overrides: %s", anatomy_data)
+    # update_anatomy_with_delivery_data(anatomy_data, delivery_data)
+    # logger.debug("Anatomy data with global overrides: %s", anatomy_data)
 
     # Create path where delivery package will be created
     package_path = StringTemplate.format_template(DELIVERY_STAGING_DIR, anatomy_data)
@@ -395,7 +433,6 @@ def generate_delivery_media_version(
             batch_name=f"Delivery media - {package_path}",
             extra_env=extra_env,
         )
-        logger.debug(response)
         report_items["Submitted delivery media job to Deadline"].append(
             response["_id"]
         )
