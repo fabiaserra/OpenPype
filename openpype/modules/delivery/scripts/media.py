@@ -409,7 +409,7 @@ def generate_delivery_media_version(
         )
         extra_env["_AX_DELIVERY_OUTPUT_NAME"] = output_name
         extra_env["_AX_DELIVERY_FILENAME"] = output_anatomy_data["filename"]
-        extra_env["_AX_DELIVERY_COMMENT"] = delivery_data.get("comment")
+        extra_env["_AX_DELIVERY_COMMENT"] = delivery_data.get("comment") or "-"
         extra_env["_AX_DELIVERY_ARTIST"] = anatomy_data.get("user")
         extra_env["_AX_DELIVERY_READPATH"] = input_hashes_path
         extra_env["_AX_DELIVERY_WRITEPATH"] = dest_path
