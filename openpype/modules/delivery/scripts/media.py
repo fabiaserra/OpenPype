@@ -59,6 +59,10 @@ NESTED_TOKENS_RE = re.compile(r"(\w+)\[(\w+)\]")
 # All file extensions that will (most likely) be a single file
 SINGLE_FILE_EXTENSIONS = ["mov", "mp4", "png", "jpg", "jpeg"]
 
+# Columns for CSV data file
+CSV_DATA_COLUMNS = ["Filename", "Submitted For", "Notes"]
+
+
 logger = Logger.get_logger(__name__)
 
 
@@ -381,9 +385,7 @@ def generate_delivery_media_version(
 
     # Create a list of all the outputs that will be generated
     # to store them in a CSV file
-    csv_data = [
-        ["Filename", "Submitted For", "Notes"]
-    ]
+    csv_data = []
 
     # For each output selected, submit a job to the farm
     for output_name_ext in delivery_data["output_names_ext"]:
@@ -490,11 +492,22 @@ def generate_delivery_media_version(
 
     # Write CSV data to file in package
     csv_path = os.path.join(package_path, package_name, "{}.csv".format(package_name))
-    with open(csv_path, "w", newline="") as csvfile:
+
+    # Check if the file exists and has content (i.e., is not empty)
+    csv_file_exists = os.path.isfile(csv_path) and os.path.getsize(csv_path) > 0
+
+    with open(csv_path, "a", newline="") as csvfile:
         writer = csv.writer(csvfile)
+
+        # If file didn't exist or was empty, write the header first
+        if not csv_file_exists:
+            logger.debug("CSV file created at '%s'", csv_path)
+            writer.writerow(CSV_DATA_COLUMNS)
+
         for row in csv_data:
             writer.writerow(row)
-    logger.debug("Written CSV data at '%s'", csv_path)
+
+    logger.debug("Added CSV data at '%s'", csv_path)
 
     click.echo(report_items)
     return report_items, True
