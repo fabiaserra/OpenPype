@@ -301,13 +301,16 @@ class DeliveryDialog(QtWidgets.QDialog):
         template_input.setToolTip(
             "Template string used as a replacement for where the delivery media "
             "will be written to.\n\nYou can make any of the tokens values capitalize"
-            " by changing the format of the token.\nFor example: "
-            "{{seq}} will keep the original value as is. {{Seq}} will capitalize "
+            " by changing the format of the token.\n"
+            "i.e., {{seq}} will keep the original value as is. {{Seq}} will capitalize "
             "the first letter of its value, {{SEQ}} will capitalize each letter."
             "\n\nTo make a token optional so it's ignored if it's not "
-            "available on the entity you can just wrap it with '<' and '>'"
-            "(i.e., <{{frame}}> will only be added in the case where {{frame}} "
-            "doesn't exist on that output).\nAvailable tokens: {}".format(
+            "available on the entity you can just wrap it with '<' and '>'.\n"
+            "i.e., <{{frame}}> will only be added in the case where {{frame}} "
+            "doesn't exist on that specific output.\n\nYou can also nest optional tokens"
+            "so if the first token doesn't exist, the rest don't get added.\n"
+            "i.e.,'<{{is_sequence}}<{{filename}}/>>' the filename will only be added if"
+            "the {{is_sequence}} token exists.\n\nAvailable tokens: {}".format(
                 self.TOKENS_HELP
             )
         )
