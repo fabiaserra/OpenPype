@@ -42,6 +42,7 @@ SG_VERSION_IMPORTANT_FIELDS = [
     "code",
     "entity",
     "description",
+    "user",
     SG_FIELD_OP_INSTANCE_ID,
     SG_FIELD_MEDIA_GENERATED,
     SG_FIELD_MEDIA_PATH
@@ -54,49 +55,6 @@ NESTED_TOKENS_RE = re.compile(r"(\w+)\[(\w+)\]")
 SINGLE_FILE_EXTENSIONS = ["mov", "mp4", "png", "jpg", "jpeg"]
 
 logger = Logger.get_logger(__name__)
-
-
-def update_anatomy_with_delivery_data(anatomy_data, delivery_data):
-
-    # Create a dictionary of all the tokens we will override
-    # anatomy data with
-    for key, value in delivery_data.items():
-
-        # Create a new dictionary on every iteration as we progressively
-        # update the delivery data with each new override
-        global_override = {}
-
-        if key.endswith("_override") and value and value != USE_SOURCE_VALUE:
-            # Remove the _override suffix
-            key = key.replace("_override", "")
-
-            # Fill up values of tokens that might be referencing other tokens
-            value = StringTemplate.format_template(value, anatomy_data)
-            logger.debug("Updated value '%s'", value)
-
-            # Check if key is a nested key (i.e., "task[code]_override")
-            # so if it's nested we create an inner dictionary with the
-            # value
-            nested_tokens_match = NESTED_TOKENS_RE.match(key)
-            if nested_tokens_match:
-                outer_key, inner_key = nested_tokens_match.groups()
-                global_override[outer_key] = {inner_key: value}
-            # Otherwise we simply assign the value to the key
-            else:
-                global_override[key] = value
-
-        # Add custom tokens
-        elif key == "custom_tokens":
-            for custom_key, custom_value in value.items():
-                # Ignore any values that have ":" character as those are for
-                # output specific overrides
-                if custom_value and ":" not in custom_value:
-                    custom_value = StringTemplate.format_template(
-                        custom_value, anatomy_data
-                    )
-                    global_override[custom_key] = custom_value
-
-        anatomy_data.update(global_override)
 
 
 def get_output_anatomy_data(anatomy_data, delivery_data, output_name, output_extension):
@@ -305,7 +263,7 @@ def generate_delivery_media_version(
         report_items[msg].append(sub_msg)
         return report_items, False
 
-    # Find the OP representations we want to deliver
+    # Find the "exr" OP representation we want to deliver
     exr_repre_doc = op_cli.get_representation_by_name(
         project_name,
         "exr",
@@ -318,6 +276,8 @@ def generate_delivery_media_version(
         report_items[msg].append(sub_msg)
         return report_items, False
 
+    # If force delivery media isn't enabled, validate whether the SG version was already
+    # submitted for delivery or not
     if not delivery_data.get("force_delivery_media"):
         if sg_version.get(SG_FIELD_MEDIA_GENERATED):
             report_items["Delivery media already exists for versions"].append(
@@ -325,6 +285,7 @@ def generate_delivery_media_version(
             )
             return report_items, False
 
+    # Grab frame range from version being delivered
     frame_start_handle = int(
         version_doc["data"]["frameStart"] - version_doc["data"]["handleStart"]
     )
@@ -333,23 +294,20 @@ def generate_delivery_media_version(
     )
     logger.debug("Frame start handle: %s", frame_start_handle)
     logger.debug("Frame end handle: %s", frame_end_handle)
-
     out_frame_start = frame_start_handle
     out_frame_end = frame_end_handle
 
-    # Find the OP representations we want to deliver
+    # Try find the thumbnail representation of the OP version
+    # and add it to the delivery template in case it comes
+    # useful in the future
     thumbnail_repre_doc = op_cli.get_representation_by_name(
         project_name,
         "thumbnail",
         version_id=op_version_id,
     )
-    # if not thumbnail_repre_doc:
-    #     msg = "No 'thumbnail' representation found on SG versions"
-    #     sub_msg = f"{sg_version['code']} - id: {sg_version['id']}<br>"
-    #     logger.error("%s: %s", msg, sub_msg)
-    #     report_items[msg].append(sub_msg)
-    #     return report_items, False
 
+    # Calculate the input path where the "exr" representation
+    # lives
     input_path = exr_repre_doc["data"]["path"]
     # Replace frame number with #'s for expected_files function
     input_hashes_path = re.sub(
@@ -357,6 +315,8 @@ def generate_delivery_media_version(
         input_path
     )
 
+    # Create a dictionary of anatomy data so we can fill up
+    # all the tokenized paths
     anatomy_data = copy.deepcopy(exr_repre_doc["context"])
     datetime_data = get_datetime_data()
     anatomy_data.update(datetime_data)
@@ -370,14 +330,24 @@ def generate_delivery_media_version(
 
     logger.debug("Original anatomy data: %s", anatomy_data)
 
-    # update_anatomy_with_delivery_data(anatomy_data, delivery_data)
-    # logger.debug("Anatomy data with global overrides: %s", anatomy_data)
-
     # Create path where delivery package will be created
     package_path = StringTemplate.format_template(DELIVERY_STAGING_DIR, anatomy_data)
 
+    # Create environment variables required to run Nuke script
+    task_env = {
+        "_AX_DELIVERY_READPATH": input_hashes_path,
+        "_AX_DELIVERY_FRAMES": "{0}_{1}".format(int(out_frame_start), int(out_frame_end)),
+        "_AX_DELIVERY_COMMENT": delivery_data.get("comment_override") or anatomy_data.get("comment"),
+        "_AX_DELIVERY_ARTIST": sg_version.get("user", {}).get("name") or anatomy_data.get("user"),
+        "_AX_DELIVERY_NUKESCRIPT": delivery_data["nuke_template_script"],
+    }
+    if thumbnail_repre_doc:
+        task_env["_AX_DELIVERY_THUMBNAIL_PATH"] = thumbnail_repre_doc["data"]["path"]
+
+    # For each output selected, submit a job to the farm
     for output_name_ext in delivery_data["output_names_ext"]:
 
+        # Inject output specific anatomy data and resolve tokens
         output_name, output_ext = output_name_ext
         output_anatomy_data = get_output_anatomy_data(
             anatomy_data, delivery_data, output_name, output_ext
@@ -403,26 +373,28 @@ def generate_delivery_media_version(
         if repre_report_items:
             return repre_report_items, False
 
-        # No need to raise error as Nuke raises an error exit value if
-        # something went wrong
-        logger.info("Submitting Nuke transcode")
+        # If {frame} token exists, replace frame with padded #'s
+        if output_anatomy_data.get("frame"):
+            dest_path = re.sub(
+                r"\d+(?=\.\w+$)", lambda m: "#" * len(m.group()) if m.group() else "#",
+                input_path
+            )
 
-        # Add environment variables required to run Nuke script
-        extra_env = {}
-        extra_env["_AX_DELIVERY_NUKESCRIPT"] = delivery_data["nuke_template_script"]
-        extra_env["_AX_DELIVERY_FRAMES"] = "{0}_{1}".format(
-            int(out_frame_start), int(out_frame_end)
-        )
-        extra_env["_AX_DELIVERY_OUTPUT_NAME"] = output_name
-        extra_env["_AX_DELIVERY_FILENAME"] = output_anatomy_data["filename"]
-        extra_env["_AX_DELIVERY_COMMENT"] = delivery_data.get("comment") or "-"
-        extra_env["_AX_DELIVERY_ARTIST"] = anatomy_data.get("user")
-        extra_env["_AX_DELIVERY_READPATH"] = input_hashes_path
-        extra_env["_AX_DELIVERY_WRITEPATH"] = dest_path
+        # Add environment variables specific to this output
+        task_env["_AX_DELIVERY_OUTPUT_NAME"] = output_name
+        task_env["_AX_DELIVERY_FILENAME"] = output_anatomy_data["filename"]
+        task_env["_AX_DELIVERY_WRITEPATH"] = dest_path
 
-        if thumbnail_repre_doc:
-            extra_env["_AX_DELIVERY_THUMBNAIL_PATH"] = thumbnail_repre_doc["data"]["path"]
+        # Inject OP variables into session so farm job can resolve environment
+        legacy_io.Session["AVALON_ASSET"] = anatomy_data["asset"]
+        legacy_io.Session["AVALON_TASK"] = anatomy_data["task"]["name"]
+        legacy_io.Session["AVALON_PROJECT"] = project_name
+        legacy_io.Session["AVALON_APP"] = "nukex"
+        legacy_io.Session["AVALON_APP_NAME"] = "nukex/14-03"
 
+        logger.info("Submitting Nuke delivery job for %s", output_name)
+
+        # Create dictionary of data specific to Nuke plugin for payload submit
         plugin_data = {
             "ScriptJob": True,
             "SceneFile": NUKE_DELIVERY_PY_DEFAULT,
@@ -432,17 +404,6 @@ def generate_delivery_media_version(
             "Version": "14.0",
             "UseGpu": False,
         }
-
-        # Inject variables into session
-        legacy_io.Session["AVALON_ASSET"] = anatomy_data["asset"]
-        legacy_io.Session["AVALON_TASK"] = anatomy_data["task"]["name"]
-        legacy_io.Session["AVALON_PROJECT"] = project_name
-        legacy_io.Session["AVALON_APP"] = "nukex"
-        legacy_io.Session["AVALON_APP_NAME"] = "nukex/14-03"
-
-        # TODO: Change the AxNuke plugin to improve monitored process when
-        # submitting "scriptJob" type Nuke jobs to not error out when
-        # exiting the script
         response = submit.payload_submit(
             dest_path,
             (out_frame_start, out_frame_end),
@@ -450,7 +411,7 @@ def generate_delivery_media_version(
             plugin_data=plugin_data,
             batch_name=f"Delivery media - {package_path}",
             task_name=f"{output_name} - {output_anatomy_data['filename']}",
-            extra_env=extra_env,
+            extra_env=task_env,
         )
         report_items["Submitted delivery media job to Deadline"].append(
             response["_id"]
