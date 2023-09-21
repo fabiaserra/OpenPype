@@ -139,7 +139,12 @@ class DeliveryDialog(QtWidgets.QDialog):
     TOKENS_HELP = """
         {project[name]}: Project's full name
         {project[code]}: Project's code
-        {asset}: Name of asset or shot
+        {seq}: Sequence entity name
+        {episde}: Episode entity name
+        {shot}: Shot entity name
+        {shotnum}: The integer part of a shot name (eg. "uni_pg_0010" -> "0010")
+        {asset_type}: Type of asset (eg. "Char", "Prop", "Environment")
+        {asset}: Full name of current context entity.
         {task[name]}: Name of task
         {task[type]}: Type of task
         {task[short]}: Short name of task type (eg. 'Modeling' > 'mdl')
@@ -294,10 +299,14 @@ class DeliveryDialog(QtWidgets.QDialog):
         template_input = QtWidgets.QLineEdit(media.DELIVERY_TEMPLATE_DEFAULT)
         template_input.setToolTip(
             "Template string used as a replacement for where the delivery media "
-            "will be written to.\nAvailable tokens: {}\nTo make a token optional"
-            "so it's ignored if it's not available on the entity you can just "
-            "wrap it with '<' and '>' (i.e., <{{frame}}> will only be added in the "
-            "case where {{frame}} doesn't exist on that output)".format(
+            "will be written to.\nAvailable tokens: {}\nYou can make any of the tokens"
+            "value capitalize by changing the format of the token. For example:\n"
+            "{{seq}} will keep the original value as is. {{Seq}} will capitalize "
+            "the first letter of its value, {{SEQ}} will capitalize each letter."
+            "\nTo make a token optional so it's ignored if it's not "
+            "available on the entity you can just wrap it with '<' and '>' "
+            "(i.e., <{{frame}}> will only be added in the case where {{frame}} "
+            "doesn't exist on that output)".format(
                 self.TOKENS_HELP
             )
         )
