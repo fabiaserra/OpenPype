@@ -111,9 +111,15 @@ def get_output_anatomy_data(anatomy_data, delivery_data, output_name, output_ext
     # Add output extension
     output_anatomy_data["ext"] = output_extension
 
-    # If output extension is not one of the single file extensions, we create
-    # the "is_sequence" token
-    if output_extension not in SINGLE_FILE_EXTENSIONS:
+    # If output extension is one of the single file extensions we remove the
+    # "frame" token
+    if output_extension in SINGLE_FILE_EXTENSIONS:
+        output_anatomy_data.pop("frame")
+    # Otherwise we add "is_sequence" as an empty token so we can use it on
+    # nested optional tokens to add extra items
+    # i.e., "<{is_sequence}<{filename}/>>" will only add that extra folder
+    # if the output_anatomy_data contains "is_sequence"
+    else:
         output_anatomy_data["is_sequence"] = ""
 
     # Add delivery type
