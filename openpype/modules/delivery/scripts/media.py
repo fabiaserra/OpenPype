@@ -5,6 +5,7 @@ import collections
 import copy
 import re
 import click
+import csv
 
 from openpype import client as op_cli
 from openpype.lib import Logger, StringTemplate, get_datetime_data
@@ -37,6 +38,8 @@ USE_SOURCE_VALUE = "-- Use source --"
 SG_FIELD_OP_INSTANCE_ID = "sg_op_instance_id"
 SG_FIELD_MEDIA_GENERATED = "sg_op_delivery_media_generated"
 SG_FIELD_MEDIA_PATH = "sg_op_delivery_media_path"
+SG_SUBMISSION_NOTES = "sg_submission_notes"
+SG_SUBMIT_FOR = "sg_submit_for"
 SG_VERSION_IMPORTANT_FIELDS = [
     "project",
     "code",
@@ -45,7 +48,9 @@ SG_VERSION_IMPORTANT_FIELDS = [
     "user",
     SG_FIELD_OP_INSTANCE_ID,
     SG_FIELD_MEDIA_GENERATED,
-    SG_FIELD_MEDIA_PATH
+    SG_FIELD_MEDIA_PATH,
+    SG_SUBMIT_FOR,
+    SG_SUBMISSION_NOTES
 ]
 
 # Regular expression pattern to match word[word]
@@ -346,18 +351,31 @@ def generate_delivery_media_version(
     logger.debug("Original anatomy data: %s", anatomy_data)
 
     # Create path where delivery package will be created
-    package_path = StringTemplate.format_template(DELIVERY_STAGING_DIR, anatomy_data)
+    package_name = ""
+    package_path = StringTemplate.format_template(
+        DELIVERY_STAGING_DIR, anatomy_data
+    )
 
     # Create environment variables required to run Nuke script
     task_env = {
         "_AX_DELIVERY_READPATH": input_hashes_path,
-        "_AX_DELIVERY_FRAMES": "{0}_{1}".format(int(out_frame_start), int(out_frame_end)),
-        "_AX_DELIVERY_COMMENT": delivery_data.get("comment_override") or anatomy_data.get("comment"),
-        "_AX_DELIVERY_ARTIST": sg_version.get("user", {}).get("name") or anatomy_data.get("user"),
+        "_AX_DELIVERY_FRAMES": "{0}_{1}".format(
+            int(out_frame_start), int(out_frame_end)
+        ),
+        "_AX_DELIVERY_COMMENT": delivery_data.get("comment_override") or
+            anatomy_data.get("comment"),
+        "_AX_DELIVERY_ARTIST": sg_version.get("user", {}).get("name") or
+            anatomy_data.get("user"),
         "_AX_DELIVERY_NUKESCRIPT": delivery_data["nuke_template_script"],
     }
     if thumbnail_repre_doc:
         task_env["_AX_DELIVERY_THUMBNAIL_PATH"] = thumbnail_repre_doc["data"]["path"]
+
+    # Create a list of all the outputs that will be generated
+    # to store them in a CSV file
+    csv_data = [
+        ["Filename", "Submitted For", "Notes"]
+    ]
 
     # For each output selected, submit a job to the farm
     for output_name_ext in delivery_data["output_names_ext"]:
@@ -367,6 +385,7 @@ def generate_delivery_media_version(
         output_anatomy_data = get_output_anatomy_data(
             anatomy_data, delivery_data, output_name, output_ext
         )
+        package_name = output_anatomy_data["package_name"]
         logger.debug(
             "Anatomy data with output '%s' overrides: %s",
             output_name, output_anatomy_data
@@ -388,17 +407,37 @@ def generate_delivery_media_version(
         if repre_report_items:
             return repre_report_items, False
 
+        out_filename = output_anatomy_data["filename"]
+
+        # Create a separate variable as CSV filename is the full name with
+        # extension included
+        csv_outfilename = out_filename
+
         # If {frame} token exists, replace frame with padded #'s
         if output_anatomy_data.get("frame"):
             dest_path = re.sub(
                 r"\d+(?=\.\w+$)", lambda m: "#" * len(m.group()) if m.group() else "#",
                 dest_path
             )
+            # Fill up CSV data
+            csv_outfilename += f".[{out_frame_start}-{out_frame_end}]"
+
+        # Add extension to filename
+        csv_outfilename += ".{output_ext}"
 
         # Add environment variables specific to this output
         task_env["_AX_DELIVERY_OUTPUT_NAME"] = output_name
-        task_env["_AX_DELIVERY_FILENAME"] = output_anatomy_data["filename"]
+        task_env["_AX_DELIVERY_FILENAME"] = out_filename
         task_env["_AX_DELIVERY_WRITEPATH"] = dest_path
+
+        # Append output information to CSV data
+        csv_data.append(
+            [
+                csv_outfilename,
+                sg_version.get(SG_SUBMIT_FOR, ""),
+                sg_version.get(SG_SUBMISSION_NOTES, "")
+            ]
+        )
 
         # Inject OP variables into session so farm job can resolve environment
         legacy_io.Session["AVALON_ASSET"] = anatomy_data["asset"]
@@ -436,13 +475,20 @@ def generate_delivery_media_version(
     # whether media got generated
     data_to_update = {
         SG_FIELD_MEDIA_GENERATED: True,
-        SG_FIELD_MEDIA_PATH: package_path,
+        SG_FIELD_MEDIA_PATH: os.path.join(package_path, package_name),
     }
     sg = credentials.get_shotgrid_session()
     sg.update("Version", sg_version["id"], data_to_update)
     logger.debug(
         "Updating version '%s' with '%s'", sg_version["code"], data_to_update
     )
+
+    # Write CSV data to file in package
+    csv_path = os.path.join(package_path, "{}.csv".format(package_name))
+    with open(csv_path, "w", newline="") as csvfile:
+        writer = csv.writer(csvfile)
+        for row in csv_data:
+            writer.writerow(row)
 
     click.echo(report_items)
     return report_items, True
