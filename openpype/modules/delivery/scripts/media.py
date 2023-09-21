@@ -133,6 +133,9 @@ def get_output_anatomy_data(anatomy_data, delivery_data, output_name, output_ext
             for custom_key, custom_value in value.items():
                 if custom_key.startswith(output_name) and custom_value:
                     custom_key = custom_key.replace(f"{output_name}:", "")
+                # Ignore keys that aren't specific to the output
+                elif ":" in custom_key:
+                    continue
                 custom_value = StringTemplate.format_template(
                     custom_value, output_anatomy_data
                 )
