@@ -135,6 +135,11 @@ def get_output_anatomy_data(anatomy_data, delivery_data, output_name, output_ext
                     custom_key = custom_key.replace(f"{output_name}:", "")
                 # Ignore keys that aren't specific to the output
                 elif ":" in custom_key:
+                    logger.debug(
+                        "Skipping custom token with key '%s' as it's not specific to output '%s'.",
+                        custom_key,
+                        output_name
+                    )
                     continue
                 custom_value = StringTemplate.format_template(
                     custom_value, output_anatomy_data
