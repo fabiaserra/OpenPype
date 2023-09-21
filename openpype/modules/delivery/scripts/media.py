@@ -377,7 +377,7 @@ def generate_delivery_media_version(
         if output_anatomy_data.get("frame"):
             dest_path = re.sub(
                 r"\d+(?=\.\w+$)", lambda m: "#" * len(m.group()) if m.group() else "#",
-                input_path
+                dest_path
             )
 
         # Add environment variables specific to this output
