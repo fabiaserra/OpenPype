@@ -300,12 +300,12 @@ class DeliveryDialog(QtWidgets.QDialog):
         template_input = QtWidgets.QLineEdit(media.DELIVERY_TEMPLATE_DEFAULT)
         template_input.setToolTip(
             "Template string used as a replacement for where the delivery media "
-            "will be written to. You can make any of the tokens values capitalize"
-            " by changing the format of the token. For example:\n"
+            "will be written to.\n\nYou can make any of the tokens values capitalize"
+            " by changing the format of the token.\nFor example: "
             "{{seq}} will keep the original value as is. {{Seq}} will capitalize "
             "the first letter of its value, {{SEQ}} will capitalize each letter."
-            "\nTo make a token optional so it's ignored if it's not "
-            "available on the entity you can just wrap it with '<' and '>'\n"
+            "\n\nTo make a token optional so it's ignored if it's not "
+            "available on the entity you can just wrap it with '<' and '>'"
             "(i.e., <{{frame}}> will only be added in the case where {{frame}} "
             "doesn't exist on that output).\nAvailable tokens: {}".format(
                 self.TOKENS_HELP
