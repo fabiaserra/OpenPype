@@ -586,8 +586,12 @@ class DeliveryDialog(QtWidgets.QDialog):
             proj_template_script = media.PROJ_NUKE_DELIVERY_SCRIPT.format(
                 proj_code=proj_code
             )
-            if os.path.exists(template_script):
+            if os.path.exists(proj_template_script):
                 template_script = proj_template_script
+            else:
+                logger.warning(
+                    "Project Nuke template not found at '%s'", proj_template_script
+                )
 
         delivery_data["nuke_template_script"] = template_script
 
