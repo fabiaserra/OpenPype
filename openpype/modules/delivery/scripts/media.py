@@ -379,6 +379,7 @@ def generate_delivery_media_version(
         "_AX_DELIVERY_ARTIST": sg_version.get("user", {}).get("name") or
             anatomy_data.get("user"),
         "_AX_DELIVERY_NUKESCRIPT": delivery_data["nuke_template_script"],
+        "_AX_DEBUG_PATH": os.path.join(package_path, "nuke_scripts"),
     }
     if thumbnail_repre_doc:
         task_env["_AX_DELIVERY_THUMBNAIL_PATH"] = thumbnail_repre_doc["data"]["path"]
