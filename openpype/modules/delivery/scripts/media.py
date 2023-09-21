@@ -481,7 +481,7 @@ def generate_delivery_media_version(
     )
 
     # Write CSV data to file in package
-    csv_path = os.path.join(package_path, "{}.csv".format(package_name))
+    csv_path = os.path.join(package_path, package_name, "{}.csv".format(package_name))
     with open(csv_path, "w", newline="") as csvfile:
         writer = csv.writer(csvfile)
         for row in csv_data:
