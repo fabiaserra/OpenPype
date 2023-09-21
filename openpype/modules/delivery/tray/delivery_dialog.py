@@ -273,8 +273,6 @@ class DeliveryDialog(QtWidgets.QDialog):
             "Override the submission notes/comment of the delivery media. If left empty, " \
             "the comment will just be picked up from the SG version description. "
         )
-        # Set the validator for the QLineEdit to QIntValidator
-        comment_input.setValidator(QtGui.QIntValidator())
         input_layout.addRow(
             "Submission notes override {comment}", comment_input
         )
