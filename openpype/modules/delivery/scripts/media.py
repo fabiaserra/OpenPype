@@ -58,7 +58,19 @@ logger = Logger.get_logger(__name__)
 
 
 def get_output_anatomy_data(anatomy_data, delivery_data, output_name, output_extension):
+    """Returns a dictionary of anatomy data for a given output name and extension.
 
+    Args:
+        anatomy_data (dict): A dictionary of base generic anatomy data to use
+            as a base for the tokens.
+        delivery_data (dict): A dictionary of delivery data that contains
+            data specific to the output and possible overrides of the tokens.
+        output_name (str): The name of the output.
+        output_extension (str): The extension of the output.
+
+    Returns:
+        dict: A dictionary of anatomy data for the output.
+    """
     output_anatomy_data = copy.deepcopy(anatomy_data)
 
     # Specific tokens for output
@@ -116,7 +128,9 @@ def get_output_anatomy_data(anatomy_data, delivery_data, output_name, output_ext
             for custom_key, custom_value in value.items():
                 if custom_key.startswith(output_name) and custom_value:
                     custom_key = custom_key.replace(f"{output_name}:", "")
-                custom_value = StringTemplate.format_template(custom_value, output_anatomy_data)
+                custom_value = StringTemplate.format_template(
+                    custom_value, output_anatomy_data
+                )
                 output_override[custom_key] = custom_value
 
         output_anatomy_data.update(output_override)
@@ -137,7 +151,8 @@ def generate_delivery_media_playlist_id(
     playlist_id,
     delivery_data,
 ):
-    """Given a SG playlist id, generate all the delivery media for all the versions associated to it.
+    """Given a SG playlist id, generate all the delivery media for all the versions
+    associated to it.
 
     Args:
         playlist_id (int): Shotgrid playlist id to republish.

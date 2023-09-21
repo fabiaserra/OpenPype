@@ -17,6 +17,14 @@ logger = Logger.get_logger(__name__)
 
 
 class DeliveryOutputsWidget(QtWidgets.QWidget):
+    """A widget for selecting delivery outputs.
+
+    Attributes:
+        delivery_widgets (dict): A dictionary of delivery widgets, keyed by
+            output name.
+        delivery_extensions (dict): A dictionary of delivery extensions, keyed
+            by output name.
+    """
     def __init__(self):
         super().__init__()
 
@@ -156,6 +164,7 @@ class DeliveryDialog(QtWidgets.QDialog):
         {ext}: File extension
         {representation}: Representation name
         {frame}: Frame number for sequence files.
+        {delivery_type}: Type of delivery output ("review" or "final")
     """
 
     def __init__(self, module, parent=None):
