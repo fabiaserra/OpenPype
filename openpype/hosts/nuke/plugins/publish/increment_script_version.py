@@ -16,9 +16,9 @@ class IncrementScriptVersion(pyblish.api.ContextPlugin):
         "workfile",
         "render",
         "render.farm",
-        "render.farm_frames",
+        "render.frames_farm",
         "prerender.farm",
-        "prerender.farm_frames",
+        "prerender.frames_farm",
     ]
     ### Ends Alkemy-X Override ###
     hosts = ['nuke']

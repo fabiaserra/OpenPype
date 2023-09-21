@@ -523,7 +523,7 @@ class ExtractOIIOTranscode(publish.Extractor):
                                   logger=self.log)
 
         if not profile:
-            self.log.info((
+            self.log.debug((
               "Skipped instance. None of profiles in presets are for"
               " Host: \"{}\" | Families: \"{}\" | Task \"{}\""
               " | Task type \"{}\" | Subset \"{}\" "

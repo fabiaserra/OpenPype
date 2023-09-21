@@ -21,6 +21,7 @@ from openpype.lib.transcoding import (
     IMAGE_EXTENSIONS,
     get_ffprobe_streams,
     should_convert_for_ffmpeg,
+    get_review_layer_name,
     convert_input_paths_for_ffmpeg,
     get_transcode_temp_directory,
 )
@@ -422,6 +423,8 @@ class ExtractReview(pyblish.api.InstancePlugin):
                 ))
                 continue
 
+            layer_name = get_review_layer_name(first_input_path)
+
             # Do conversion if needed
             #   - change staging dir of source representation
             #   - must be set back after output definitions processing
@@ -440,7 +443,8 @@ class ExtractReview(pyblish.api.InstancePlugin):
                     instance,
                     repre,
                     src_repre_staging_dir,
-                    filtered_output_defs
+                    filtered_output_defs,
+                    layer_name
                 )
 
             finally:
@@ -454,7 +458,12 @@ class ExtractReview(pyblish.api.InstancePlugin):
                         shutil.rmtree(new_staging_dir)
 
     def _render_output_definitions(
-        self, instance, repre, src_repre_staging_dir, output_definitions
+        self,
+        instance,
+        repre,
+        src_repre_staging_dir,
+        output_definitions,
+        layer_name
     ):
         fill_data = copy.deepcopy(instance.data["anatomyData"])
         for _output_def in output_definitions:
@@ -526,7 +535,12 @@ class ExtractReview(pyblish.api.InstancePlugin):
 
             try:  # temporary until oiiotool is supported cross platform
                 ffmpeg_args = self._ffmpeg_arguments(
-                    output_def, instance, new_repre, temp_data, fill_data
+                    output_def,
+                    instance,
+                    new_repre,
+                    temp_data,
+                    fill_data,
+                    layer_name,
                 )
             except ZeroDivisionError:
                 # TODO recalculate width and height using OIIO before
@@ -701,7 +715,13 @@ class ExtractReview(pyblish.api.InstancePlugin):
         }
 
     def _ffmpeg_arguments(
-        self, output_def, instance, new_repre, temp_data, fill_data
+        self,
+        output_def,
+        instance,
+        new_repre,
+        temp_data,
+        fill_data,
+        layer_name
     ):
         """Prepares ffmpeg arguments for expected extraction.
 
@@ -768,6 +788,10 @@ class ExtractReview(pyblish.api.InstancePlugin):
             )
 
         duration_seconds = float(output_frames_len / temp_data["fps"])
+
+        # Define which layer should be used
+        if layer_name:
+            ffmpeg_input_args.extend(["-layer", layer_name])
 
         if temp_data["input_is_sequence"]:
             # Set start frame of input sequence (just frame in filename)
