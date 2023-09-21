@@ -43,6 +43,7 @@ class DeliveryOutputsWidget(QtWidgets.QWidget):
         for name_ext in outputs_name_ext:
             name, ext = name_ext
             label = QtWidgets.QLabel(f"{name}")
+            label.setTextInteractionFlags(QtCore.Qt.TextSelectableByMouse)
             checkbox = QtWidgets.QCheckBox()
             checkbox.setChecked(True)
             self.delivery_widgets[name] = checkbox
