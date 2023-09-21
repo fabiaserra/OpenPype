@@ -411,7 +411,7 @@ def generate_delivery_media_version(
 
         # Create a separate variable as CSV filename is the full name with
         # extension included
-        csv_outfilename = out_filename
+        csv_outfilename = f"{out_filename}.{output_ext}"
 
         # If {frame} token exists, replace frame with padded #'s
         if output_anatomy_data.get("frame"):
@@ -419,11 +419,8 @@ def generate_delivery_media_version(
                 r"\d+(?=\.\w+$)", lambda m: "#" * len(m.group()) if m.group() else "#",
                 dest_path
             )
-            # Fill up CSV data
-            csv_outfilename += f".[{out_frame_start}-{out_frame_end}]"
-
-        # Add extension to filename
-        csv_outfilename += ".{output_ext}"
+            # Add frame range to output filename used for CSV data too
+            csv_outfilename = f"{out_filename}.[{out_frame_start}-{out_frame_end}].{output_ext}"
 
         # Add environment variables specific to this output
         task_env["_AX_DELIVERY_OUTPUT_NAME"] = output_name
@@ -489,6 +486,7 @@ def generate_delivery_media_version(
         writer = csv.writer(csvfile)
         for row in csv_data:
             writer.writerow(row)
+    logger.debug("Written CSV data at '%s'", csv_path)
 
     click.echo(report_items)
     return report_items, True
