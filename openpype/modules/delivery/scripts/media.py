@@ -419,7 +419,7 @@ def generate_delivery_media_version(
 
         plugin_data = {
             "ScriptJob": True,
-            "SceneFile": NUKE_DELIVERY_SCRIPT_DEFAULT,
+            "SceneFile": delivery_data["nuke_template_script"],
             "ScriptFilename": NUKE_DELIVERY_PY_DEFAULT,
             # the Version entry is kind of irrelevant as our Deadline workers only
             # contain a single DCC version at the time of writing this
