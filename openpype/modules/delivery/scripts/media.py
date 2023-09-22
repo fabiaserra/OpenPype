@@ -145,21 +145,18 @@ def get_output_anatomy_data(anatomy_data, delivery_data, output_name, output_ext
                         output_name
                     )
                     continue
+                logger.debug(
+                    "Adding custom token '%s':'%s' for output '%s'.",
+                    custom_key,
+                    custom_value,
+                    output_name
+                )
                 custom_value = StringTemplate.format_template(
                     custom_value, output_anatomy_data
                 )
                 output_override[custom_key] = custom_value
 
         output_anatomy_data.update(output_override)
-
-    # Create a dictionary with all the overrides specific to the output name
-    for custom_key, custom_value in delivery_data.get("custom_tokens", {}).items():
-        output_override = {}
-        if custom_key.startswith(output_name) and custom_value:
-            custom_key = custom_key.replace(f"{output_name}:", "")
-            custom_value = StringTemplate.format_template(custom_value, anatomy_data)
-            output_override[custom_key] = custom_value
-            anatomy_data.update(output_override)
 
     return output_anatomy_data
 
