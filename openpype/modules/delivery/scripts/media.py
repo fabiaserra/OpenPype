@@ -415,6 +415,14 @@ def generate_delivery_media_version(
         if repre_report_items:
             return repre_report_items, False
 
+        # Add some validation to make sure we don't overwrite existing files
+        if os.path.isfile(dest_path):
+            logger.warning("Destination path '%s' already exists.", dest_path)
+            repre_report_items["Destination path already exists"].append(
+                dest_path
+            )
+            return repre_report_items
+
         out_filename = output_anatomy_data["filename"]
 
         # Create a separate variable as CSV filename is the full name with
