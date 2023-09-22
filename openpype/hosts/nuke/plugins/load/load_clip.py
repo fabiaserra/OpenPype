@@ -508,6 +508,9 @@ class LoadClip(plugin.NukeLoader):
 
                 # If time_offset and reformat found then update
                 start_frame = self.script_start
+                # Account for video type starting at 1 instead of 0
+                start_frame -= 1
+
                 if slate:
                     start_frame -= 1
                 if time_offset:
