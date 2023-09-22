@@ -2453,16 +2453,20 @@ Reopening Nuke should synchronize these paths and resolve any discrepancies.
         # update node graph so knobs are updated
         update_node_graph()
 
-        frame_range = '{0}-{1}'.format(
-            int(asset_data["frameStart"]),
-            int(asset_data["frameEnd"])
-        )
+        ### Starts Alkemy-X Override ###
+        # Set default frame range to Global
+        viewers = []
+        for w in QtWidgets.QApplication.instance().allWidgets():
+            if "Viewer." in w.objectName():
+                viewers.append(w)
 
-        for node in nuke.allNodes(filter="Viewer"):
-            node['frame_range'].setValue(frame_range)
-            node['frame_range_lock'].setValue(True)
-            node['frame_range'].setValue(frame_range)
-            node['frame_range_lock'].setValue(True)
+        for viewer in viewers:
+            for w in viewer.findChildren(QtWidgets.QWidget, ''):
+                if w.toolTip() == 'FrameSlider Range':
+                    for a in w.menu().actions():
+                        if a.text() == 'Global':
+                            a.trigger()
+        ### Ends Alkemy-X Override ###
 
         if not ASSIST:
             set_node_data(

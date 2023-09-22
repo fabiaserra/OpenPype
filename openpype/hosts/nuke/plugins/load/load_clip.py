@@ -508,6 +508,9 @@ class LoadClip(plugin.NukeLoader):
 
                 # If time_offset and reformat found then update
                 start_frame = self.script_start
+                # Account for video type starting at 1 instead of 0
+                start_frame -= 1
+
                 if slate:
                     start_frame -= 1
                 if time_offset:
@@ -524,8 +527,9 @@ class LoadClip(plugin.NukeLoader):
                 # Only create reformat
                 if not reformat:
                     # Plugin in plugins until loaded for the first time
+                    tmp_node = None
                     try:
-                        nuke.createNode(
+                        tmp_node = nuke.createNode(
                             "reference_reformat",
                             f"name {read_name}_Ref_Reformat",
                             inpanel=False,
@@ -536,6 +540,9 @@ class LoadClip(plugin.NukeLoader):
                             f"name {read_name}_Ref_Reformat",
                             inpanel=False,
                         )
+                        # Incase the reference_reformat was made before error
+                        if tmp_node:
+                            nuke.delete(tmp_node)
     ### Ends Alkemy-x override ###
     def _get_node_name(self, representation):
 
