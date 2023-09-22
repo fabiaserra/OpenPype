@@ -399,10 +399,10 @@ def generate_delivery_media_version(
             output_name, output_anatomy_data
         )
 
+        # Calculate destination path where output will be generated
         output_path_template = os.path.join(
             package_path, delivery_data["template_path"]
         )
-
         repre_report_items, dest_path = delivery.check_destination_path(
             output_name,
             None,
@@ -428,7 +428,8 @@ def generate_delivery_media_version(
                 dest_path
             )
             # Add frame range to output filename used for CSV data too
-            csv_outfilename = f"{out_filename}.[{out_frame_start}-{out_frame_end}].{output_ext}"
+            slate_frame_start = out_frame_start - 1
+            csv_outfilename = f"{out_filename}.[{slate_frame_start}-{out_frame_end}].{output_ext}"
 
         # Add environment variables specific to this output
         task_env["_AX_DELIVERY_OUTPUT_NAME"] = output_name
@@ -451,7 +452,7 @@ def generate_delivery_media_version(
         legacy_io.Session["AVALON_APP"] = "nukex"
         legacy_io.Session["AVALON_APP_NAME"] = "nukex/14-03"
 
-        logger.info("Submitting Nuke delivery job for %s", output_name)
+        logger.info("Submitting Nuke delivery job for '%s'...", output_name)
 
         # Create dictionary of data specific to Nuke plugin for payload submit
         plugin_data = {
@@ -463,17 +464,20 @@ def generate_delivery_media_version(
             "Version": "14.0",
             "UseGpu": False,
         }
+
+        # Submit job to Deadline
+        task_name = f"{output_name} - {output_anatomy_data['filename']}"
         response = submit.payload_submit(
             dest_path,
             (out_frame_start, out_frame_end),
             plugin="AxNuke",
             plugin_data=plugin_data,
             batch_name=f"Delivery media - {package_path}",
-            task_name=f"{output_name} - {output_anatomy_data['filename']}",
+            task_name=task_name,
             extra_env=task_env,
         )
         report_items["Submitted delivery media job to Deadline"].append(
-            response["_id"]
+            f"{dest_path} - {task_name} - {response['_id']}"
         )
 
     # Update SG version with the path where it got delivered and
@@ -489,7 +493,9 @@ def generate_delivery_media_version(
     )
 
     # Write CSV data to file in package
-    csv_path = os.path.join(package_path, package_name, "{}.csv".format(package_name))
+    csv_path = os.path.join(
+        package_path, package_name, "{}.csv".format(package_name)
+    )
 
     # Check if the file exists and has content (i.e., is not empty)
     csv_file_exists = os.path.isfile(csv_path) and os.path.getsize(csv_path) > 0

@@ -16,123 +16,6 @@ from openpype.modules.delivery.scripts import media
 logger = Logger.get_logger(__name__)
 
 
-class DeliveryOutputsWidget(QtWidgets.QWidget):
-    """A widget for selecting delivery outputs.
-
-    Attributes:
-        delivery_widgets (dict): A dictionary of delivery widgets, keyed by
-            output name.
-        delivery_extensions (dict): A dictionary of delivery extensions, keyed
-            by output name.
-    """
-    def __init__(self):
-        super().__init__()
-
-        # Create the layout
-        self.layout = QtWidgets.QFormLayout(self)
-        self.setLayout(self.layout)
-
-        self.delivery_widgets = {}
-        self.delivery_extensions = {}
-
-    def update(self, outputs_name_ext):
-        # Remove all existing rows
-        for i in reversed(range(self.layout.count())):
-            item = self.layout.itemAt(i)
-            if item.widget() is not None:
-                item.widget().deleteLater()
-            self.layout.removeItem(item)
-
-        self.delivery_outputs = {}
-        if not outputs_name_ext:
-            return
-
-        # Add the new rows
-        for name_ext in outputs_name_ext:
-            name, ext = name_ext
-            label = QtWidgets.QLabel(f"{name}")
-            label.setTextInteractionFlags(QtCore.Qt.TextSelectableByMouse)
-            checkbox = QtWidgets.QCheckBox()
-            checkbox.setChecked(True)
-            self.delivery_widgets[name] = checkbox
-            self.delivery_extensions[name] = ext
-            self.layout.addRow(label, checkbox)
-
-    def get_selected_outputs(self):
-        return [
-            (output_name, self.delivery_extensions[output_name])
-            for output_name, checkbox in self.delivery_widgets.items()
-            if checkbox.isChecked()
-        ]
-
-
-class KeyValueWidget(QtWidgets.QWidget):
-    """Widget to define key value pairs of strings."""
-    def __init__(self):
-        super().__init__()
-
-        # Create the layout
-        self.layout = QtWidgets.QVBoxLayout(self)
-        self.setLayout(self.layout)
-
-        # Create the add button
-        self.add_button = QtWidgets.QPushButton("Add")
-        self.add_button.clicked.connect(self.add_pair)
-        self.layout.addWidget(self.add_button)
-
-        # Create the scroll area
-        self.scroll_area = QtWidgets.QScrollArea(self)
-        self.scroll_area.setWidgetResizable(True)
-        self.layout.addWidget(self.scroll_area)
-
-        # Create the scroll area widget
-        self.scroll_widget = QtWidgets.QWidget(self.scroll_area)
-        self.scroll_area.setWidget(self.scroll_widget)
-
-        # Create the scroll area layout
-        self.scroll_layout = QtWidgets.QVBoxLayout(self.scroll_widget)
-        self.scroll_widget.setLayout(self.scroll_layout)
-
-        # Create the key-value pairs list
-        self.pairs = []
-
-    def add_pair(self, key="", value=""):
-        # Create the key-value pair widgets
-        key_input = QtWidgets.QLineEdit(key)
-        value_input = QtWidgets.QLineEdit(value)
-        delete_button = QtWidgets.QPushButton("Delete")
-        delete_button.clicked.connect(lambda: self.delete_pair(delete_button))
-
-        # Add the key-value pair widgets to the layout
-        pair_layout = QtWidgets.QHBoxLayout()
-        pair_layout.addWidget(key_input)
-        pair_layout.addWidget(value_input)
-        pair_layout.addWidget(delete_button)
-        self.scroll_layout.addLayout(pair_layout)
-
-        # Add the key-value pair to the list
-        self.pairs.append((key_input, value_input, delete_button))
-
-    def delete_pair(self, delete_button):
-        # Find the key-value pair that corresponds to the delete button
-        for pair in self.pairs:
-            if pair[2] == delete_button:
-                key_input, value_input, delete_button = pair
-                break
-
-        # Remove the key-value pair from the layout and the list
-        pair_widget = delete_button.parent()
-        pair_widget.deleteLater()
-        self.pairs.remove((key_input, value_input, delete_button))
-
-    def get_pairs(self):
-        # Return the key-value pairs as a dictionary
-        return {
-            key_input.text(): value_input.text()
-            for key_input, value_input, _ in self.pairs
-        }
-
-
 class DeliveryDialog(QtWidgets.QDialog):
     """Interface to control SG deliveries"""
 
@@ -143,7 +26,7 @@ class DeliveryDialog(QtWidgets.QDialog):
     SIZE_H = 800
 
     # File path to json file that contains defaults for the Delivery dialog inputs
-    PROJ_DELIVERY_CONFIG = "/proj/{project_code}/config/delivery/defaults.json"
+    PROJ_DELIVERY_CONFIG = "/proj/{proj_code}/config/delivery/defaults.json"
 
     TOKENS_HELP = """
         {project[name]}: Project's full name
@@ -192,7 +75,7 @@ class DeliveryDialog(QtWidgets.QDialog):
         self._ignore_project_change = False
 
         # Short code name for currently selected project
-        self._current_project_code = None
+        self._current_proj_code = None
 
         dbcon = AvalonMongoDB()
         dbcon.install()
@@ -244,7 +127,7 @@ class DeliveryDialog(QtWidgets.QDialog):
         input_layout.addRow("Vendor {vendor}", vendor_input)
 
         package_name_input = QtWidgets.QLineEdit(
-            "{yyyy}{mm}{dd}_{vendor}_A"
+            "{yyyy}{mm}{dd}_{vendor}"
         )
         package_name_input.setToolTip(
             "Template string used as a replacement of {package_name} on the path template."
@@ -498,7 +381,9 @@ class DeliveryDialog(QtWidgets.QDialog):
         # Create list of tuples of output name and its extension
         outputs_name_ext = []
         for delivery_type in delivery_types:
-            out_data_types = project_overrides.get(f"sg_{delivery_type}_output_type", [])
+            out_data_types = project_overrides.get(
+                f"sg_{delivery_type}_output_type", []
+            )
             for data_type_name, data_type_args in out_data_types.items():
                 out_name = f"{data_type_name.lower().replace(' ', '')}_{delivery_type}"
                 out_extension = data_type_args["sg_extension"]
@@ -511,18 +396,20 @@ class DeliveryDialog(QtWidgets.QDialog):
         title = "{} - {}".format(self.tool_title, project_name)
         self.setWindowTitle(title)
 
-        # Store some useful variables
-        project_code = sg_project.get("sg_code")
-        self._load_project_config(project_code)
-        self._current_project_code = project_code
+        # Find project code from SG project and load config file if it exists
+        proj_code = sg_project.get("sg_code")
+        self._load_project_config(proj_code)
+
+        # Store project code as class variable so we can reuse it throughout
+        self._current_proj_code = proj_code
 
     def _save_project_config(self):
-        project_code = self._current_project_code
-        if not project_code:
+        proj_code = self._current_proj_code
+        if not proj_code:
             logger.warning("No current project selected, can't save config")
             return
 
-        config_path = self.PROJ_DELIVERY_CONFIG.format(project_code=project_code)
+        config_path = self.PROJ_DELIVERY_CONFIG.format(proj_code=proj_code)
 
         config_path_dir = os.path.dirname(config_path)
         if not os.path.exists(config_path_dir):
@@ -536,9 +423,9 @@ class DeliveryDialog(QtWidgets.QDialog):
             )
             json.dump(delivery_data, f)
 
-    def _load_project_config(self, project_code):
+    def _load_project_config(self, proj_code):
         delivery_data = {}
-        config_path = self.PROJ_DELIVERY_CONFIG.format(project_code=project_code)
+        config_path = self.PROJ_DELIVERY_CONFIG.format(proj_code=proj_code)
 
         if not os.path.exists(config_path):
             logger.info(
@@ -602,7 +489,7 @@ class DeliveryDialog(QtWidgets.QDialog):
         delivery_data["filename_override"] = self._filename_input.text()
         delivery_data["template_path"] = self._template_input.text()
 
-        proj_code = self._current_project_code
+        proj_code = self._current_proj_code
         template_script = media.NUKE_DELIVERY_SCRIPT_DEFAULT
         if proj_code:
             proj_template_script = media.PROJ_NUKE_DELIVERY_SCRIPT.format(
@@ -643,6 +530,125 @@ class DeliveryDialog(QtWidgets.QDialog):
 
     def refresh(self):
         tools_lib.schedule(self._refresh, 50, channel="mongo")
+
+
+
+
+class DeliveryOutputsWidget(QtWidgets.QWidget):
+    """A widget for selecting delivery outputs.
+
+    Attributes:
+        delivery_widgets (dict): A dictionary of delivery widgets, keyed by
+            output name.
+        delivery_extensions (dict): A dictionary of delivery extensions, keyed
+            by output name.
+    """
+    def __init__(self):
+        super().__init__()
+
+        # Create the layout
+        self.layout = QtWidgets.QFormLayout(self)
+        self.setLayout(self.layout)
+
+        self.delivery_widgets = {}
+        self.delivery_extensions = {}
+
+    def update(self, outputs_name_ext):
+        # Remove all existing rows
+        for i in reversed(range(self.layout.count())):
+            item = self.layout.itemAt(i)
+            if item.widget() is not None:
+                item.widget().deleteLater()
+            self.layout.removeItem(item)
+
+        self.delivery_outputs = {}
+        if not outputs_name_ext:
+            return
+
+        # Add the new rows
+        for name_ext in outputs_name_ext:
+            name, ext = name_ext
+            label = QtWidgets.QLabel(f"{name}")
+            label.setTextInteractionFlags(QtCore.Qt.TextSelectableByMouse)
+            checkbox = QtWidgets.QCheckBox()
+            checkbox.setChecked(True)
+            self.delivery_widgets[name] = checkbox
+            self.delivery_extensions[name] = ext
+            self.layout.addRow(label, checkbox)
+
+    def get_selected_outputs(self):
+        return [
+            (output_name, self.delivery_extensions[output_name])
+            for output_name, checkbox in self.delivery_widgets.items()
+            if checkbox.isChecked()
+        ]
+
+
+class KeyValueWidget(QtWidgets.QWidget):
+    """Widget to define key value pairs of strings."""
+    def __init__(self):
+        super().__init__()
+
+        # Create the layout
+        self.layout = QtWidgets.QVBoxLayout(self)
+        self.setLayout(self.layout)
+
+        # Create the add button
+        self.add_button = QtWidgets.QPushButton("Add")
+        self.add_button.clicked.connect(self.add_pair)
+        self.layout.addWidget(self.add_button)
+
+        # Create the scroll area
+        self.scroll_area = QtWidgets.QScrollArea(self)
+        self.scroll_area.setWidgetResizable(True)
+        self.layout.addWidget(self.scroll_area)
+
+        # Create the scroll area widget
+        self.scroll_widget = QtWidgets.QWidget(self.scroll_area)
+        self.scroll_area.setWidget(self.scroll_widget)
+
+        # Create the scroll area layout
+        self.scroll_layout = QtWidgets.QVBoxLayout(self.scroll_widget)
+        self.scroll_widget.setLayout(self.scroll_layout)
+
+        # Create the key-value pairs list
+        self.pairs = []
+
+    def add_pair(self, key="", value=""):
+        # Create the key-value pair widgets
+        key_input = QtWidgets.QLineEdit(key)
+        value_input = QtWidgets.QLineEdit(value)
+        delete_button = QtWidgets.QPushButton("Delete")
+        delete_button.clicked.connect(lambda: self.delete_pair(delete_button))
+
+        # Add the key-value pair widgets to the layout
+        pair_layout = QtWidgets.QHBoxLayout()
+        pair_layout.addWidget(key_input)
+        pair_layout.addWidget(value_input)
+        pair_layout.addWidget(delete_button)
+        self.scroll_layout.addLayout(pair_layout)
+
+        # Add the key-value pair to the list
+        self.pairs.append((key_input, value_input, delete_button))
+
+    def delete_pair(self, delete_button):
+        # Find the key-value pair that corresponds to the delete button
+        for pair in self.pairs:
+            if pair[2] == delete_button:
+                key_input, value_input, delete_button = pair
+                break
+
+        # Remove the key-value pair from the layout and the list
+        pair_widget = delete_button.parent()
+        pair_widget.deleteLater()
+        self.pairs.remove((key_input, value_input, delete_button))
+
+    def get_pairs(self):
+        # Return the key-value pairs as a dictionary
+        return {
+            key_input.text(): value_input.text()
+            for key_input, value_input, _ in self.pairs
+        }
 
 
 def main():
