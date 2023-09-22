@@ -421,7 +421,7 @@ def generate_delivery_media_version(
             repre_report_items["Destination path already exists"].append(
                 dest_path
             )
-            return repre_report_items
+            return repre_report_items, False
 
         out_filename = output_anatomy_data["filename"]
 
