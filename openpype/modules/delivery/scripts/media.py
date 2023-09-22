@@ -386,7 +386,7 @@ def generate_delivery_media_version(
     csv_data = []
 
     # For each output selected, submit a job to the farm
-    for output_name_ext in delivery_data["output_names_ext"]:
+    for index, output_name_ext in enumerate(delivery_data["output_names_ext"]):
 
         # Inject output specific anatomy data and resolve tokens
         output_name, output_ext = output_name_ext
@@ -440,9 +440,15 @@ def generate_delivery_media_version(
             csv_outfilename = f"{out_filename}.[{slate_frame_start}-{out_frame_end}].{output_ext}"
 
         # Add environment variables specific to this output
-        task_env["_AX_DELIVERY_OUTPUT_NAME"] = output_name
-        task_env["_AX_DELIVERY_FILENAME"] = out_filename
-        task_env["_AX_DELIVERY_WRITEPATH"] = dest_path
+        output_task_env = task_env.copy()
+        output_task_env["_AX_DELIVERY_OUTPUT_NAME"] = output_name
+        output_task_env["_AX_DELIVERY_FILENAME"] = out_filename
+        output_task_env["_AX_DELIVERY_WRITEPATH"] = dest_path
+
+        # Trigger generation of thumbnail only on the first output generation
+        if index == 0:
+            output_task_env["AX_GENERATE_THUMBNAIL"] = "1"
+
 
         # Append output information to CSV data
         csv_data.append(
@@ -482,7 +488,7 @@ def generate_delivery_media_version(
             plugin_data=plugin_data,
             batch_name=f"Delivery media - {package_path}",
             task_name=task_name,
-            extra_env=task_env,
+            extra_env=output_task_env,
         )
         report_items["Submitted delivery media job to Deadline"].append(
             f"{dest_path} - {task_name} - {response['_id']}"
