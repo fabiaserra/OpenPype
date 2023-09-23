@@ -43,7 +43,13 @@ RUN apt-get update \
         libxmlsec1-dev \
         libffi-dev \
         liblzma-dev \
-        patchelf
+        patchelf \
+        libmp3lame-dev \ 
+        libvorbis-dev \
+        libva2 \
+        libva-x11-2 \
+        libvdpau-dev \
+        libva-drm2
 
 SHELL ["/bin/bash", "-c"]
 
