@@ -447,7 +447,10 @@ def generate_delivery_media_version(
 
         # Trigger generation of thumbnail only on the first output generation
         if index == 0:
-            output_task_env["AX_GENERATE_THUMBNAIL"] = "1"
+            output_task_env["_AX_DELIVERY_GENERATE_THUMBNAIL"] = "1"
+            output_task_env["_AX_DELIVERY_THUMBNAIL_PATH"] = os.path.join(
+                package_path, package_name, "_thumb"
+            )
 
 
         # Append output information to CSV data
