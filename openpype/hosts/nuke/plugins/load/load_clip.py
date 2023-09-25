@@ -190,7 +190,13 @@ class LoadClip(plugin.NukeLoader):
                 read_node, version_data, representation["data"], filepath)
 
             if not is_sequence:
-                self._loader_shift(read_node, slate_frame, start_at_workfile)
+                load_first_frame = version_data.get("frameStart", None)
+                load_handle_start = version_data.get("handleStart", None)
+                if load_first_frame and load_handle_start:
+                    start_frame = load_first_frame - load_handle_start
+                else:
+                    start_frame = self.script_start
+                self._loader_shift(read_node, slate_frame, start_frame, start_at_workfile)
             ### Ends Alkemy-x override ###
 
             # add additional metadata from the version to imprint Avalon knob
@@ -351,8 +357,14 @@ class LoadClip(plugin.NukeLoader):
 
             ### Starts Alkemy-x override ###
             if not is_sequence:
-                # slate_frame
-                self._loader_shift(read_node, slate_frame, start_at_workfile)
+                load_first_frame = version_data.get("frameStart", None)
+                load_handle_start = version_data.get("handleStart", None)
+                if load_first_frame and load_handle_start:
+                    start_frame = load_first_frame - load_handle_start
+                else:
+                    start_frame = self.script_start
+
+                self._loader_shift(read_node, slate_frame, start_frame, start_at_workfile)
             ### Ends Alkemy-x override ###
 
             updated_dict = {
@@ -475,7 +487,7 @@ class LoadClip(plugin.NukeLoader):
                     last_node.setInput(i, n)
 
     ### Starts Alkemy-x override ###
-    def _loader_shift(self, read_node, slate, workfile_start=False):
+    def _loader_shift(self, read_node, slate, start_frame, workfile_start=False):
         """ Set start frame of read node to a workfile start
 
         Args:
@@ -507,7 +519,6 @@ class LoadClip(plugin.NukeLoader):
                         break
 
                 # If time_offset and reformat found then update
-                start_frame = self.script_start
                 # Account for video type starting at 1 instead of 0
                 start_frame -= 1
 
