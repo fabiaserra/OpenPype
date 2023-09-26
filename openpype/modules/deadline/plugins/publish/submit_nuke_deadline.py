@@ -189,12 +189,16 @@ class NukeSubmitDeadline(pyblish.api.InstancePlugin,
                     resp.json()["_id"])
 
         # redefinition of families
+        ### Starts Alkemy-X Override ###
+        # Remove redefinition of 'family' as it breaks family filtering and
+        # we don't see the need for it. TODO: create PR against main repo
         if "render" in instance.data["family"]:
             # instance.data['family'] = 'write'
             families.insert(0, "render2d")
         elif "prerender" in instance.data["family"]:
             # instance.data['family'] = 'write'
             families.insert(0, "prerender")
+        ### Ends Alkemy-X Override ###
         instance.data["families"] = families
 
     def payload_submit(

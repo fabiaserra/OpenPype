@@ -41,6 +41,7 @@ class IntegrateShotgridPublish(pyblish.api.InstancePlugin):
                 instance, representation, False
             )
 
+            ### Starts Alkemy-X Override ###
             if "shotgridreview" not in representation.get("tags", []):
                 self.log.debug(
                     "No 'shotgridreview' tag on representation '%s', skipping.",
@@ -48,7 +49,6 @@ class IntegrateShotgridPublish(pyblish.api.InstancePlugin):
                 )
                 continue
 
-            ### Starts Alkemy-X Override ###
             code = os.path.basename(local_path)
             # Extract and remove version number from code so Publishedfile versions are
             # grouped together. More info about this on:
