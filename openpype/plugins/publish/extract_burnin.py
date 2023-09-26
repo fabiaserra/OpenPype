@@ -34,7 +34,7 @@ class ExtractBurnin(publish.Extractor):
     label = "Extract burnins"
     order = pyblish.api.ExtractorOrder + 0.03
 
-    families = ["review", "burnin", "client_review", "client_final"]
+    families = ["review", "burnin"]
     hosts = [
         "nuke",
         "maya",
