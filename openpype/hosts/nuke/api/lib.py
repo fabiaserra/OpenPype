@@ -2377,37 +2377,40 @@ Reopening Nuke should synchronize these paths and resolve any discrepancies.
                             nname,
                             knobs["to"]))
 
+    ### Starts Alkemy-x Override ###
     def set_colorspace(self):
         ''' Setting colorspace following presets
         '''
+        nuke.root()["colorManagement"].setValue("OCIO")
         # get imageio
-        nuke_colorspace = get_nuke_imageio_settings()
+        # nuke_colorspace = get_nuke_imageio_settings()
 
-        log.info("Setting colorspace to workfile...")
-        try:
-            self.set_root_colorspace(nuke_colorspace)
-        except AttributeError as _error:
-            msg = "Set Colorspace to workfile error: {}".format(_error)
-            nuke.message(msg)
+        # log.info("Setting colorspace to workfile...")
+        # try:
+        #     self.set_root_colorspace(nuke_colorspace)
+        # except AttributeError as _error:
+        #     msg = "Set Colorspace to workfile error: {}".format(_error)
+        #     nuke.message(msg)
 
-        log.info("Setting colorspace to viewers...")
-        try:
-            self.set_viewers_colorspace(nuke_colorspace["viewer"])
-        except AttributeError as _error:
-            msg = "Set Colorspace to viewer error: {}".format(_error)
-            nuke.message(msg)
+        # log.info("Setting colorspace to viewers...")
+        # try:
+        #     self.set_viewers_colorspace(nuke_colorspace["viewer"])
+        # except AttributeError as _error:
+        #     msg = "Set Colorspace to viewer error: {}".format(_error)
+        #     nuke.message(msg)
 
-        log.info("Setting colorspace to write nodes...")
-        try:
-            self.set_writes_colorspace()
-        except AttributeError as _error:
-            nuke.message(_error)
-            log.error(_error)
+        # log.info("Setting colorspace to write nodes...")
+        # try:
+        #     self.set_writes_colorspace()
+        # except AttributeError as _error:
+        #     nuke.message(_error)
+        #     log.error(_error)
 
-        log.info("Setting colorspace to read nodes...")
-        read_clrs_inputs = nuke_colorspace["regexInputs"].get("inputs", [])
-        if read_clrs_inputs:
-            self.set_reads_colorspace(read_clrs_inputs)
+        # log.info("Setting colorspace to read nodes...")
+        # read_clrs_inputs = nuke_colorspace["regexInputs"].get("inputs", [])
+        # if read_clrs_inset_reads_colorspaceputs:
+        #     self.(read_clrs_inputs)
+    ### Ends Alkemy-x Override ###
 
     def reset_frame_range_handles(self):
         """Set frame range to current asset"""
@@ -2559,9 +2562,7 @@ Reopening Nuke should synchronize these paths and resolve any discrepancies.
         # replace reset resolution from avalon core to pype's
         self.reset_frame_range_handles()
         # add colorspace menu item
-        ### Starts Alkemy-x Override ###
-        # self.set_colorspace()
-        ### Ends Alkemy-x Override ###
+        self.set_colorspace()
 
     def set_favorites(self):
         from .utils import set_context_favorites
