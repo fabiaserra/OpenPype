@@ -21,7 +21,7 @@ class CollectShotgridEntities(pyblish.api.InstancePlugin):
         avalon_asset = context.data.get("assetEntity") or instance.data.get(
             "assetEntity"
         )
-        avalon_task_name = context.data.get("task")
+        avalon_task_name = context.data.get("task") or instance.data["anatomyData"]["task"]["name"]
 
         self.log.debug(avalon_project)
         self.log.debug(avalon_asset)
