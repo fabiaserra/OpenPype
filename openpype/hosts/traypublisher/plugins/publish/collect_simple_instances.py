@@ -255,8 +255,6 @@ class CollectSettingsSimpleInstances(pyblish.api.InstancePlugin):
 
         if "review" not in instance.data["families"]:
             instance.data["families"].append("review")
-            instance.data["families"].append("client_review")
-            instance.data["families"].append("client_final")
 
         if not instance.data.get("thumbnailSource"):
             instance.data["thumbnailSource"] = first_filepath
