@@ -166,13 +166,24 @@ class DeliveryDialog(QtWidgets.QDialog):
         task_override_combo.setEditable(True)
         input_layout.addRow("Task short {task[short]}", task_override_combo)
 
-        comment_input = QtWidgets.QLineEdit("")
-        comment_input.setToolTip(
-            "Override the submission notes/comment of the delivery media. If left empty, " \
-            "the comment will just be picked up from the SG version description. "
+        submission_notes_input = QtWidgets.QLineEdit("")
+        submission_notes_input.setToolTip(
+            "Override the 'Submission Notes' field of the SG versions. If left empty, " \
+            "it will just be picked up from the SG version 'Submission Notes'."
         )
         input_layout.addRow(
-            "Submission notes override {comment}", comment_input
+            "Submission Notes override {submission_notes}",
+            submission_notes_input
+        )
+
+        submit_for_input = QtWidgets.QLineEdit("")
+        submit_for_input.setToolTip(
+            "Override the 'Submit For' of the SG versions. If left empty, " \
+            "it will just be picked up from the SG version 'Submit For'. "
+        )
+        input_layout.addRow(
+            "Submit For override {submit_for}",
+            submit_for_input
         )
 
         custom_tokens = KeyValueWidget()
@@ -282,7 +293,8 @@ class DeliveryDialog(QtWidgets.QDialog):
         self._filename_input = filename_input
         self._version_input = version_input
         self._task_override_combo = task_override_combo
-        self._comment_input = comment_input
+        self._submission_notes_input = submission_notes_input
+        self._submit_for_input = submit_for_input
         self._custom_tokens = custom_tokens
         self._template_input = template_input
         self._sg_playlist_id_input = sg_playlist_id_input
@@ -513,7 +525,8 @@ class DeliveryDialog(QtWidgets.QDialog):
         delivery_data["package_name_override"] = self._package_name_input.text()
         delivery_data["version_override"] = self._version_input.text()
         delivery_data["task[short]_override"] = self._task_override_combo.currentText()
-        delivery_data["comment_override"] = self._comment_input.text()
+        delivery_data["submission_notes_override"] = self._submission_notes_input.text()
+        delivery_data["submit_for_override"] = self._submit_for_input.text()
         delivery_data["custom_tokens"] = self._custom_tokens.get_pairs()
         delivery_data["filename_override"] = self._filename_input.text()
         delivery_data["template_path"] = self._template_input.text()
@@ -528,7 +541,8 @@ class DeliveryDialog(QtWidgets.QDialog):
                 template_script = proj_template_script
             else:
                 logger.warning(
-                    "Project Nuke template not found at '%s'", proj_template_script
+                    "Project Nuke template not found at '%s'",
+                    proj_template_script
                 )
 
         delivery_data["nuke_template_script"] = template_script
