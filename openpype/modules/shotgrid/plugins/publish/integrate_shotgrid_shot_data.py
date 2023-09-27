@@ -79,6 +79,13 @@ class IntegrateShotgridShotData(pyblish.api.InstancePlugin):
         if not cut_info:
             return
 
+        elif "None" in cut_info.values():
+            self.log.warning(
+                "None values found in cut info. Please fix - "
+                "Skipping cut in update"
+            )
+            return
+
         cut_in = int(cut_info["cut_in"])
         cut_out = int(cut_info["cut_out"])
         head_in = cut_in - int(cut_info["head_handles"])
