@@ -112,37 +112,42 @@ class TranscodeFrames(publish.Extractor, publish.ColormanagedPyblishPluginMixin)
         if ingest_resolution:
             ingest_resolutions = ["fr", "wr"]
 
+        # Name to use for batch grouping Deadline tasks
+        batch_name = "Transcode frames - {} - {}".format(
+            context.data.get("currentFile", ""), staging_dir
+        )
+
         # For each output resolution we create a job in the farm
         submission_jobs = []
         for resolution in ingest_resolutions:
-            # resolution_str = "{0}x{1}".format(
-                # output_definition["width"], output_definition["height"]
-            # )
+
             representation_name = instance.data["name"]
             if resolution == "fr":
                 representation_name += "_fr"
 
-            output_template = os.path.join(
-                staging_dir,
-                representation_name,
-            )
-            output_dir = os.path.dirname(output_template)
-
-            # Create output_dir if it doesn't exist
+            # Create staging directory if it doesn't exist
             try:
-                if not os.path.isdir(output_dir):
-                    os.makedirs(output_dir, exist_ok=True)
+                if not os.path.isdir(staging_dir):
+                    os.makedirs(staging_dir, exist_ok=True)
             except OSError:
                 # directory is not available
-                self.log.warning("Path is unreachable: `{}`".format(output_dir))
+                self.log.error("Path is unreachable: `{}`".format(staging_dir))
+                continue
 
-            output_path = (
-                f"{output_template}.%0{padding}d.{self.output_ext}"
+            output_path = os.path.join(
+                staging_dir,
+                f"{representation_name}.%0{padding}d.{self.output_ext}"
             )
 
-            self.log.info("Output path: %s", output_path)
-            self.log.info("Output ext: %s", self.output_ext)
-            self.log.info("Source ext: %s", source_ext.lower())
+            self.log.debug("Source ext: %s", source_ext.lower())
+            self.log.debug("Output path: %s", output_path)
+            self.log.debug("Output ext: %s", self.output_ext)
+
+            # Create names for Deadline batch job and tasks
+            task_name = "{} - {}".format(
+                staging_dir,
+                os.path.basename(output_path)
+            )
 
             # If either source or output is a video format, transcode using Nuke
             if (self.output_ext.lower() in self.movie_extensions or
@@ -179,8 +184,8 @@ class TranscodeFrames(publish.Extractor, publish.ColormanagedPyblishPluginMixin)
                     (out_frame_start, out_frame_end),
                     plugin="AxNuke",
                     plugin_data=plugin_data,
-                    batch_name="",
-                    task_name="",
+                    batch_name=batch_name,
+                    task_name=task_name,
                     department="Editorial",
                     group=dl_constants.NUKE_CPU_GROUP,
                     comment=context.data.get("comment", ""),
@@ -248,8 +253,8 @@ class TranscodeFrames(publish.Extractor, publish.ColormanagedPyblishPluginMixin)
                     (src_frame_start, src_frame_end),
                     plugin="CommandLine",
                     plugin_data=plugin_data,
-                    batch_name="",
-                    task_name="",
+                    batch_name=batch_name,
+                    task_name=task_name,
                     department="Editorial",
                     group=dl_constants.OP_GROUP,
                     comment=context.data.get("comment", ""),
