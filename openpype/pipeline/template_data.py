@@ -1,6 +1,8 @@
 from openpype.client import get_project, get_asset_by_name
 from openpype.settings import get_system_settings
+from openpype.lib import prepare_template_data
 from openpype.lib.local_settings import get_openpype_username
+from openpype.pipeline import context_tools
 
 
 def get_general_template_data(system_settings=None):
@@ -193,6 +195,20 @@ def get_template_data(
                 project_doc, asset_doc, task_name
             ))
 
+        ### Starts Alkemy-X Override ###
+        # Set hierarchy context data to anatomy so we can use it on templates
+        hierarchy_env = context_tools.get_hierarchy_env(project_doc, asset_doc)
+        hierarchy_pairs = {
+            "episode": hierarchy_env.get("EPISODE") or "",
+            "seq": hierarchy_env.get("SEQ") or "",
+            "shot": hierarchy_env.get("SHOT") or "",
+            "shotnum": hierarchy_env.get("SHOTNUM") or "",
+            "asset_type": hierarchy_env.get("ASSET_TYPE") or "",
+        }
+        hierarchy_data = prepare_template_data(hierarchy_pairs)
+        template_data.update(hierarchy_data)
+        ### Ends Alkemy-X Override ###
+
     if host_name:
         template_data["app"] = host_name
 
@@ -234,7 +250,17 @@ def get_template_data_with_names(
         asset_doc = get_asset_by_name(
             project_name,
             asset_name,
-            fields=["name", "data.parents", "data.tasks"]
+            ### Starts Alkemy-X Override ###
+            # Add some extra fields required for being able to call
+            # context_tools.get_hierarchy_env on get_template_data
+            fields=[
+                "name",
+                "data.parents",
+                "data.tasks",
+                "data.visualParent",
+                "data.sgEntityType"
+            ]
+            ### Ends Alkemy-X Override ###
         )
     return get_template_data(
         project_doc, asset_doc, task_name, host_name, system_settings

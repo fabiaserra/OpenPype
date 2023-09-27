@@ -72,6 +72,11 @@ dropbox = "^11.20.0"
 aiohttp-middlewares = "^2.0.0"
 Unidecode = "1.2.0"
 cryptography = "39.0.0"
+rpdb = "^0.1.6"
+html2image = "^2.0.3"
+tqdm = "^4.65.0"
+scenedetect = "^0.6.1"
+opencv-python-headless = "^4.7.0.72"
 
 [tool.poetry.dev-dependencies]
 flake8 = "^6.0"

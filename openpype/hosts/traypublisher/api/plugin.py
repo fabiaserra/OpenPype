@@ -8,6 +8,7 @@ from openpype.lib.attribute_definitions import (
     BoolDef,
     NumberDef,
     UISeparatorDef,
+    EnumDef,
 )
 from openpype.lib.transcoding import IMAGE_EXTENSIONS, VIDEO_EXTENSIONS
 from openpype.pipeline.create import (
@@ -301,7 +302,15 @@ class SettingsCreator(TrayPublishCreator):
                 single_item=True,
                 label="Reviewable representations",
                 extensions_label="Single reviewable item"
-            )
+            ),
+            EnumDef(
+                "render_target",
+                items={
+                    "local": "Local machine rendering",
+                    "farm": "Farm rendering"
+                },
+                label="Render target"
+            ),
         ]
 
     @classmethod

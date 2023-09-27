@@ -12,6 +12,10 @@ from abc import ABCMeta, abstractmethod
 import six
 
 from openpype import AYON_SERVER_ENABLED, PACKAGE_DIR
+from openpype.client import (
+    get_project,
+    get_asset_by_name,
+)
 from openpype.settings import (
     get_system_settings,
     get_project_settings,
@@ -1701,6 +1705,7 @@ def prepare_context_environments(data, env_group=None, modules_manager=None):
     """
 
     from openpype.pipeline.template_data import get_template_data
+    from openpype.pipeline.context_tools import get_hierarchy_env
 
     # Context environments
     log = data["log"]
@@ -1731,6 +1736,11 @@ def prepare_context_environments(data, env_group=None, modules_manager=None):
         context_env["AVALON_ASSET"] = asset_doc["name"]
         if task_name:
             context_env["AVALON_TASK"] = task_name
+
+    ### Starts Alkemy-X Override ###
+    # Get hierarchy environment variables (i.e., SEASON, SHOW, SEQ...)
+    context_env.update(get_hierarchy_env(project_doc, asset_doc))
+    ### Ends Alkemy-X Override ###
 
     log.debug(
         "Context environments set:\n{}".format(
@@ -1913,6 +1923,15 @@ def _prepare_last_workfile(data, workdir, modules_manager):
 
     data["env"]["AVALON_LAST_WORKFILE"] = last_workfile_path
     data["last_workfile_path"] = last_workfile_path
+
+    ### Starts Alkemy-X Override ###
+    # If last workfile path is found, don't launch workfile tool
+    if last_workfile_path:
+        data["env"]["OPENPYPE_WORKFILE_TOOL_ON_START"] = "0"
+        log.debug(
+            "Last workfile path found so workfile tool won't be launched."
+        )
+    ### Ends Alkemy-X Override ###
 
 
 def should_start_last_workfile(

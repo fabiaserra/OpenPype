@@ -1,10 +1,13 @@
 import os
+import click
 
 from openpype.modules import (
     OpenPypeModule,
     ITrayModule,
     IPluginPaths,
 )
+from openpype.modules.shotgrid.scripts import populate_tasks, create_project
+
 
 SHOTGRID_MODULE_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -22,6 +25,9 @@ class ShotgridModule(OpenPypeModule, ITrayModule, IPluginPaths):
         self.leecher_manager_url = shotgrid_settings.get(
             "leecher_manager_url", ""
         )
+
+    def cli(self, click_group):
+        click_group.add_command(cli_main)
 
     def connect_with_modules(self, enabled_modules):
         pass
@@ -52,3 +58,30 @@ class ShotgridModule(OpenPypeModule, ITrayModule, IPluginPaths):
 
     def tray_menu(self, tray_menu):
         return self.tray_wrapper.tray_menu(tray_menu)
+
+
+@click.command("populate_tasks")
+@click.argument("project_code")
+def populate_tasks_command(project_code):
+    """Given a SG project code, populate the default tasks to all its entities."""
+    return populate_tasks.populate_tasks(project_code)
+
+
+@click.command("create_project")
+@click.argument("project_code")
+def create_project_command(project_code):
+    """Given a SG project code, populate the default tasks to all its entities."""
+    return create_project.create_project(project_code)
+
+
+@click.group(ShotgridModule.name, help="Shotgrid CLI")
+def cli_main():
+    pass
+
+
+cli_main.add_command(populate_tasks_command)
+cli_main.add_command(create_project_command)
+
+
+if __name__ == "__main__":
+    cli_main()

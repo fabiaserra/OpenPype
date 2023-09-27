@@ -106,6 +106,7 @@ class IntegrateAsset(pyblish.api.InstancePlugin):
                 "rendersetup",
                 "rig",
                 "plate",
+                "reference",
                 "look",
                 "audio",
                 "yetiRig",
@@ -697,15 +698,20 @@ class IntegrateAsset(pyblish.api.InstancePlugin):
             destination_indexes = list(src_collection.indexes)
             # Use last frame for minimum padding
             #   - that should cover both 'udim' and 'frame' minimum padding
-            destination_padding = len(str(destination_indexes[-1]))
+            ### Starts Alkemy-X Override ###
+            # Just use the padding set on the project settings
+            destination_padding = int(
+                publish_template_category["frame_padding"]
+            )
             if not is_udim:
                 # Change padding for frames if template has defined higher
                 #   padding.
-                template_padding = int(
-                    publish_template_category["frame_padding"]
-                )
-                if template_padding > destination_padding:
-                    destination_padding = template_padding
+                # destination_padding = int(
+                #     publish_template_category["frame_padding"]
+                # )
+                # if template_padding > destination_padding:
+                #     destination_padding = template_padding
+                ### Ends Alkemy-X Override ###
 
                 # If the representation has `frameStart` set it renumbers the
                 # frame indices of the published collection. It will start from

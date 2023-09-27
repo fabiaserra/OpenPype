@@ -26,13 +26,16 @@ class CollectCurrentContext(pyblish.api.ContextPlugin):
 
         current_context = get_current_context()
         if not project_name:
-            context.data["projectName"] = current_context["project_name"]
+            project_name = current_context["project_name"]
+            context.data["projectName"] = project_name
 
         if not asset_name:
-            context.data["asset"] = current_context["asset_name"]
+            asset_name = current_context["asset_name"]
+            context.data["asset"] = asset_name
 
         if not task_name:
-            context.data["task"] = current_context["task_name"]
+            task_name = current_context["task_name"]
+            context.data["task"] = task_name
 
         # QUESTION should we be explicit with keys? (the same on instances)
         #   - 'asset' -> 'assetName'

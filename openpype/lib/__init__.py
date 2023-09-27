@@ -29,6 +29,7 @@ from .vendor_bin_utils import (
     get_oiio_tool_args,
     get_ffmpeg_tool_path,
     get_ffmpeg_tool_args,
+    get_chrome_tool_path,
     is_oiio_supported,
 )
 
@@ -199,6 +200,7 @@ __all__ = [
     "get_oiio_tool_args",
     "get_ffmpeg_tool_path",
     "get_ffmpeg_tool_args",
+    "get_chrome_tool_path",
     "is_oiio_supported",
 
     "AbstractAttrDef",

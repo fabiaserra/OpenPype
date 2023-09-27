@@ -2423,37 +2423,40 @@ Reopening Nuke should synchronize these paths and resolve any discrepancies.
                             nname,
                             knobs["to"]))
 
+    ### Starts Alkemy-x Override ###
     def set_colorspace(self):
         ''' Setting colorspace following presets
         '''
+        nuke.root()["colorManagement"].setValue("OCIO")
         # get imageio
-        nuke_colorspace = get_nuke_imageio_settings()
+        # nuke_colorspace = get_nuke_imageio_settings()
 
-        log.info("Setting colorspace to workfile...")
-        try:
-            self.set_root_colorspace(nuke_colorspace)
-        except AttributeError as _error:
-            msg = "Set Colorspace to workfile error: {}".format(_error)
-            nuke.message(msg)
+        # log.info("Setting colorspace to workfile...")
+        # try:
+        #     self.set_root_colorspace(nuke_colorspace)
+        # except AttributeError as _error:
+        #     msg = "Set Colorspace to workfile error: {}".format(_error)
+        #     nuke.message(msg)
 
-        log.info("Setting colorspace to viewers...")
-        try:
-            self.set_viewers_colorspace(nuke_colorspace["viewer"])
-        except AttributeError as _error:
-            msg = "Set Colorspace to viewer error: {}".format(_error)
-            nuke.message(msg)
+        # log.info("Setting colorspace to viewers...")
+        # try:
+        #     self.set_viewers_colorspace(nuke_colorspace["viewer"])
+        # except AttributeError as _error:
+        #     msg = "Set Colorspace to viewer error: {}".format(_error)
+        #     nuke.message(msg)
 
-        log.info("Setting colorspace to write nodes...")
-        try:
-            self.set_writes_colorspace()
-        except AttributeError as _error:
-            nuke.message(_error)
-            log.error(_error)
+        # log.info("Setting colorspace to write nodes...")
+        # try:
+        #     self.set_writes_colorspace()
+        # except AttributeError as _error:
+        #     nuke.message(_error)
+        #     log.error(_error)
 
-        log.info("Setting colorspace to read nodes...")
-        read_clrs_inputs = nuke_colorspace["regexInputs"].get("inputs", [])
-        if read_clrs_inputs:
-            self.set_reads_colorspace(read_clrs_inputs)
+        # log.info("Setting colorspace to read nodes...")
+        # read_clrs_inputs = nuke_colorspace["regexInputs"].get("inputs", [])
+        # if read_clrs_inset_reads_colorspaceputs:
+        #     self.(read_clrs_inputs)
+    ### Ends Alkemy-x Override ###
 
     def reset_frame_range_handles(self):
         """Set frame range to current asset"""
@@ -2499,16 +2502,20 @@ Reopening Nuke should synchronize these paths and resolve any discrepancies.
         # update node graph so knobs are updated
         update_node_graph()
 
-        frame_range = '{0}-{1}'.format(
-            int(asset_data["frameStart"]),
-            int(asset_data["frameEnd"])
-        )
+        ### Starts Alkemy-X Override ###
+        # Set default frame range to Global
+        viewers = []
+        for w in QtWidgets.QApplication.instance().allWidgets():
+            if "Viewer." in w.objectName():
+                viewers.append(w)
 
-        for node in nuke.allNodes(filter="Viewer"):
-            node['frame_range'].setValue(frame_range)
-            node['frame_range_lock'].setValue(True)
-            node['frame_range'].setValue(frame_range)
-            node['frame_range_lock'].setValue(True)
+        for viewer in viewers:
+            for w in viewer.findChildren(QtWidgets.QWidget, ''):
+                if w.toolTip() == 'FrameSlider Range':
+                    for a in w.menu().actions():
+                        if a.text() == 'Global':
+                            a.trigger()
+        ### Ends Alkemy-X Override ###
 
         if not ASSIST:
             set_node_data(
@@ -2654,6 +2661,40 @@ def get_write_node_template_attr(node):
         plugin_name=plugin_names_mapping[identifier],
         subset=node_data["subset"]
     )
+
+
+### Starts Alkemy-X Override ###
+def get_all_dependent_nodes(node, expression=True, links=True, hidden_input=True):
+    """Find all dependent nodes connected to node.
+
+    This function explores the graph of dependent nodes starting
+    from the given node and collects all nodes that directly depend on it
+
+    Args:
+        node (nuke.Node): The node for which dependent nodes are to be found.
+
+    Returns:
+        nodes (list): A list of dependent nodes connected to the input node.
+
+    Note: No dependencies are returned. In Nuke terms dependencies rely on this
+        node and dependents read this node
+    """
+    expression_flag = nuke.EXPRESSIONS if expression else 0
+    links_flag = nuke.LINKINPUTS if links else 0
+    hidden_input_flag = nuke.HIDDEN_INPUTS if hidden_input else 0
+    dependency_flags = expression_flag | links_flag | hidden_input_flag | nuke.INPUTS
+
+    dependents = []
+    branches = [node]
+    while branches:
+        branch = branches.pop(0)
+        # Always pass if input is visible
+        branch_dependents = branch.dependent(dependency_flags)
+        branches.extend(branch_dependents)
+        dependents.extend(branch_dependents)
+
+    return dependents
+### Ends Alkemy-X Override ###
 
 
 def get_dependent_nodes(nodes):

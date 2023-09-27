@@ -1,21 +1,28 @@
 import pyblish.api
 from openpype.client.mongo import OpenPypeMongoConnection
 
+### Starts Alkemy-X Override ###
+from openpype.modules.shotgrid.lib import delivery
 
-class CollectShotgridEntities(pyblish.api.ContextPlugin):
+
+class CollectShotgridEntities(pyblish.api.InstancePlugin):
+### Ends Alkemy-X Override ###
     """Collect shotgrid entities according to the current context"""
 
-    order = pyblish.api.CollectorOrder + 0.499
-    label = "Shotgrid entities"
+    order = pyblish.api.CollectorOrder + 0.498
+    label = "Collect Shotgrid entities"
 
-    def process(self, context):
+    ### Starts Alkemy-X Override ###
+    def process(self, instance):
+        context = instance.context
+    ### Ends Alkemy-X Override ###
 
         avalon_project = context.data.get("projectEntity")
-        avalon_asset = context.data.get("assetEntity")
-        avalon_task_name = context.data.get("task")
+        avalon_asset = instance.data.get("assetEntity")
+        avalon_task_name = instance.data["anatomyData"]["task"]["name"]
 
-        self.log.info(avalon_project)
-        self.log.info(avalon_asset)
+        self.log.debug(avalon_project)
+        self.log.debug(avalon_asset)
 
         sg_project = _get_shotgrid_project(context)
         sg_task = _get_shotgrid_task(
@@ -28,7 +35,7 @@ class CollectShotgridEntities(pyblish.api.ContextPlugin):
         if sg_project:
             context.data["shotgridProject"] = sg_project
             self.log.info(
-                "Collected correspondig shotgrid project : {}".format(
+                "Collected corresponding shotgrid project : {}".format(
                     sg_project
                 )
             )
@@ -36,26 +43,34 @@ class CollectShotgridEntities(pyblish.api.ContextPlugin):
         if sg_task:
             context.data["shotgridTask"] = sg_task
             self.log.info(
-                "Collected correspondig shotgrid task : {}".format(sg_task)
+                "Collected corresponding shotgrid task : {}".format(sg_task)
             )
 
         if sg_entity:
-            context.data["shotgridEntity"] = sg_entity
+            ### Starts Alkemy-X Override ###
+            instance.data["shotgridEntity"] = sg_entity
+            ### Ends Alkemy-X Override ###
             self.log.info(
-                "Collected correspondig shotgrid entity : {}".format(sg_entity)
+                "Collected corresponding shotgrid entity : {}".format(sg_entity)
             )
 
-    def _find_existing_version(self, code, context):
-
-        filters = [
-            ["project", "is", context.data.get("shotgridProject")],
-            ["sg_task", "is", context.data.get("shotgridTask")],
-            ["entity", "is", context.data.get("shotgridEntity")],
-            ["code", "is", code],
-        ]
-
-        sg = context.data.get("shotgridSession")
-        return sg.find_one("Version", filters, [])
+        ### Starts Alkemy-X Override ###
+        # Collect relevant data for review/delivery purposes
+        hierarchy_overrides = delivery.get_entity_hierarchy_overrides(
+            context.data.get("shotgridSession"),
+            instance.data["shotgridEntity"]["id"],
+            instance.data["shotgridEntity"]["type"],
+            delivery_types=["review", "final"],
+            query_extra_delivery_fields=True,
+            query_delivery_names=True,
+            query_ffmpeg_args=True,
+            query_slate_fields=True,
+        )
+        self.log.debug(
+            "Collected SG hierarchy overrides : {}".format(hierarchy_overrides)
+        )
+        context.data["shotgridOverrides"] = hierarchy_overrides
+        ### Ends Alkemy-X Override ###
 
 
 def _get_shotgrid_collection(project):
@@ -65,7 +80,14 @@ def _get_shotgrid_collection(project):
 
 def _get_shotgrid_project(context):
     shotgrid_project_id = context.data["project_settings"].get(
-        "shotgrid_project_id")
+        "shotgrid_project_id"
+    )
+    ### Starts Alkemy-X Override ###
+    if not shotgrid_project_id:
+        shotgrid_data = context.data["project_settings"].get("shotgrid")
+        if shotgrid_data:
+            shotgrid_project_id = shotgrid_data.get("shotgrid_project_id")
+    ### Ends Alkemy-X Override ###
     if shotgrid_project_id:
         return {"type": "Project", "id": shotgrid_project_id}
     return {}

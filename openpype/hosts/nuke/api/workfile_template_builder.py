@@ -163,8 +163,10 @@ class NukePlaceholderLoadPlugin(NukePlaceholderPlugin, PlaceholderLoadMixin):
             )
         return loaded_representation_ids
 
-    def _before_repre_load(self, placeholder, representation):
+    def _before_placeholder_load(self, placeholder):
         placeholder.data["nodes_init"] = nuke.allNodes()
+
+    def _before_repre_load(self, placeholder, representation):
         placeholder.data["last_repre_id"] = str(representation["_id"])
 
     def collect_placeholders(self):

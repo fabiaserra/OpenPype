@@ -209,6 +209,30 @@ class PypeCommands:
 
         main(output_path, project_name, asset_name, strict)
 
+    def run_application(self, app, project, asset, task, tools, arguments):
+        ### Starts Alkemy-X Override ###
+        # pass
+        from openpype.lib.applications import ApplicationManager
+        from openpype.lib import Logger
+
+        log = Logger.get_logger("CLI-Launch")
+
+        app_manager = ApplicationManager()
+        if not app_manager.applications.get(app):
+            log.warning("App not found: {}".format(app))
+            log.info("All valid apps {}".format(list(app_manager.applications.keys())))
+            return
+
+        data = {
+            "project_name": project,
+            "asset_name": asset,
+            "task_name": task,
+        }
+        app_manager.launch(app, **data)
+
+        log.info("Application launched ...")
+        ### Ends Alkemy-X Override ###
+
     def validate_jsons(self):
         pass
 

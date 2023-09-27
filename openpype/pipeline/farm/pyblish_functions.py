@@ -1,4 +1,5 @@
 import copy
+import datetime
 import attr
 import pyblish.api
 import os
@@ -114,10 +115,14 @@ def get_time_data_from_instance_or_context(instance):
              instance.context.data.get("frameEnd")),
         fps=(instance.data.get("fps") or
              instance.context.data.get("fps")),
-        handle_start=(instance.data.get("handleStart") or
-                      instance.context.data.get("handleStart")),  # noqa: E501
-        handle_end=(instance.data.get("handleEnd") or
-                    instance.context.data.get("handleEnd"))
+        handle_start=instance.data.get(
+            "handleStart",
+            instance.context.data.get("handleStart")
+        ),
+        handle_end=instance.data.get(
+            "handleEnd",
+            instance.context.data.get("handleEnd")
+        )
     )
 
 
@@ -211,17 +216,18 @@ def create_skeleton_instance(
         log.warning(("Could not find root path for remapping \"{}\". "
                      "This may cause issues.").format(source))
 
-    family = ("render"
-              if "prerender.farm" not in instance.data["families"]
-              else "prerender")
-    families = [family]
+    # family = ("render"
+    #           if "prerender" not in instance.data["families"]
+    #           else "prerender")
+    # families = [family]
+    families = []
 
     # pass review to families if marked as review
     if data.get("review"):
         families.append("review")
 
     instance_skeleton_data = {
-        "family": family,
+        "family": data["family"],
         "subset": data["subset"],
         "families": families,
         "asset": data["asset"],
@@ -332,19 +338,20 @@ def prepare_representations(skeleton_data, exp_files, anatomy, aov_filter,
         #   should be review made.
         # - "review" tag is never added when is set to 'False'
         if skeleton_data["useSequenceForReview"]:
+            preview = True
             # toggle preview on if multipart is on
-            if skeleton_data.get("multipartExr", False):
-                log.debug(
-                    "Adding preview tag because its multipartExr"
-                )
-                preview = True
-            else:
-                render_file_name = list(collection)[0]
-                # if filtered aov name is found in filename, toggle it for
-                # preview video rendering
-                preview = match_aov_pattern(
-                    host_name, aov_filter, render_file_name
-                )
+            # if skeleton_data.get("multipartExr", False):
+            #     log.debug(
+            #         "Adding preview tag because its multipartExr"
+            #     )
+            #     preview = True
+            # else:
+            #     render_file_name = list(collection)[0]
+            #     # if filtered aov name is found in filename, toggle it for
+            #     # preview video rendering
+            #     preview = match_aov_pattern(
+            #         host_name, aov_filter, render_file_name
+            #     )
 
         staging = os.path.dirname(list(collection)[0])
         success, rootless_staging_dir = (
@@ -362,10 +369,25 @@ def prepare_representations(skeleton_data, exp_files, anatomy, aov_filter,
         if skeleton_data.get("slate"):
             frame_start -= 1
 
+        ### Starts Alkemy-X Override ###
+        # Add override to support representations with the same extension
+
+        # Make sure we don't have duplicate representation names
+        repre_name = ext
+
+        # We need to hard-code the case of the collection ending with _fr
+        # as we can't be certain that clique.assemble always returns the
+        # collections ordered so the `exr` that's from working resolution
+        # always comes first
+        if "_fr" in collection.head:
+            repre_name = "{}_fr".format(ext)
+            preview = False
+
         # explicitly disable review by user
         preview = preview and not do_not_add_review
         rep = {
-            "name": ext,
+            "name": repre_name,
+        ### Ends Alkemy-X Override ###
             "ext": ext,
             "files": [os.path.basename(f) for f in list(collection)],
             "frameStart": frame_start,
@@ -373,7 +395,7 @@ def prepare_representations(skeleton_data, exp_files, anatomy, aov_filter,
             # If expectedFile are absolute, we need only filenames
             "stagingDir": staging,
             "fps": skeleton_data.get("fps"),
-            "tags": ["review"] if preview else [],
+            "tags": ["review", "shotgridreview"] if preview else [],
         }
 
         # poor man exclusion
@@ -871,7 +893,18 @@ def create_metadata_path(instance, anatomy):
         # directory is not available
         log.warning("Path is unreachable: `{}`".format(output_dir))
 
-    metadata_filename = "{}_metadata.json".format(ins_data["subset"])
+    ### Starts Alkemy-X Override ###
+    # Prefixing metadata file with timestamp and asset so the .json files are
+    # unique and not overwrite each other. This is necessary because in Hiero
+    # we use the same working directory to publish multiple subsets at once
+    # and when the subset was called the same, it was overwriting the same file
+    # over and over
+    metadata_filename = "{}_{}_{}_metadata.json".format(
+        datetime.datetime.now().strftime("%d%m%Y%H%M%S"),
+        ins_data["asset"],
+        ins_data["subset"]
+    )
+    ### Ends Alkemy-X Override ###
 
     metadata_path = os.path.join(output_dir, metadata_filename)
 

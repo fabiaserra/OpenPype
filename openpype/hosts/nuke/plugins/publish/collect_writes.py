@@ -224,10 +224,13 @@ class CollectNukeWrites(pyblish.api.InstancePlugin,
         # set child nodes to instance transient data
         instance.data["transientData"]["childNodes"] = child_nodes
 
-        write_node = None
-        for node_ in child_nodes:
-            if node_.Class() == "Write":
-                write_node = node_
+        if child_nodes:
+            write_node = None
+            for node_ in child_nodes:
+                if node_.Class() == "Write":
+                    write_node = node_
+        else:
+            write_node = instance.data["transientData"]["node"]
 
         if write_node:
             # for slate frame extraction

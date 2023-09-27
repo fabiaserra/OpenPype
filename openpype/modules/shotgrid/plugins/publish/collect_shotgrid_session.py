@@ -18,7 +18,6 @@ class CollectShotgridSession(pyblish.api.ContextPlugin):
     label = "Shotgrid user session"
 
     def process(self, context):
-
         certificate_path = os.getenv("SHOTGUN_API_CACERTS")
         if certificate_path is None or not os.path.exists(certificate_path):
             self.log.info(
@@ -75,7 +74,12 @@ class CollectShotgridSession(pyblish.api.ContextPlugin):
                 "script name and script key in OpenPype settings"
             )
 
-        login = get_login() or os.getenv("OPENPYPE_SG_USER")
+        ### Starts Alkemy-X Override ###
+        # login = get_login() or os.getenv("OPENPYPE_SG_USER")
+        login = (
+            get_login() or os.getenv("OPENPYPE_SG_USER") or os.getenv("USER")
+        )
+        ### Ends Alkemy-X Override ###
 
         if not login:
             self.log.error(
@@ -88,9 +92,11 @@ class CollectShotgridSession(pyblish.api.ContextPlugin):
         self.log.info("Setting OPENPYPE_SG_USER to '%s'.", login)
         os.environ["OPENPYPE_SG_USER"] = login
 
+        proxy = os.environ.get("HTTPS_PROXY", "").lstrip("https://")
         session = shotgun_api3.Shotgun(
             base_url=shotgrid_url,
             script_name=shotgrid_script_name,
+            http_proxy=proxy,
             api_key=shotgrid_script_key,
             sudo_as_login=login,
         )

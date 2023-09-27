@@ -287,6 +287,8 @@ class ExtractBurnin(publish.Extractor):
                     first_output = False
                 elif "ftrackreview" in new_repre["tags"]:
                     new_repre["tags"].remove("ftrackreview")
+                elif "shotgridreview" in new_repre["tags"]:
+                    new_repre["tags"].remove("shotgridreview")
 
                 burnin_values = {}
                 for key in self.positions:
@@ -575,7 +577,7 @@ class ExtractBurnin(publish.Extractor):
 
         Store data to `temp_data` for keys "full_input_path" which is full path
         to source files optionally with sequence formatting,
-        "full_output_path" full path to otput with optionally with sequence
+        "full_output_path" full path to output with optionally with sequence
         formatting, "full_input_paths" list of all source files which will be
         deleted when burnin script ends, "repre_files" list of output
         filenames.
@@ -583,7 +585,7 @@ class ExtractBurnin(publish.Extractor):
         Args:
             new_repre (dict): Currently processed new representation.
             temp_data (dict): Temp data of representation process.
-            filename_suffix (str): Filename suffix added to inputl filename.
+            filename_suffix (str): Filename suffix added to input filename.
 
         Returns:
             None: This is processing method.
@@ -703,6 +705,7 @@ class ExtractBurnin(publish.Extractor):
             and "slate-frame" in repre["tags"]
         ):
             burnin_slate_frame_start -= 1
+            temp_data["frame_start"] = burnin_slate_frame_start
 
         self.log.debug("burnin_slate_frame_start: {}".format(
             burnin_slate_frame_start

@@ -35,11 +35,11 @@ CATEGORY_GENERIC_TOOL = {
 
 CREATE_SCRIPT = """
 from openpype.hosts.houdini.api.creator_node_shelves import create_interactive
-create_interactive("{identifier}", **kwargs)
+create_interactive("{identifier}", "{variant}", **kwargs)
 """
 
 
-def create_interactive(creator_identifier, **kwargs):
+def create_interactive(creator_identifier, default_variant, **kwargs):
     """Create a Creator using its identifier interactively.
 
     This is used by the generated shelf tools as callback when a user selects
@@ -199,7 +199,9 @@ def install():
 
             key = "openpype_create.{}".format(identifier)
             log.debug(f"Registering {key}")
-            script = CREATE_SCRIPT.format(identifier=identifier)
+            script = CREATE_SCRIPT.format(
+                identifier=identifier, variant=creator.get_default_variant()
+            )
             data = {
                 "script": script,
                 "language": hou.scriptLanguage.Python,

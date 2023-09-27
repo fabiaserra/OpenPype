@@ -9,7 +9,16 @@ class IncrementScriptVersion(pyblish.api.ContextPlugin):
     order = pyblish.api.IntegratorOrder + 0.9
     label = "Increment Script Version"
     optional = True
-    families = ["workfile"]
+    ### Starts Alkemy-X Override ###
+    # Add other families as well so script version gets incremented also
+    # when doing a publish of those
+    families = [
+        "workfile",
+        "render",
+        "render.farm",
+        "render.farm_frames",
+    ]
+    ### Ends Alkemy-X Override ###
     hosts = ['nuke']
 
     def process(self, context):

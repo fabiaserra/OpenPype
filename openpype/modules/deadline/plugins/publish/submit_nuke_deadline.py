@@ -185,12 +185,16 @@ class NukeSubmitDeadline(pyblish.api.InstancePlugin,
                     b_job_response.json()["_id"])
 
         # redefinition of families
+        ### Starts Alkemy-X Override ###
+        # Remove redefinition of 'family' as it breaks family filtering and
+        # we don't see the need for it. TODO: create PR against main repo
         if "render" in instance.data["family"]:
-            instance.data['family'] = 'write'
+            # instance.data['family'] = 'write'
             families.insert(0, "render2d")
         elif "prerender" in instance.data["family"]:
-            instance.data['family'] = 'write'
+            # instance.data['family'] = 'write'
             families.insert(0, "prerender")
+        ### Ends Alkemy-X Override ###
         instance.data["families"] = families
 
     def payload_submit(
@@ -437,9 +441,12 @@ class NukeSubmitDeadline(pyblish.api.InstancePlugin,
         """
         self.log.debug("_ path: `{}`".format(path))
         if "%" in path:
-            search_results = re.search(r"(%0)(\d)(d.)", path).groups()
-            self.log.debug("_ search_results: `{}`".format(search_results))
-            return int(search_results[1])
+            ### Starts Alkemy-X Override ###
+            hashes_path = re.sub(r"%(\d*)d", lambda m: "#" * int(m.group(1)) if m.group(1) else "#", path)
+
+            return hashes_path
+            ### Ends Alkemy-X Override ###
+
         if "#" in path:
             self.log.debug("_ path: `{}`".format(path))
         return path

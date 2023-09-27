@@ -318,6 +318,10 @@ class NukeWriteCreator(NukeCreator):
         # add reviewable attribute
         if "reviewable" in self.instance_attributes:
             attr_defs.append(self._get_reviewable_bool())
+            ### Starts Alkemy-X Override ###
+            attr_defs.append(self._get_client_review_bool())
+            attr_defs.append(self._get_client_final_bool())
+            ### Ends Alkemy-X Override ###
 
         return attr_defs
 
@@ -329,6 +333,7 @@ class NukeWriteCreator(NukeCreator):
         if ("farm_rendering" in self.instance_attributes):
             rendering_targets["frames_farm"] = "Use existing frames - farm"
             rendering_targets["farm"] = "Farm rendering"
+            rendering_targets["farm_frames"] = "Existing frames farm rendering"
 
         return EnumDef(
             "render_target",
@@ -342,6 +347,22 @@ class NukeWriteCreator(NukeCreator):
             default=True,
             label="Review"
         )
+
+    ### Starts Alkemy-X Override ###
+    def _get_client_review_bool(self):
+        return BoolDef(
+            "client_review",
+            default=True,
+            label="Client Review"
+        )
+
+    def _get_client_final_bool(self):
+        return BoolDef(
+            "client_final",
+            default=True,
+            label="Client Final"
+        )
+    ### Ends Alkemy-X Override ###
 
     def create(self, subset_name, instance_data, pre_create_data):
         # make sure selected nodes are added
@@ -683,7 +704,7 @@ class ExporterReviewLut(ExporterReview):
         self.ext = ext or "cube"
         self.cube_size = cube_size or 32
         self.lut_size = lut_size or 1024
-        self.lut_style = lut_style or "linear"
+        self.lut_style = lut_style or "scene_linear"
 
         # set frame start / end and file name to self
         self.get_file_info()
