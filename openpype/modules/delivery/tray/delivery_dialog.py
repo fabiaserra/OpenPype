@@ -166,13 +166,24 @@ class DeliveryDialog(QtWidgets.QDialog):
         task_override_combo.setEditable(True)
         input_layout.addRow("Task short {task[short]}", task_override_combo)
 
-        comment_input = QtWidgets.QLineEdit("")
-        comment_input.setToolTip(
-            "Override the submission notes/comment of the delivery media. If left empty, " \
-            "the comment will just be picked up from the SG version description. "
+        submission_notes_input = QtWidgets.QLineEdit("")
+        submission_notes_input.setToolTip(
+            "Override the 'Submission Notes' field of the SG versions. If left empty, " \
+            "it will just be picked up from the SG version 'Submission Notes'."
         )
         input_layout.addRow(
-            "Submission notes override {comment}", comment_input
+            "Submission Notes override {submission_notes}",
+            submission_notes_input
+        )
+
+        submit_for_input = QtWidgets.QLineEdit("")
+        submit_for_input.setToolTip(
+            "Override the 'Submit For' of the SG versions. If left empty, " \
+            "it will just be picked up from the SG version 'Submit For'. "
+        )
+        input_layout.addRow(
+            "Submit For override {submit_for}",
+            submit_for_input
         )
 
         custom_tokens = KeyValueWidget()
@@ -218,9 +229,8 @@ class DeliveryDialog(QtWidgets.QDialog):
 
         # TODO: show only the available playlists
 
-        sg_playlist_id_input = QtWidgets.QLineEdit()
+        sg_playlist_id_input = QtWidgets.QComboBox()
         sg_playlist_id_input.setToolTip("Integer id of the SG Playlist (i.e., '3909')")
-        sg_playlist_id_input.textEdited.connect(self._playlist_id_edited)
         playlist_radio_btn = QtWidgets.QRadioButton("SG Playlist Id")
         playlist_radio_btn.setChecked(True)
         input_group.addButton(playlist_radio_btn)
@@ -235,6 +245,23 @@ class DeliveryDialog(QtWidgets.QDialog):
 
         main_layout.addWidget(sg_input_widget)
 
+        # Add button to save defaults as config for project
+        save_project_config_btn = QtWidgets.QPushButton(
+            "Save settings to project as default"
+        )
+        save_project_config_btn.setDefault(True)
+        save_project_config_btn.setToolTip(
+            "Saves the current settings on the dialog as default on the project so next"
+            " time the delivery dialog is launched with this project the defaults are "
+            "populated"
+        )
+        save_project_config_btn.clicked.connect(
+            self._on_save_config_clicked
+        )
+
+        main_layout.addWidget(save_project_config_btn)
+
+        # Add button to generate delivery media
         generate_delivery_media_btn = QtWidgets.QPushButton(
             "Generate delivery media"
         )
@@ -266,7 +293,8 @@ class DeliveryDialog(QtWidgets.QDialog):
         self._filename_input = filename_input
         self._version_input = version_input
         self._task_override_combo = task_override_combo
-        self._comment_input = comment_input
+        self._submission_notes_input = submission_notes_input
+        self._submit_for_input = submit_for_input
         self._custom_tokens = custom_tokens
         self._template_input = template_input
         self._sg_playlist_id_input = sg_playlist_id_input
@@ -403,6 +431,18 @@ class DeliveryDialog(QtWidgets.QDialog):
         # Store project code as class variable so we can reuse it throughout
         self._current_proj_code = proj_code
 
+        # Add existing playlists from project
+        sg_playlists = self.sg.find(
+            "Playlist",
+            [["project", "is", sg_project]],
+            ["id", "code"]
+        )
+        self._sg_playlist_id_input.clear()
+        if sg_playlists:
+            playlist_items = ["{} - {}".format(p["code"], p["id"]) for p in sg_playlists]
+            self._sg_playlist_id_input.addItems(playlist_items)
+
+
     def _save_project_config(self):
         proj_code = self._current_proj_code
         if not proj_code:
@@ -453,6 +493,7 @@ class DeliveryDialog(QtWidgets.QDialog):
 
         custom_token_pairs = delivery_data.get("custom_tokens")
         if custom_token_pairs:
+            self._custom_tokens.clear_pairs()
             for key, value in custom_token_pairs.items():
                 self._custom_tokens.add_pair(key, value)
 
@@ -484,7 +525,8 @@ class DeliveryDialog(QtWidgets.QDialog):
         delivery_data["package_name_override"] = self._package_name_input.text()
         delivery_data["version_override"] = self._version_input.text()
         delivery_data["task[short]_override"] = self._task_override_combo.currentText()
-        delivery_data["comment_override"] = self._comment_input.text()
+        delivery_data["submission_notes_override"] = self._submission_notes_input.text()
+        delivery_data["submit_for_override"] = self._submit_for_input.text()
         delivery_data["custom_tokens"] = self._custom_tokens.get_pairs()
         delivery_data["filename_override"] = self._filename_input.text()
         delivery_data["template_path"] = self._template_input.text()
@@ -499,7 +541,8 @@ class DeliveryDialog(QtWidgets.QDialog):
                 template_script = proj_template_script
             else:
                 logger.warning(
-                    "Project Nuke template not found at '%s'", proj_template_script
+                    "Project Nuke template not found at '%s'",
+                    proj_template_script
                 )
 
         delivery_data["nuke_template_script"] = template_script
@@ -522,6 +565,8 @@ class DeliveryDialog(QtWidgets.QDialog):
 
         self._text_area.setText(self._format_report(report_items, success))
         self._text_area.setVisible(True)
+
+    def _on_save_config_clicked(self):
         self._save_project_config()
 
     # -------------------------------
@@ -614,6 +659,21 @@ class KeyValueWidget(QtWidgets.QWidget):
         # Create the key-value pairs list
         self.pairs = []
 
+    def clear_layout(self, layout):
+        for i in reversed(range(layout.count())):
+            widget = layout.itemAt(i).widget()
+            if widget is not None:
+                # Remove the widget from the layout
+                widget.setParent(None)
+                # Delete the widget
+                widget.deleteLater()
+
+    def clear_pairs(self):
+        for pair in self.pairs:
+            self.clear_layout(pair[-1])
+
+        self.pairs.clear()
+
     def add_pair(self, key="", value=""):
         # Create the key-value pair widgets
         key_input = QtWidgets.QLineEdit(key)
@@ -629,25 +689,25 @@ class KeyValueWidget(QtWidgets.QWidget):
         self.scroll_layout.addLayout(pair_layout)
 
         # Add the key-value pair to the list
-        self.pairs.append((key_input, value_input, delete_button))
+        self.pairs.append((key_input, value_input, delete_button, pair_layout))
 
     def delete_pair(self, delete_button):
         # Find the key-value pair that corresponds to the delete button
         for pair in self.pairs:
             if pair[2] == delete_button:
-                key_input, value_input, delete_button = pair
+                key_input, value_input, delete_button, pair_layout = pair
                 break
 
         # Remove the key-value pair from the layout and the list
-        pair_widget = delete_button.parent()
-        pair_widget.deleteLater()
-        self.pairs.remove((key_input, value_input, delete_button))
+        # pair_layout = delete_button.layout()
+        self.clear_layout(pair_layout)
+        self.pairs.remove((key_input, value_input, delete_button, pair_layout))
 
     def get_pairs(self):
         # Return the key-value pairs as a dictionary
         return {
             key_input.text(): value_input.text()
-            for key_input, value_input, _ in self.pairs
+            for key_input, value_input, _, _ in self.pairs
         }
 
 

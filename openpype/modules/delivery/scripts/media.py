@@ -355,8 +355,11 @@ def generate_delivery_media_version(
     )
     anatomy_data.update(asset_data)
 
-    # Add {comment} from SG version description
-    anatomy_data["comment"] = sg_version["description"]
+    # Add {submission_notes} from SG version
+    anatomy_data["submission_notes"] = sg_version[SG_SUBMISSION_NOTES]
+
+    # Add {submit_for} from SG version
+    anatomy_data["submit_for"] = sg_version[SG_SUBMIT_FOR]
 
     logger.debug("Original anatomy data: %s", anatomy_data)
 
@@ -372,8 +375,10 @@ def generate_delivery_media_version(
         "_AX_DELIVERY_FRAMES": "{0}_{1}".format(
             int(out_frame_start), int(out_frame_end)
         ),
-        "_AX_DELIVERY_COMMENT": delivery_data.get("comment_override") or
-            anatomy_data.get("comment"),
+        "_AX_DELIVERY_SUBMISSION_NOTES": delivery_data.get("submission_notes_override") or
+            anatomy_data.get("submission_notes"),
+        "_AX_DELIVERY_SUBMIT_FOR": delivery_data.get("submit_for_override") or
+            anatomy_data.get("submit_for"),
         "_AX_DELIVERY_ARTIST": sg_version.get("user", {}).get("name") or
             anatomy_data.get("user"),
         "_AX_DELIVERY_NUKESCRIPT": delivery_data["nuke_template_script"],
