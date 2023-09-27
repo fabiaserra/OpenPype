@@ -113,8 +113,8 @@ class TranscodeFrames(publish.Extractor, publish.ColormanagedPyblishPluginMixin)
             ingest_resolutions = ["fr", "wr"]
 
         # Name to use for batch grouping Deadline tasks
-        batch_name = "Transcode frames - {} - {}".format(
-            context.data.get("currentFile", ""), staging_dir
+        batch_name = "Transcode frames - {}".format(
+            context.data.get("currentFile", "")
         )
 
         # For each output resolution we create a job in the farm
@@ -144,9 +144,9 @@ class TranscodeFrames(publish.Extractor, publish.ColormanagedPyblishPluginMixin)
             self.log.debug("Output ext: %s", self.output_ext)
 
             # Create names for Deadline batch job and tasks
-            task_name = "{} - {}".format(
-                staging_dir,
-                os.path.basename(output_path)
+            task_name = "Transcode - {} - {}".format(
+                os.path.basename(output_path),
+                staging_dir
             )
 
             # If either source or output is a video format, transcode using Nuke
@@ -195,10 +195,10 @@ class TranscodeFrames(publish.Extractor, publish.ColormanagedPyblishPluginMixin)
                 input_args = ""
 
                 if ingest_resolution and resolution == "wr":
-                    width = ingest_resolution["width"]
-                    height = ingest_resolution["height"]
-                    fr_width = ingest_resolution["fr_width"]
-                    fr_height = ingest_resolution["fr_height"]
+                    width = int(ingest_resolution["width"])
+                    height = int(ingest_resolution["height"])
+                    fr_width = int(ingest_resolution["fr_width"])
+                    fr_height = int(ingest_resolution["fr_height"])
                     width_offset = (fr_width - width) / 2
                     height_offset = (fr_height - height) / 2
                     resize_crop = f"--cut {width}x{height}+{width_offset}+{height_offset}"
