@@ -271,7 +271,7 @@ class TranscodeFrames(publish.Extractor, publish.ColormanagedPyblishPluginMixin)
                 "__ expectedFiles: `{}`".format(instance.data["expectedFiles"])
             )
 
-            submission_jobs.append(response.json())
+            submission_jobs.append(response)
 
         # Store output dir for unified publisher (filesequence)
         instance.data["deadlineSubmissionJobs"] = submission_jobs
