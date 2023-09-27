@@ -1,4 +1,5 @@
 import os
+import re
 import platform
 import json
 from qtpy import QtCore, QtWidgets, QtGui
@@ -439,8 +440,12 @@ class DeliveryDialog(QtWidgets.QDialog):
         )
         self._sg_playlist_id_input.clear()
         if sg_playlists:
-            playlist_items = ["{} - {}".format(p["code"], p["id"]) for p in sg_playlists]
-            self._sg_playlist_id_input.addItems(playlist_items)
+            playlist_items = [
+                "{} ({})".format(p["code"], p["id"])
+                for p in sg_playlists
+            ]
+            # Using reversed so they are ordered from newer to older
+            self._sg_playlist_id_input.addItems(reversed(playlist_items))
 
 
     def _save_project_config(self):
@@ -553,8 +558,10 @@ class DeliveryDialog(QtWidgets.QDialog):
         delivery_data = self._get_delivery_data()
 
         if self._sg_playlist_btn.isChecked():
+            playlist_id_str = self._sg_playlist_id_input.currentText()
+            playlist_id = re.search(r"\((\d+)\)$", playlist_id_str).group(1)
             report_items, success = media.generate_delivery_media_playlist_id(
-                self._sg_playlist_id_input.text(),
+                playlist_id,
                 delivery_data=delivery_data,
             )
         else:
