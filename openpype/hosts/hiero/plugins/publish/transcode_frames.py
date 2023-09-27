@@ -103,8 +103,13 @@ class TranscodeFrames(publish.Extractor, publish.ColormanagedPyblishPluginMixin)
             hiero.core.env["VersionMajor"], hiero.core.env["VersionMinor"]
         )
 
+        # By default, we only ingest a single resolution (WR) unless
+        # we have an ingest_resolution on the data stating a different
+        # resolution
         ingest_resolutions = ["wr"]
-        if os.getenv("SHOW") == "uni":
+
+        ingest_resolution = instance.data.get("ingest_resolution")
+        if ingest_resolution:
             ingest_resolutions = ["fr", "wr"]
 
         # For each output resolution we create a job in the farm
@@ -183,8 +188,36 @@ class TranscodeFrames(publish.Extractor, publish.ColormanagedPyblishPluginMixin)
                 )
             else:
                 input_args = ""
-                if os.getenv("SHOW") == "uni" and resolution == "wr":
-                    input_args = "--cut 3776x3164+416+0"
+
+                if ingest_resolution and resolution == "wr":
+                    width = ingest_resolution["width"]
+                    height = ingest_resolution["height"]
+                    fr_width = ingest_resolution["fr_width"]
+                    fr_height = ingest_resolution["fr_height"]
+                    width_offset = (fr_width - width) / 2
+                    height_offset = (fr_height - height) / 2
+                    resize_crop = f"--cut {width}x{height}+{width_offset}+{height_offset}"
+
+                    # TODO: add different reformat operations
+                    # if ingest_resolution["reformat"].get("resize"):
+                    #     if ingest_resolution["reformat"]["resize"] == "fit":
+                    #         resize = "--fit:fillmode=letterbox " + wxh + resize_crop
+                    #     elif ingest_resolution["reformat"]["resize"] == "fill":
+                    #         if float(READ_NODE.width())/READ_NODE.height() < float(WRITE_NODE.width())/WRITE_NODE.height():
+                    #             resize = "--fit:fillmode=width " + wxh + resize_crop
+                    #         else:
+                    #             resize = "--fit:fillmode=height " + wxh + resize_crop
+                    #     elif ingest_resolution["reformat"]["resize"] == "width":
+                    #         resize = "--fit:fillmode=width " + wxh + resize_crop
+                    #     elif ingest_resolution["reformat"]["resize"] == "height":
+                    #         resize = "--fit:fillmode=height " + wxh + resize_crop
+                    #     elif ingest_resolution["reformat"]["resize"] == "distort":
+                    #         resize = "--resize " + wxh + resize_crop
+                    #     elif ingest_resolution["reformat"]["resize"] == "none":
+                    #         print("WARNING: "none" OIIO resize is not current supported in finalmaker")
+                    #     else:
+                    #         print("WARNING: {} OIIO resize is not current supported in finalmaker".format(output_settings["reformat"].get('resize')))
+                    input_args = resize_crop
 
                 self.log.info("Submitting OIIO transcode")
                 oiio_args = " ".join(self.oiio_args).format(
