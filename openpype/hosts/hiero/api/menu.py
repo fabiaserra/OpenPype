@@ -101,11 +101,14 @@ def menu_install():
         lambda *args: publish(hiero.ui.mainWindow())
     )
 
-    creator_action = menu.addAction("Create...")
-    creator_action.setIcon(QtGui.QIcon("icons:CopyRectangle.png"))
-    creator_action.triggered.connect(
-        lambda: host_tools.show_creator(parent=main_window)
-    )
+    ### Starts Alkemy-x Override ###
+    # Remove create menu action
+    # creator_action = menu.addAction("Create...")
+    # creator_action.setIcon(QtGui.QIcon("icons:CopyRectangle.png"))
+    # creator_action.triggered.connect(
+    #     lambda: host_tools.show_creator(parent=main_window)
+    # )
+    ### ENds Alkemy-x Override ###
 
     loader_action = menu.addAction("Load...")
     loader_action.setIcon(QtGui.QIcon("icons:CopyRectangle.png"))
