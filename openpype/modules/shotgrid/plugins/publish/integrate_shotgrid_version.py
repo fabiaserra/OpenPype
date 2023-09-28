@@ -27,7 +27,8 @@ class IntegrateShotgridVersion(pyblish.api.InstancePlugin):
         "reference",
         "arnold_rop",
         "mantra_rop",
-        "karma_rop"
+        "karma_rop",
+        "review",
     ]
     ### Ends Alkemy-X Override ###
 
