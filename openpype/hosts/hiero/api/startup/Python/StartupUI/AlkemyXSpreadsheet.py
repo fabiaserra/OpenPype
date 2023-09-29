@@ -317,7 +317,12 @@ class ColorspaceWidget(QMainWindow):
 class IngestResWidget(QComboBox):
     def __init__(self, item, current_format):
         super().__init__()
-        if "x" in current_format:
+
+        default_working_resolution = self.get_default_working_resolution(item.name())
+        if default_working_resolution:
+            default_format_width, default_format_height = \
+                default_working_resolution
+        elif "x" in current_format:
             default_format_width, default_format_height = current_format.split(
                 "x"
             )
@@ -359,6 +364,7 @@ class IngestResWidget(QComboBox):
             default_format_string = (
                 f"{default_format_width}x{default_format_height}"
             )
+
         self.insertItem(0, default_format_string)
 
         # Will need to add current format if found as tag on clip
@@ -369,6 +375,45 @@ class IngestResWidget(QComboBox):
 
         # Select all for easy editing
         self.lineEdit().selectAll()
+
+
+    def get_default_working_resolution(self, asset_name):
+        """Set resolution to project resolution."""
+        # If Asset has working resolution pull from asset
+        # If not pull from Project default working res
+        project_name = get_current_project_name()
+        asset_doc = get_asset_by_name(project_name, asset_name)
+
+        if asset_doc:
+            asset_data = asset_doc["data"]
+            width = asset_data.get('resolutionWidth', "")
+            height = asset_data.get('resolutionHeight', "")
+            if width and height:
+
+                return (width, height)
+
+        else:
+            filters = [
+                [
+                    "name",
+                    "is",
+                    project_name,
+                ],
+            ]
+            fields = [
+                "sg_project_resolution",
+            ]
+            sg_project = SHOTGRID.find_one("Project", filters, fields)
+            if not sg_project:
+                return None
+
+            show_resolution = sg_project["sg_project_resolution"]
+            if "x" in show_resolution:
+                width, height = show_resolution.split("x")
+
+                return (width, height)
+
+        return None
 
 
 class IngestEffectsWidget(QMainWindow):
@@ -1451,16 +1496,24 @@ def _set_cut_info(self, key, value, operate):
             project_name
         )
 
-        frame_offset = frame_start + handle_start
-        if value:
-            if key == "cut_in":
-                frame_offset = int(value)
-            elif key == "cut_out":
-                frame_offset = int(value) - self.duration() + 1
+        if frame_start and handle_start:
+            frame_offset = frame_start + handle_start
+            if value:
+                if key == "cut_in":
+                    frame_offset = int(value)
+                elif key == "cut_out":
+                    frame_offset = int(value) - self.duration() + 1
+
+            cut_in = frame_offset
+            cut_out = frame_offset + self.duration() - 1
+
+        else:
+            cut_in = None
+            cut_out = None
 
         cut_data = {}
-        cut_data["cut_in"] = frame_offset
-        cut_data["cut_out"] = frame_offset + self.duration() - 1
+        cut_data["cut_in"] = cut_in
+        cut_data["cut_out"] = cut_out
         cut_data["head_handles"] = handle_start
         cut_data["tail_handles"] = handle_end
 

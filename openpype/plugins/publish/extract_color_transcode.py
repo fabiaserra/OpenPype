@@ -71,7 +71,10 @@ class ExtractOIIOTranscode(publish.Extractor):
         "colorspace": "",
         "display": "",
         "view": "",
-        "oiiotool_args": {"additional_command_args": ["-v"]},
+        "oiiotool_args": {
+            "additional_pre_command_args": "",
+            "additional_post_command_args": "",
+        },
         "tags": [],
         "custom_tags": [],
     }
@@ -119,7 +122,7 @@ class ExtractOIIOTranscode(publish.Extractor):
                 "review" in instance.data.get("families"):
             self.log.debug("Adding 'review' as delivery type for SG outputs.")
             delivery_types.append("review")
-        else:
+        elif "exr_review" in profile["outputs"]:
             self.log.debug(
                 "Removing 'exr_review' from profile because 'client_review' or" \
                 " 'review' are not part of the families."
@@ -129,7 +132,7 @@ class ExtractOIIOTranscode(publish.Extractor):
         if "client_final" in instance.data.get("families"):
             self.log.debug("Adding 'final' as delivery type for SG outputs.")
             delivery_types.append("final")
-        else:
+        elif "exr_final" in profile["outputs"]:
             self.log.debug(
                 "Removing 'exr_final' from profile because 'client_final' is " \
                 "not part of the families."
@@ -164,6 +167,11 @@ class ExtractOIIOTranscode(publish.Extractor):
                 # Otherwise override output definitions but only if values from SG
                 # aren't empty
                 else:
+                    # Remove "oiiotool_args" from SG definitions as we aren't defining
+                    # those and because of the update logic not considering the empty
+                    # values of child dictionaries it overrides possible existing
+                    # additional args from the existing profiles
+                    out_def.pop("oiiotool_args")
                     profile["outputs"][out_name].update(
                         {k: v for k, v in out_def.items() if v}
                     )
@@ -178,9 +186,31 @@ class ExtractOIIOTranscode(publish.Extractor):
         new_representations = []
         repres = instance.data["representations"]
         for idx, repre in enumerate(list(repres)):
-            self.log.debug("repre ({}): `{}`".format(idx + 1, repre["name"]))
+            repre_name = repre["name"]
+            self.log.debug("repre ({}): `{}`".format(idx + 1, repre_name))
+
             if not self._repre_is_valid(repre):
                 continue
+
+            ### Starts Alkemy-X Override ###
+            # Filter out full resolution exr from getting transcodes
+            if repre_name == "exr_fr":
+                self.log.debug("Full resolution representation, skipping.")
+                continue
+
+            tags = repre.get("tags") or []
+            if "thumbnail" in tags:
+                self.log.debug((
+                    "Repre: {} - Found \"thumbnail\" in tags. Skipping"
+                ).format(repre_name))
+                continue
+
+            if "passing" in tags:
+                self.log.debug((
+                    "Repre: {} - Found \"passing\" in tags. Skipping"
+                ).format(repre_name))
+                continue
+            ### Ends Alkemy-X Override ###
 
             added_representations = False
             added_review = False
@@ -234,8 +264,12 @@ class ExtractOIIOTranscode(publish.Extractor):
                     new_repre["colorspaceData"]["colorspace"] = \
                         target_colorspace
 
-                additional_command_args = (output_def["oiiotool_args"]
-                                           ["additional_command_args"])
+                additional_pre_command_args = (output_def["oiiotool_args"]
+                                           ["additional_pre_command_args"])
+
+                additional_post_command_args = (output_def["oiiotool_args"]
+                                           ["additional_post_command_args"])
+
 
                 files_to_convert = self._translate_to_sequence(
                     files_to_convert)
@@ -253,7 +287,8 @@ class ExtractOIIOTranscode(publish.Extractor):
                         target_colorspace,
                         view,
                         display,
-                        additional_command_args,
+                        additional_pre_command_args,
+                        additional_post_command_args,
                         self.log
                     )
                     self.log.info(
@@ -383,7 +418,7 @@ class ExtractOIIOTranscode(publish.Extractor):
                         out_name, entity
                     )
 
-                    sg_profiles[out_name] = self.profile_output_skeleton.copy()
+                    sg_profiles[out_name] = copy.deepcopy(self.profile_output_skeleton)
                     sg_profiles[out_name]["extension"] = out_fields["sg_extension"]
                     # Ignoring tags as most of those only apply for the ExtractReview step
                     # Maybe in the future we want to split the tags for transcode / review

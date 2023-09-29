@@ -279,7 +279,8 @@ def publish(parent):
         if lib.get_trackitem_openpype_tag(track_item) and (
                 track_item.parent().isLocked() or not
                 track_item.parent().isEnabled() or not
-                track_item.isEnabled()
+                track_item.isEnabled() or not
+                track_item.isMediaPresent()
                 ):
             ignored_op_clips.append(track_item.name())
 
@@ -296,7 +297,8 @@ def publish(parent):
             "OpenPype clips in selection that:          \n" \
             "    Track is locked\n" \
             "    Track is disabled\n" \
-            "    Clip is disabled\n\n" \
+            "    Clip is disabled\n" \
+            "    Clip is offline\n\n" \
             "Skipped clips:\n{}\n\n" \
             "Would you like to continue?".format(
                 "\n".join(ignored_op_clips))

@@ -34,8 +34,8 @@ SG_SLATE_FIELDS = [
 
 # List of SG fields on the 'output_datatypes' entity that we care to query for
 SG_OUTPUT_DATATYPE_FIELDS = [
-    "sg_ffmpeg_input_args",
-    "sg_ffmpeg_output_args",
+    "sg_ffmpeg_input",
+    "sg_ffmpeg_output",
     "sg_ffmpeg_video_filters",
     "sg_ffmpeg_audio_filters",
     "sg_extension",
@@ -84,7 +84,7 @@ def get_representation_names_from_overrides(
         if not entity_overrides:
             continue
         for delivery_type in delivery_types:
-            output_names = entity_overrides[f"sg_{delivery_type}_output_type"]
+            output_names = entity_overrides.get(f"sg_{delivery_type}_output_type", [])
             # Convert list from output names to representation names
             delivery_rep_names = [
                 f"{name.lower().replace(' ', '')}_{delivery_type}"

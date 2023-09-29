@@ -10,15 +10,15 @@
                 <div class="subtitle">{slate_subtitle}</div>
                 <div class="info-entry">
                     <div class="info-desc">Date:</div>
-                    <div class="info-text">{dd} {mmm} {yyyy}</div>
+                    <div class="info-text">{ddd} {d}/{m}/{yyyy}, {h}:{MM}:{SS} {ht}</div>
                 </div>
                 <div class="info-entry">
-                    <div class="info-desc">Length:</div>
-                    <div class="info-text">{frameStartHandle} - {frameEndHandle}</div>
+                    <div class="info-desc">File:</div>
+                    <div class="info-text">{filename}</div>
                 </div>
                 <div class="info-entry">
-                    <div class="info-desc">Resolution:</div>
-                    <div class="info-text">{resolution_width}x{resolution_height}</div>
+                    <div class="info-desc">Vendor:</div>
+                    <div class="info-text">ALKX</div>
                 </div>
                 <div class="info-entry"{scope_optional}>
                     <div class="info-desc">Scope:</div>
@@ -31,6 +31,15 @@
                 <div class="info-entry">
                     <div class="info-desc">Notes:</div>
                     <div class="info-text">{comment}</div>
+                </div>
+                <div class="blank-cell"></div>
+                <div class="info-entry">
+                    <div class="info-desc">Frames:</div>
+                    <div class="info-text">{frameStartHandle} - {frameEndHandle}</div>
+                </div>
+                <div class="info-entry"{lens_optional}>
+                    <div class="info-desc">Lens:</div>
+                    <div class="info-text">{lens}mm</div>
                 </div>
             </div>
             <div class="sidebar">

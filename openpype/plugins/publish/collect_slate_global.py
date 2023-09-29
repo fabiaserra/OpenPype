@@ -12,7 +12,9 @@ class CollectSlateGlobal(pyblish.api.InstancePlugin):
     order = pyblish.api.CollectorOrder + 0.499
     families = [
         "review",
-        "render"
+        "render",
+        "client_review",
+        "client_final"
     ]
 
     def process(self, instance):
@@ -53,6 +55,7 @@ class CollectSlateGlobal(pyblish.api.InstancePlugin):
             "intent": {"label": "", "value": ""},
             "comment": "",
             "scope": "",
+            "lens": "",  # TODO: grab it from somewhere
             "fps": context.data["projectEntity"]["data"].get("fps"),
         }
         slate_common_data.update(instance.data["anatomyData"])

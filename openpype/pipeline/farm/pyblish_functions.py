@@ -115,10 +115,14 @@ def get_time_data_from_instance_or_context(instance):
              instance.context.data.get("frameEnd")),
         fps=(instance.data.get("fps") or
              instance.context.data.get("fps")),
-        handle_start=(instance.data.get("handleStart") or
-                      instance.context.data.get("handleStart")),  # noqa: E501
-        handle_end=(instance.data.get("handleStart") or
-                    instance.context.data.get("handleStart"))
+        handle_start=instance.data.get(
+            "handleStart",
+            instance.context.data.get("handleStart")
+        ),
+        handle_end=instance.data.get(
+            "handleStart",
+            instance.context.data.get("handleStart")
+        )
     )
 
 
@@ -366,10 +370,25 @@ def prepare_representations(skeleton_data, exp_files, anatomy, aov_filter,
         if skeleton_data.get("slate"):
             frame_start -= 1
 
+        ### Starts Alkemy-X Override ###
+        # Add override to support representations with the same extension
+
+        # Make sure we don't have duplicate representation names
+        repre_name = ext
+
+        # We need to hard-code the case of the collection ending with _fr
+        # as we can't be certain that clique.assemble always returns the
+        # collections ordered so the `exr` that's from working resolution
+        # always comes first
+        if "_fr" in collection.head:
+            repre_name = "{}_fr".format(ext)
+            preview = False
+
         # explicitly disable review by user
         preview = preview and not do_not_add_review
         rep = {
-            "name": ext,
+            "name": repre_name,
+        ### Ends Alkemy-X Override ###
             "ext": ext,
             "files": [os.path.basename(f) for f in list(collection)],
             "frameStart": frame_start,
