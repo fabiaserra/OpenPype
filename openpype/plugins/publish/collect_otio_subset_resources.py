@@ -22,6 +22,7 @@ from openpype.pipeline.publish import (
 SG_UPLOAD_FAMILIES = ["reference", "plate"]
 SG_GENERATE_REVIEW_FAMILIES = ["plate"]
 
+
 class CollectOtioSubsetResources(pyblish.api.InstancePlugin):
     """Get Resources for a subset version"""
 
