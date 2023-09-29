@@ -8,18 +8,15 @@ from openpype.lib import Logger
 from openpype.lib import is_running_from_build
 from openpype.pipeline import legacy_io
 
+from openpype.modules.deadline import constants
+
 
 logger = Logger.get_logger(__name__)
 
 # Default Deadline job
-PRIORITY = 50
-CHUNK_SIZE = 9999
-CONCURRENT_TASKS = 1
-GROUP = "nuke-cpu-epyc"
-DEPARTMENT = "Editorial"
-
-# URL for REST API of Deadline
-DEADLINE_URL = "http://webserver-deadline-10-1-23-6:8082"
+DEFAULT_PRIORITY = 50
+DEFAULT_CHUNK_SIZE = 9999
+DEAFAULT_CONCURRENT_TASKS = 1
 
 # Dictionary that maps each Deadline plugin with the required arguments
 # for the plugin that will be passed as plugin_data dictionary
@@ -46,8 +43,13 @@ def payload_submit(
     plugin,
     plugin_data,
     batch_name,
-    task_name=None,
+    task_name,
+    group="",
     comment="",
+    priority=DEFAULT_PRIORITY,
+    chunk_size=DEFAULT_CHUNK_SIZE,
+    concurrent_tasks=DEAFAULT_CONCURRENT_TASKS,
+    department="",
     extra_env=None,
     response_data=None,
 ):
@@ -66,16 +68,16 @@ def payload_submit(
             # Top-level group name
             "BatchName": batch_name,
             # Job name, as seen in Monitor
-            "Name": task_name or os.path.basename(render_path),
+            "Name": task_name,
             # Arbitrary username, for visualisation in Monitor
             "UserName": getpass.getuser(),
-            "Priority": PRIORITY,
-            "ChunkSize": CHUNK_SIZE,
-            "ConcurrentTasks": CONCURRENT_TASKS,
-            "Department": DEPARTMENT,
+            "Priority": priority,
+            "ChunkSize": chunk_size,
+            "ConcurrentTasks": concurrent_tasks,
+            "Department": department,
             "Pool": "",
             "SecondaryPool": "",
-            "Group": GROUP,
+            "Group": group,
             "Plugin": plugin,
             "Frames": f"{out_framerange[0]}-{out_framerange[1]}",
             "Comment": comment or "",
@@ -166,7 +168,7 @@ def payload_submit(
     logger.info("Submitting..")
     logger.info(json.dumps(payload, indent=4, sort_keys=True))
 
-    url = "{}/api/jobs".format(DEADLINE_URL)
+    url = "{}/api/jobs".format(constants.DEADLINE_URL)
     response = requests.post(url, json=payload, timeout=10)
 
     if not response.ok:

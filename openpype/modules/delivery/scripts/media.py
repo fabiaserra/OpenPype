@@ -10,6 +10,7 @@ import csv
 from openpype import client as op_cli
 from openpype.lib import Logger, StringTemplate, get_datetime_data
 from openpype.pipeline import delivery, template_data, legacy_io
+from openpype.modules.deadline import constants as dl_constants
 from openpype.modules.deadline.lib import submit
 from openpype.modules.shotgrid.lib import credentials
 
@@ -496,6 +497,7 @@ def generate_delivery_media_version(
             plugin_data=plugin_data,
             batch_name=f"Delivery media - {package_path}",
             task_name=task_name,
+            group=dl_constants.NUKE_CPU_GROUP,
             extra_env=output_task_env,
         )
         report_items["Submitted delivery media job to Deadline"].append(

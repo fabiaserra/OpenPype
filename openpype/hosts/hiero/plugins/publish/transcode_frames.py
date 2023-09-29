@@ -10,6 +10,8 @@ import hiero
 from openpype.lib import is_running_from_build
 from openpype.pipeline import publish, legacy_io
 from openpype.hosts.hiero.api import work_root
+from openpype.modules.deadline.lib import submit
+from openpype.modules.deadline import constants as dl_constants
 
 
 class TranscodeFrames(publish.Extractor, publish.ColormanagedPyblishPluginMixin):
@@ -19,6 +21,7 @@ class TranscodeFrames(publish.Extractor, publish.ColormanagedPyblishPluginMixin)
     label = "Extract Transcode Frames"
     hosts = ["hiero"]
     families = ["plate"]
+
     movie_extensions = {"mov", "mp4", "mxf"}
     nuke_specific_extensions = {"braw"}
     output_ext = "exr"
@@ -60,37 +63,12 @@ class TranscodeFrames(publish.Extractor, publish.ColormanagedPyblishPluginMixin)
         "{output_path}",
     ]
 
-    # presets
-    priority = 50
-    chunk_size = 9999
-    concurrent_tasks = 1
-    group = "nuke-cpu-epyc"
-    department = "Editorial"
-    limit_groups = {}
-    env_allowed_keys = []
-    env_search_replace_values = {}
 
     def process(self, instance):
         """Submit a job to the farm to transcode the video frames"""
         instance.data["toBeRenderedOn"] = "deadline"
 
         context = instance.context
-
-        # get default deadline webservice url from deadline module
-        deadline_url = context.data["defaultDeadline"]
-        # if custom one is set in instance, use that
-        if instance.data.get("deadlineUrl"):
-            deadline_url = instance.data.get("deadlineUrl")
-        assert deadline_url, "Requires Deadline Webservice URL"
-
-        self.deadline_url = "{}/api/jobs".format(deadline_url)
-        self._comment = context.data.get("comment", "")
-        self._ver = "{}.{}".format(
-            hiero.core.env["VersionMajor"], hiero.core.env["VersionMinor"]
-        )
-        self._deadline_user = context.data.get(
-            "deadlineUser", getpass.getuser()
-        )
 
         track_item = instance.data["item"]
         media_source = track_item.source().mediaSource()
@@ -105,54 +83,72 @@ class TranscodeFrames(publish.Extractor, publish.ColormanagedPyblishPluginMixin)
 
         # Determine color transformation
         src_media_color_transform = track_item.sourceMediaColourTransform()
+
         # Define extra metadata variables
         ocio_path = os.getenv("OCIO")
 
         # TODO: skip transcoding if source colorspace matches destination
         # if src_media_color_transform == self.dst_media_color_transform:
+
         src_frame_start, src_frame_end = instance.data["srcFrameRange"]
         out_frame_start, out_frame_end = instance.data["outFrameRange"]
         self.log.info(
             f"Processing frames {out_frame_start} - {out_frame_end}"
         )
 
+        # Create some useful variables
         anatomy = instance.context.data["anatomy"]
         padding = anatomy.templates.get("frame_padding", 4)
-        submission_jobs = []
+        hiero_version = "{}.{}".format(
+            hiero.core.env["VersionMajor"], hiero.core.env["VersionMinor"]
+        )
 
+        # By default, we only ingest a single resolution (WR) unless
+        # we have an ingest_resolution on the data stating a different
+        # resolution
         ingest_resolutions = ["wr"]
-        if os.getenv("SHOW") == "uni":
+
+        ingest_resolution = instance.data.get("ingest_resolution")
+        if ingest_resolution:
             ingest_resolutions = ["fr", "wr"]
 
+        # Name to use for batch grouping Deadline tasks
+        batch_name = "Transcode frames - {}".format(
+            context.data.get("currentFile", "")
+        )
+
         # For each output resolution we create a job in the farm
+        submission_jobs = []
         for resolution in ingest_resolutions:
-            # resolution_str = "{0}x{1}".format(
-                # output_definition["width"], output_definition["height"]
-            # )
+
             representation_name = instance.data["name"]
             if resolution == "fr":
                 representation_name += "_fr"
 
-            output_template = os.path.join(
-                staging_dir,
-                representation_name,
-            )
-            output_dir = os.path.dirname(output_template)
-            # Create output_dir if it doesn't exist
+            # Create staging directory if it doesn't exist
             try:
-                if not os.path.isdir(output_dir):
-                    os.makedirs(output_dir, exist_ok=True)
+                if not os.path.isdir(staging_dir):
+                    os.makedirs(staging_dir, exist_ok=True)
             except OSError:
                 # directory is not available
-                self.log.warning("Path is unreachable: `{}`".format(output_dir))
+                self.log.error("Path is unreachable: `{}`".format(staging_dir))
+                continue
 
-            output_path = (
-                f"{output_template}.%0{padding}d.{self.output_ext}"
+            output_path = os.path.join(
+                staging_dir,
+                f"{representation_name}.%0{padding}d.{self.output_ext}"
             )
 
-            self.log.info("Output path: %s", output_path)
-            self.log.info("Output ext: %s", self.output_ext)
-            self.log.info("Source ext: %s", source_ext.lower())
+            self.log.debug("Source ext: %s", source_ext.lower())
+            self.log.debug("Output path: %s", output_path)
+            self.log.debug("Output ext: %s", self.output_ext)
+
+            # Create names for Deadline batch job and tasks
+            task_name = "Transcode - {} - {}".format(
+                os.path.basename(output_path),
+                staging_dir
+            )
+
             # If either source or output is a video format, transcode using Nuke
             if (self.output_ext.lower() in self.movie_extensions or
                     source_ext.lower() in self.movie_extensions or
@@ -174,20 +170,59 @@ class TranscodeFrames(publish.Extractor, publish.ColormanagedPyblishPluginMixin)
                 extra_env["_AX_TRANSCODE_READCOLORSPACE"] = src_media_color_transform
                 extra_env["_AX_TRANSCODE_TARGETCOLORSPACE"] = self.dst_media_color_transform
 
-                # TODO: Change the AxNuke plugin to improve monitored process when
-                # submitting "scriptJob" type Nuke jobs to not error out when
-                # exiting the script
-                response = self.payload_submit(
-                    instance,
+                # Create dictionary of data specific to Nuke plugin for payload submit
+                plugin_data = {
+                    "ScriptJob": True,
+                    "SceneFile": self.nuke_transcode_py,
+                    "ScriptFilename": self.nuke_transcode_py,
+                    "Version": hiero_version,
+                    "UseGpu": False,
+                }
+
+                response = submit.payload_submit(
                     output_path,
                     (out_frame_start, out_frame_end),
                     plugin="AxNuke",
+                    plugin_data=plugin_data,
+                    batch_name=batch_name,
+                    task_name=task_name,
+                    department="Editorial",
+                    group=dl_constants.NUKE_CPU_GROUP,
+                    comment=context.data.get("comment", ""),
                     extra_env=extra_env,
                 )
             else:
                 input_args = ""
-                if os.getenv("SHOW") == "uni" and resolution == "wr":
-                    input_args = "--cut 3776x3164+416+0"
+
+                if ingest_resolution and resolution == "wr":
+                    width = int(ingest_resolution["width"])
+                    height = int(ingest_resolution["height"])
+                    fr_width = int(ingest_resolution["fr_width"])
+                    fr_height = int(ingest_resolution["fr_height"])
+                    width_offset = (fr_width - width) / 2
+                    height_offset = (fr_height - height) / 2
+                    resize_crop = f"--cut {width}x{height}+{width_offset}+{height_offset}"
+
+                    # TODO: add different reformat operations
+                    # if ingest_resolution["reformat"].get("resize"):
+                    #     if ingest_resolution["reformat"]["resize"] == "fit":
+                    #         resize = "--fit:fillmode=letterbox " + wxh + resize_crop
+                    #     elif ingest_resolution["reformat"]["resize"] == "fill":
+                    #         if float(READ_NODE.width())/READ_NODE.height() < float(WRITE_NODE.width())/WRITE_NODE.height():
+                    #             resize = "--fit:fillmode=width " + wxh + resize_crop
+                    #         else:
+                    #             resize = "--fit:fillmode=height " + wxh + resize_crop
+                    #     elif ingest_resolution["reformat"]["resize"] == "width":
+                    #         resize = "--fit:fillmode=width " + wxh + resize_crop
+                    #     elif ingest_resolution["reformat"]["resize"] == "height":
+                    #         resize = "--fit:fillmode=height " + wxh + resize_crop
+                    #     elif ingest_resolution["reformat"]["resize"] == "distort":
+                    #         resize = "--resize " + wxh + resize_crop
+                    #     elif ingest_resolution["reformat"]["resize"] == "none":
+                    #         print("WARNING: "none" OIIO resize is not current supported in finalmaker")
+                    #     else:
+                    #         print("WARNING: {} OIIO resize is not current supported in finalmaker".format(output_settings["reformat"].get('resize')))
+                    input_args = resize_crop
 
                 self.log.info("Submitting OIIO transcode")
                 oiio_args = " ".join(self.oiio_args).format(
@@ -200,16 +235,41 @@ class TranscodeFrames(publish.Extractor, publish.ColormanagedPyblishPluginMixin)
                     ocio_path=ocio_path,
                 )
 
+                # Normalize path
+                render_dir = os.path.normpath(os.path.dirname(output_path))
+
+                # Create dictionary of data specific to Nuke plugin for payload submit
+                plugin_data = {
+                    "Executable": "/sw/bin/oiiotool",
+                    "Arguments": oiio_args,
+                    "UseGpu": False,
+                    "WorkingDirectory": render_dir,
+                }
+
                 # NOTE: We use src frame start/end because oiiotool doesn't support
                 # writing out a different frame range than input
-                response = self.payload_submit(
-                    instance,
+                response = submit.payload_submit(
                     output_path,
                     (src_frame_start, src_frame_end),
                     plugin="CommandLine",
-                    args=oiio_args,
-                    executable="/usr/openpype/3.16/vendor/bin/oiio/linux/bin/oiiotool",
+                    plugin_data=plugin_data,
+                    batch_name=batch_name,
+                    task_name=task_name,
+                    department="Editorial",
+                    group=dl_constants.OP_GROUP,
+                    comment=context.data.get("comment", ""),
                 )
+
+            # adding expected files to instance.data
+            self.expected_files(
+                instance,
+                output_path,
+                src_frame_start,
+                src_frame_end
+            )
+            self.log.debug(
+                "__ expectedFiles: `{}`".format(instance.data["expectedFiles"])
+            )
 
             submission_jobs.append(response.json())
 
@@ -232,179 +292,6 @@ class TranscodeFrames(publish.Extractor, publish.ColormanagedPyblishPluginMixin)
         else:
             self.log.info("No source ext to remove from representation")
 
-    def payload_submit(
-        self,
-        instance,
-        render_path,
-        out_framerange,
-        plugin,
-        executable=None,
-        args=None,
-        extra_env=None,
-        response_data=None,
-    ):
-        render_dir = os.path.normpath(os.path.dirname(render_path))
-        jobname = "%s - %s" % (render_dir, os.path.basename(render_path))
-
-        output_filename_0 = self.preview_fname(render_path)
-
-        if not response_data:
-            response_data = {}
-
-        try:
-            # Ensure render folder exists
-            os.makedirs(render_dir)
-        except OSError:
-            pass
-
-        payload = {
-            "JobInfo": {
-                # Top-level group name
-                "BatchName": render_dir,
-                # Job name, as seen in Monitor
-                "Name": jobname,
-                # Arbitrary username, for visualisation in Monitor
-                "UserName": self._deadline_user,
-                "Priority": self.priority,
-                "ChunkSize": self.chunk_size,
-                "ConcurrentTasks": self.concurrent_tasks,
-                "Department": self.department,
-                "Pool": instance.data.get("primaryPool"),
-                "SecondaryPool": instance.data.get("secondaryPool"),
-                "Group": self.group,
-                "Plugin": plugin,
-                "Frames": f"{out_framerange[0]}-{out_framerange[1]}",
-                "Comment": self._comment,
-                # Optional, enable double-click to preview rendered
-                # frames from Deadline Monitor
-                "OutputFilename0": output_filename_0.replace("\\", "/"),
-            },
-            "PluginInfo": {
-                # Output directory and filename
-                "OutputFilePath": render_dir.replace("\\", "/"),
-                # Resolve relative references
-                "AWSAssetFile0": render_path,
-            },
-            # Mandatory for Deadline, may be empty
-            "AuxFiles": [],
-        }
-
-        plugin_overrides = {}
-        if plugin == "AxNuke":
-            plugin_overrides = {
-                "ScriptJob": True,
-                "ScriptFilename": self.nuke_transcode_py,
-                "SceneFile": self.nuke_transcode_py,
-                "Version": self._ver,
-                "UseGpu": False,
-            }
-
-        elif plugin == "CommandLine":
-            plugin_overrides = {
-                "Executable": executable,
-                "Arguments": args,
-                "UseGpu": False,
-                "WorkingDirectory": render_dir,
-            }
-
-        # Update plugin info with overrides
-        payload["PluginInfo"].update(plugin_overrides)
-
-        if response_data.get("_id"):
-            payload["JobInfo"].update(
-                {
-                    "JobType": "Normal",
-                    "BatchName": response_data["Props"]["Batch"],
-                    "JobDependency0": response_data["_id"],
-                    "ChunkSize": 99999999,
-                }
-            )
-
-        # Include critical environment variables with submission
-        keys = [
-            "AVALON_APP_NAME",
-            "AVALON_ASSET",
-            "AVALON_PROJECT",
-            "AVALON_TASK",
-            "FOUNDRY_LICENSE",
-            "FTRACK_API_KEY",
-            "FTRACK_API_USER",
-            "FTRACK_SERVER",
-            "NUKE_PATH",
-            "OPENPYPE_SG_USER",
-            "PATH",
-            "PYBLISHPLUGINPATH",
-            "PYTHONPATH",
-            "TOOL_ENV",
-            "OCIO",
-        ]
-
-        # Add OpenPype version if we are running from build.
-        if is_running_from_build():
-            keys.append("OPENPYPE_VERSION")
-
-        # Add mongo url if it's enabled
-        if instance.context.data.get("deadlinePassMongoUrl"):
-            keys.append("OPENPYPE_MONGO")
-
-        # add allowed keys from preset if any
-        if self.env_allowed_keys:
-            keys += self.env_allowed_keys
-
-        environment = dict(
-            {key: os.environ[key] for key in keys if key in os.environ},
-            **legacy_io.Session,
-        )
-
-        for _path in os.environ:
-            if _path.lower().startswith("openpype_"):
-                environment[_path] = os.environ[_path]
-
-        if extra_env:
-            environment.update(extra_env)
-
-        # to recognize job from PYPE for turning Event On/Off
-        environment["OPENPYPE_RENDER_JOB"] = "1"
-
-        # finally search replace in values of any key
-        if self.env_search_replace_values:
-            for key, value in environment.items():
-                for _k, _v in self.env_search_replace_values.items():
-                    environment[key] = value.replace(_k, _v)
-
-        payload["JobInfo"].update(
-            {
-                "EnvironmentKeyValue%d"
-                % index: "{key}={value}".format(
-                    key=key, value=environment[key]
-                )
-                for index, key in enumerate(environment)
-            }
-        )
-
-        plugin = payload["JobInfo"]["Plugin"]
-        self.log.info("using render plugin : {}".format(plugin))
-
-        self.log.info("Submitting..")
-        self.log.info(json.dumps(payload, indent=4, sort_keys=True))
-
-        # adding expected files to instance.data
-        self.expected_files(
-            instance,
-            render_path,
-            out_framerange[0],
-            out_framerange[1]
-        )
-
-        self.log.debug(
-            "__ expectedFiles: `{}`".format(instance.data["expectedFiles"])
-        )
-        response = requests.post(self.deadline_url, json=payload, timeout=10)
-
-        if not response.ok:
-            raise Exception(response.text)
-
-        return response
 
     def expected_files(
         self,
@@ -444,26 +331,3 @@ class TranscodeFrames(publish.Extractor, publish.ColormanagedPyblishPluginMixin)
         # the frames to the correct frame range
         instance.data["frameStartHandle"] = out_frame_start
         instance.data["frameEndHandle"] = out_frame_end
-
-    def preview_fname(self, path):
-        """Return output file path with #### for padding.
-
-        Deadline requires the path to be formatted with # in place of numbers.
-        For example `/path/to/render.####.png`
-
-        Args:
-            path (str): path to rendered images
-
-        Returns:
-            str
-
-        """
-        self.log.debug("_ path: `{}`".format(path))
-        if "%" in path:
-            hashes_path = re.sub(r"%(\d*)d", lambda m: "#" * int(m.group(1)) if m.group(1) else "#", path)
-            return hashes_path
-
-        if "#" in path:
-            self.log.debug("_ path: `{}`".format(path))
-
-        return path

@@ -250,6 +250,9 @@ def get_template_data_with_names(
         asset_doc = get_asset_by_name(
             project_name,
             asset_name,
+            ### Starts Alkemy-X Override ###
+            # Add some extra fields required for being able to call
+            # context_tools.get_hierarchy_env on get_template_data
             fields=[
                 "name",
                 "data.parents",
@@ -257,6 +260,7 @@ def get_template_data_with_names(
                 "data.visualParent",
                 "data.sgEntityType"
             ]
+            ### Ends Alkemy-X Override ###
         )
     return get_template_data(
         project_doc, asset_doc, task_name, host_name, system_settings

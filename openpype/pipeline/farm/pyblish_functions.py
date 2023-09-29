@@ -329,12 +329,9 @@ def prepare_representations(skeleton_data, exp_files, anatomy, aov_filter,
 
     log = Logger.get_logger("farm_publishing")
 
-    existing_repres = []
-
     # create representation for every collected sequence
     for collection in collections:
         ext = collection.tail.lstrip(".")
-
         preview = False
         # TODO 'useSequenceForReview' is temporary solution which does
         #   not work for 100% of cases. We must be able to tell what
@@ -373,6 +370,9 @@ def prepare_representations(skeleton_data, exp_files, anatomy, aov_filter,
         if skeleton_data.get("slate"):
             frame_start -= 1
 
+        ### Starts Alkemy-X Override ###
+        # Add override to support representations with the same extension
+
         # Make sure we don't have duplicate representation names
         repre_name = ext
 
@@ -383,16 +383,12 @@ def prepare_representations(skeleton_data, exp_files, anatomy, aov_filter,
         if "_fr" in collection.head:
             repre_name = "{}_fr".format(ext)
             preview = False
-        # Leaving this one just in case for future cases where we might
-        # have colliding representations as well
-        # elif repre_name in existing_repres:
-            # repre_name += "_{}".format(collection.head.rsplit("_", 1)[-1])
-            # preview = False
 
         # explicitly disable review by user
         preview = preview and not do_not_add_review
         rep = {
             "name": repre_name,
+        ### Ends Alkemy-X Override ###
             "ext": ext,
             "files": [os.path.basename(f) for f in list(collection)],
             "frameStart": frame_start,
@@ -416,7 +412,6 @@ def prepare_representations(skeleton_data, exp_files, anatomy, aov_filter,
             rep["tags"].append("toScanline")
 
         representations.append(rep)
-        existing_repres.append(repre_name)
 
         if preview:
             skeleton_data["families"] = _add_review_families(

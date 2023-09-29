@@ -1078,8 +1078,10 @@ def convert_colorspace(
         view (str): name for viewer space (ocio valid)
             both 'view' and 'display' must be filled (if 'target_colorspace')
         display (str): name for display-referred reference space (ocio valid)
-        additional_command_args (list): arguments for oiiotool (like binary
-            depth for .dpx)
+        additional_pre_command_args (list): arguments for oiiotool to run before
+            the main colorspace conversion
+        additional_post_command_args (list): arguments for oiiotool to run after
+            the main colorspace conversion
         logger (logging.Logger): Logger used for logging.
     Raises:
         ValueError: if misconfigured
