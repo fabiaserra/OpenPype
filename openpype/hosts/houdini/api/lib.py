@@ -10,8 +10,14 @@ import json
 import six
 
 from openpype.client import get_asset_by_name
-from openpype.pipeline import get_current_project_name, get_current_asset_name
+from openpype.pipeline import (
+    get_current_project_name,
+    get_current_asset_name,
+    registered_host
+)
 from openpype.pipeline.context_tools import get_current_project_asset
+from openpype.tools.utils.host_tools import get_tool_by_name
+from openpype.pipeline.create import CreateContext
 
 import hou
 
@@ -744,3 +750,203 @@ def get_color_management_preferences():
         "display": hou.Color.ocio_defaultDisplay(),
         "view": hou.Color.ocio_defaultView()
     }
+
+
+def get_obj_node_output(obj_node):
+    """Find output node.
+
+    If the node has any output node return the
+    output node with the minimum `outputidx`.
+    When no output is present return the node
+    with the display flag set. If no output node is
+    detected then None is returned.
+
+    Arguments:
+        node (hou.Node): The node to retrieve a single
+            the output node for.
+
+    Returns:
+        Optional[hou.Node]: The child output node.
+
+    """
+
+    outputs = obj_node.subnetOutputs()
+    if not outputs:
+        return
+
+    elif len(outputs) == 1:
+        return outputs[0]
+
+    else:
+        return min(outputs,
+                   key=lambda node: node.evalParm('outputidx'))
+
+
+def get_output_children(output_node, include_sops=True):
+    """Recursively return a list of all output nodes
+    contained in this node including this node.
+
+    It works in a similar manner to output_node.allNodes().
+    """
+    out_list = [output_node]
+
+    if output_node.childTypeCategory() == hou.objNodeTypeCategory():
+        for child in output_node.children():
+            out_list += get_output_children(child, include_sops=include_sops)
+
+    elif include_sops and \
+            output_node.childTypeCategory() == hou.sopNodeTypeCategory():
+        out = get_obj_node_output(output_node)
+        if out:
+            out_list += [out]
+
+    return out_list
+
+
+def get_resolution_from_doc(doc):
+    """Get resolution from the given asset document. """
+
+    if not doc or "data" not in doc:
+        print("Entered document is not valid. \"{}\"".format(str(doc)))
+        return None
+
+    resolution_width = doc["data"].get("resolutionWidth")
+    resolution_height = doc["data"].get("resolutionHeight")
+
+    # Make sure both width and height are set
+    if resolution_width is None or resolution_height is None:
+        print("No resolution information found for \"{}\"".format(doc["name"]))
+        return None
+
+    return int(resolution_width), int(resolution_height)
+
+
+def set_camera_resolution(camera, asset_doc=None):
+    """Apply resolution to camera from asset document of the publish"""
+
+    if not asset_doc:
+        asset_doc = get_current_project_asset()
+
+    resolution = get_resolution_from_doc(asset_doc)
+
+    if resolution:
+        print("Setting camera resolution: {} -> {}x{}".format(
+            camera.name(), resolution[0], resolution[1]
+        ))
+        camera.parm("resx").set(resolution[0])
+        camera.parm("resy").set(resolution[1])
+
+
+def get_camera_from_container(container):
+    """Get camera from container node. """
+
+    cameras = container.recursiveGlob(
+        "*",
+        filter=hou.nodeTypeFilter.ObjCamera,
+        include_subnets=False
+    )
+
+    assert len(cameras) == 1, "Camera instance must have only one camera"
+    return cameras[0]
+
+
+def publisher_show_and_publish(comment=""):
+    """Open publisher window and trigger publishing action."""
+
+    main_window = get_main_window()
+    publisher_window = get_tool_by_name(
+        tool_name="publisher",
+        parent=main_window,
+        reset_on_show=False
+    )
+
+    publisher_window.set_current_tab("publish")
+    publisher_window.make_sure_is_visible()
+    publisher_window.reset_on_show = False
+    publisher_window.set_comment_input_text(comment)
+    publisher_window.reset()
+    publisher_window.click_publish()
+
+
+def find_rop_input_dependencies(input_tuple):
+    """Self publish from ROP nodes.
+
+    Arguments:
+        tuple (hou.RopNode.inputDependencies) which can be a nested tuples
+        represents the input dependencies of the ROP node, consisting of ROPs,
+        and the frames that need to be be rendered prior to rendering the ROP.
+
+    Returns:
+        list of the RopNode.path() that can be found inside
+        the input tuple.
+    """
+
+    out_list = []
+    if isinstance(input_tuple[0], hou.RopNode):
+        return input_tuple[0].path()
+
+    if isinstance(input_tuple[0], tuple):
+        for item in input_tuple:
+            out_list.append(find_rop_input_dependencies(item))
+
+    return out_list
+
+
+def self_publish():
+    """Self publish from ROP nodes.
+
+    Firstly, it gets the node and its dependencies.
+    Then, it deactivates all other ROPs
+    And finaly, it triggers the publishing action.
+    """
+
+    result, comment = hou.ui.readInput(
+        "Add Publish Comment",
+        buttons=("Publish", "Cancel"),
+        title="Publish comment",
+        close_choice=1
+    )
+
+    if result:
+        return
+
+    current_node = hou.node(".")
+    inputs_paths = find_rop_input_dependencies(
+        current_node.inputDependencies()
+    )
+    inputs_paths.append(current_node.path())
+
+    host = registered_host()
+    context = CreateContext(host, reset=True)
+
+    for instance in context.instances:
+        node_path = instance.data.get("instance_node")
+        if not node_path:
+            continue
+
+        active = node_path in inputs_paths
+        instance["active"] = active
+        hou.node(node_path).parm("active").set(active)
+
+    context.save_changes()
+
+    publisher_show_and_publish(comment)
+
+
+def add_self_publish_button(node):
+    """Adds a self publish button to the rop node."""
+
+    label = os.environ.get("AVALON_LABEL") or "OpenPype"
+
+    button_parm = hou.ButtonParmTemplate(
+        "{}_publish".format(label.lower()),
+        "{} Publish".format(label),
+        script_callback="from openpype.hosts.houdini.api.lib import "
+                        "self_publish; self_publish()",
+        script_callback_language=hou.scriptLanguage.Python,
+        join_with_next=True
+    )
+
+    template = node.parmTemplateGroup()
+    template.insertBefore((0,), button_parm)
+    node.setParmTemplateGroup(template)
