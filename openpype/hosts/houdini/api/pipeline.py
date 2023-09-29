@@ -339,6 +339,8 @@ def on_open():
     # ensure it is using correct FPS for the asset
     lib.validate_fps()
 
+    lib.validate_resolution()
+
     if any_outdated_containers():
         parent = lib.get_main_window()
         if parent is None:
@@ -397,7 +399,7 @@ def _set_context_settings():
     Returns:
         None
     """
-
+    lib.reset_resolution()
     lib.reset_framerange()
 
 

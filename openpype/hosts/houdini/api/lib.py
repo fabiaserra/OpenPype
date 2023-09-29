@@ -36,6 +36,24 @@ def get_asset_fps(asset_doc=None):
     return asset_doc["data"]["fps"]
 
 
+def get_asset_resolution(asset_doc=None):
+    """Get current asset resolution width/height/aspect ratio as a 3-tuple."""
+
+    if asset_doc is None:
+        asset_doc = get_current_project_asset(
+            fields=[
+                "data.resolutionWidth",
+                "data.resolutionHeight",
+                "data.pixelAspect"
+            ]
+        )
+    return (
+        asset_doc["data"]["resolutionWidth"],
+        asset_doc["data"]["resolutionHeight"],
+        asset_doc["data"]["pixelAspect"]
+    )
+
+
 def set_id(node, unique_id, overwrite=False):
     exists = node.parm("id")
     if not exists:
@@ -247,6 +265,17 @@ def set_scene_fps(fps):
     hou.setFps(fps)
 
 
+def set_scene_resolution(width, height, pix_aspect):
+    hou.hscript(f"set -g RESX={width}")
+    hou.hscript(f"set -g RESY={height}")
+    hou.hscript(f"set -g PIX_AR={pix_aspect}")
+
+    hou.hscript("varchange -V RESX")
+    hou.hscript("varchange -V RESY")
+    hou.hscript("varchange -V PIX_AR")
+
+    log.info("Resolution variables are set.")
+
 # Valid FPS
 def validate_fps():
     """Validate current scene FPS and show pop-up when it is incorrect
@@ -284,6 +313,50 @@ def validate_fps():
 
     return True
 
+
+# Valid FPS
+def validate_resolution():
+    """Validate current scene FPS and show pop-up when it is incorrect
+
+    Returns:
+        bool
+
+    """
+
+    width, height, pix_aspect = get_asset_resolution()
+
+    cur_width = hou.getenv("RESX")
+    cur_height = hou.getenv("RESY")
+    cur_pix_aspect = hou.getenv("PIX_AR")
+
+    if width != cur_width or height != cur_height or pix_aspect != cur_pix_aspect:
+
+        from openpype.widgets import popup
+
+        # Find main window
+        parent = hou.ui.mainQtWindow()
+        if parent is None:
+            pass
+        else:
+            dialog = popup.PopupUpdateKeys(parent=parent)
+            dialog.setModal(True)
+            dialog.setWindowTitle("Houdini scene does not match shot resolution")
+            res_str = f"{width}x{height}x{pix_aspect}"
+            cur_res_str = f"{cur_width}x{cur_height}x{cur_pix_aspect}"
+            dialog.setMessage("Scene '%s' resolution does not match shot '%s'" %
+                              (cur_res_str, res_str))
+            dialog.setButtonText("Fix")
+
+            # on_show is the Fix button clicked callback
+            dialog.on_clicked_state.connect(
+                lambda: set_scene_resolution(width, height, pix_aspect)
+            )
+
+            dialog.show()
+
+            return False
+
+    return True
 
 def create_remote_publish_node(force=True):
     """Function to create a remote publish node in /out
@@ -608,6 +681,30 @@ def reset_framerange():
     hou.playbar.setFrameRange(frame_start, frame_end)
     hou.playbar.setPlaybackRange(frame_start, frame_end)
     hou.setFrame(frame_start)
+
+
+def reset_resolution():
+    """Set resolution and pixel aspect ratio variables to current asset"""
+
+    # Get asset data
+    project_name = get_current_project_name()
+    asset_name = get_current_asset_name()
+    # Get the asset ID from the database for the asset of current context
+    asset_doc = get_asset_by_name(project_name, asset_name)
+
+    width, height = get_asset_resolution(asset_doc)
+    pixel_aspect = get_asset_pixel_aspect(asset_doc)
+
+    if width is None or height is None or pixel_aspect is None:
+        msg = "Missing set shot attributes in DB." \
+            "\nContact your supervisor!." \
+            f"\n\nWidth: `{width}`\nHeight: `{height}`" \
+            f"\nPixel Aspect: `{pixel_aspect}`"
+        log.error(msg)
+        return
+
+    # Update Houdini resolution variables
+    set_scene_resolution(width, height, pixel_aspect)
 
 
 def get_main_window():
