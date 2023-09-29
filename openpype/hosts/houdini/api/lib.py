@@ -310,8 +310,8 @@ def validate_resolution():
         bool
 
     """
-
-    width, height, pix_aspect = get_asset_resolution()
+    asset_doc = get_current_project_asset()
+    width, height, pix_aspect = get_resolution_from_doc(asset_doc)
 
     cur_width = hou.getenv("RESX")
     cur_height = hou.getenv("RESY")
