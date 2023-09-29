@@ -36,24 +36,6 @@ def get_asset_fps(asset_doc=None):
     return asset_doc["data"]["fps"]
 
 
-def get_asset_resolution(asset_doc=None):
-    """Get current asset resolution width/height/aspect ratio as a 3-tuple."""
-
-    if asset_doc is None:
-        asset_doc = get_current_project_asset(
-            fields=[
-                "data.resolutionWidth",
-                "data.resolutionHeight",
-                "data.pixelAspect"
-            ]
-        )
-    return (
-        asset_doc["data"]["resolutionWidth"],
-        asset_doc["data"]["resolutionHeight"],
-        asset_doc["data"]["pixelAspect"]
-    )
-
-
 def set_id(node, unique_id, overwrite=False):
     exists = node.parm("id")
     if not exists:
@@ -274,7 +256,13 @@ def set_scene_resolution(width, height, pix_aspect):
     hou.hscript("varchange -V RESY")
     hou.hscript("varchange -V PIX_AR")
 
-    log.info("Resolution variables are set.")
+    log.info(
+        "Resolution variables are set -> \n" \
+        f"  $RESX={width}\n"
+        f"  $RESY={width}\n"
+        f"  $PIX_AR={pix_aspect}\n"
+    )
+
 
 # Valid FPS
 def validate_fps():
@@ -692,19 +680,18 @@ def reset_resolution():
     # Get the asset ID from the database for the asset of current context
     asset_doc = get_asset_by_name(project_name, asset_name)
 
-    width, height = get_asset_resolution(asset_doc)
-    pixel_aspect = get_asset_pixel_aspect(asset_doc)
+    width, height, pix_aspect = get_resolution_from_doc(asset_doc)
 
-    if width is None or height is None or pixel_aspect is None:
+    if width is None or height is None or pix_aspect is None:
         msg = "Missing set shot attributes in DB." \
             "\nContact your supervisor!." \
             f"\n\nWidth: `{width}`\nHeight: `{height}`" \
-            f"\nPixel Aspect: `{pixel_aspect}`"
+            f"\nPixel Aspect: `{pix_aspect}`"
         log.error(msg)
         return
 
     # Update Houdini resolution variables
-    set_scene_resolution(width, height, pixel_aspect)
+    set_scene_resolution(width, height, pix_aspect)
 
 
 def get_main_window():
@@ -909,13 +896,15 @@ def get_resolution_from_doc(doc):
 
     resolution_width = doc["data"].get("resolutionWidth")
     resolution_height = doc["data"].get("resolutionHeight")
+    pixel_aspect = doc["data"].get("pixelAspect")
 
     # Make sure both width and height are set
-    if resolution_width is None or resolution_height is None:
+    if resolution_width is None or resolution_height is None \
+            or pixel_aspect is None:
         print("No resolution information found for \"{}\"".format(doc["name"]))
         return None
 
-    return int(resolution_width), int(resolution_height)
+    return int(resolution_width), int(resolution_height), float(pixel_aspect)
 
 
 def set_camera_resolution(camera, asset_doc=None):
@@ -927,11 +916,12 @@ def set_camera_resolution(camera, asset_doc=None):
     resolution = get_resolution_from_doc(asset_doc)
 
     if resolution:
-        print("Setting camera resolution: {} -> {}x{}".format(
-            camera.name(), resolution[0], resolution[1]
+        print("Setting camera resolution: {} -> {}x{}x{}".format(
+            camera.name(), resolution[0], resolution[1], resolution[2]
         ))
         camera.parm("resx").set(resolution[0])
         camera.parm("resy").set(resolution[1])
+        camera.parm("aspect").set(resolution[2])
 
 
 def get_camera_from_container(container):
