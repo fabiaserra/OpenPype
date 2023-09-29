@@ -29,6 +29,7 @@ __all__ = [
     "lsattr",
     "lsattrs",
     "read",
+    "add_self_publish_button",
 
     "maintained_selection"
 ]
