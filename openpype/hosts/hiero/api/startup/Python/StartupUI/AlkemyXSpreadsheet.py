@@ -1496,11 +1496,6 @@ def _set_cut_info(self, key, value, operate):
             project_name
         )
 
-        if not frame_start:
-            frame_start = None
-        if not handle_start:
-            handle_start = None
-
         if frame_start and handle_start:
             frame_offset = frame_start + handle_start
             if value:
