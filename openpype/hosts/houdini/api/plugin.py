@@ -13,7 +13,7 @@ from openpype.pipeline import (
     CreatedInstance
 )
 from openpype.lib import BoolDef
-from .lib import imprint, read, lsattr
+from .lib import imprint, read, lsattr, add_self_publish_button
 
 
 class OpenPypeCreatorError(CreatorError):
@@ -168,6 +168,7 @@ class HoudiniCreator(NewCreator, HoudiniCreatorBase):
     """Base class for most of the Houdini creator plugins."""
     selected_nodes = []
     settings_name = None
+    add_publish_button = False
 
     def create(self, subset_name, instance_data, pre_create_data):
         try:
@@ -194,6 +195,10 @@ class HoudiniCreator(NewCreator, HoudiniCreatorBase):
                 self)
             self._add_instance_to_context(instance)
             imprint(instance_node, instance.data_to_store())
+
+            if self.add_publish_button:
+                add_self_publish_button(instance_node)
+
             return instance
 
         except hou.Error as er:
@@ -296,9 +301,14 @@ class HoudiniCreator(NewCreator, HoudiniCreatorBase):
         """
         return [hou.ropNodeTypeCategory()]
 
-    def apply_settings(self, project_settings, system_settings):
+    def apply_settings(self, project_settings):
         """Method called on initialization of plugin to apply settings."""
 
+        # Apply General Settings
+        self.add_publish_button = \
+            project_settings["houdini"]["general"]["add_self_publish_button"]
+
+        # Apply Creator Settings
         settings_name = self.settings_name
         if settings_name is None:
             settings_name = self.__class__.__name__

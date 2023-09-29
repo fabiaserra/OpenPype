@@ -12,10 +12,6 @@ from abc import ABCMeta, abstractmethod
 import six
 
 from openpype import AYON_SERVER_ENABLED, PACKAGE_DIR
-from openpype.client import (
-    get_project,
-    get_asset_by_name,
-)
 from openpype.settings import (
     get_system_settings,
     get_project_settings,

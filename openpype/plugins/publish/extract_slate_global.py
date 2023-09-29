@@ -4,7 +4,10 @@ import logging
 import tempfile
 
 import pyblish.api
-from html2image import Html2Image
+try:
+    from html2image import Html2Image
+except ImportError:
+    Html2Image = None
 
 from openpype.lib import (
     get_oiio_tool_args,
@@ -403,7 +406,14 @@ class ExtractSlateGlobal(publish.Extractor):
     _slate_data_name = "slateGlobal"
 
     def process(self, instance):
-
+        
+        if not Html2Image:
+            self.log.warning(
+                "Html2Image couldn't be loaded in environment, skipping slate "
+                "extraction..."
+            )
+            return
+        
         if self._slate_data_name not in instance.data:
             self.log.warning(
                 "Slate Global workflow is not active, skipping slate "

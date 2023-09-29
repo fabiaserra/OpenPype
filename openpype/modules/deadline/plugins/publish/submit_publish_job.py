@@ -114,11 +114,11 @@ class ProcessSubmittedJobOnFarm(pyblish.api.InstancePlugin,
         "model.farm",
         "plate.farm",
         "pointcache.farm",
-        "prerender.farm_frames",
+        "prerender.frames_farm",
         "prerender.farm",
         "redshift_rop",
         "reference.farm",
-        "render.farm_frames",
+        "render.frames_farm",
         "render.farm",
         "renderlayer",
         "rig.farm",
@@ -146,7 +146,9 @@ class ProcessSubmittedJobOnFarm(pyblish.api.InstancePlugin,
         "FTRACK_SERVER",
         "AVALON_APP_NAME",
         "OPENPYPE_USERNAME",
-        "OPENPYPE_SG_USER"
+        "OPENPYPE_SG_USER",
+        "KITSU_LOGIN",
+        "KITSU_PWD"
     ]
 
     # custom deadline attributes
@@ -369,8 +371,7 @@ class ProcessSubmittedJobOnFarm(pyblish.api.InstancePlugin,
         # remove secondary pool
         payload["JobInfo"].pop("SecondaryPool", None)
 
-        self.log.info("Submitting Deadline job ...")
-        self.log.debug("Payload: %s", payload)
+        self.log.debug("Submitting Deadline publish job ...")
 
         url = "{}/api/jobs".format(self.deadline_url)
         response = requests.post(url, json=payload, timeout=10)
@@ -514,7 +515,7 @@ class ProcessSubmittedJobOnFarm(pyblish.api.InstancePlugin,
             import getpass
 
             render_job = {}
-            self.log.info("Faking job data ...")
+            self.log.debug("Faking job data ...")
             render_job["Props"] = {}
             # Render job doesn't exist because we do not have prior submission.
             # We still use data from it so lets fake it.

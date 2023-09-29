@@ -6,6 +6,8 @@ use singleton approach with global functions (using helper anyway).
 import os
 
 import pyblish.api
+
+from openpype import AYON_SERVER_ENABLED
 from openpype.host import IWorkfileHost, ILoadHost
 from openpype.lib import Logger
 from openpype.pipeline import (
@@ -46,17 +48,29 @@ class HostToolsHelper:
             self._log = Logger.get_logger(self.__class__.__name__)
         return self._log
 
+    def _init_ayon_workfiles_tool(self, parent):
+        from openpype.tools.ayon_workfiles.widgets import WorkfilesToolWindow
+
+        workfiles_window = WorkfilesToolWindow(parent=parent)
+        self._workfiles_tool = workfiles_window
+
+    def _init_openpype_workfiles_tool(self, parent):
+        from openpype.tools.workfiles.app import Window
+
+        # Host validation
+        host = registered_host()
+        IWorkfileHost.validate_workfile_methods(host)
+
+        workfiles_window = Window(parent=parent)
+        self._workfiles_tool = workfiles_window
+
     def get_workfiles_tool(self, parent):
         """Create, cache and return workfiles tool window."""
         if self._workfiles_tool is None:
-            from openpype.tools.workfiles.app import Window
-
-            # Host validation
-            host = registered_host()
-            IWorkfileHost.validate_workfile_methods(host)
-
-            workfiles_window = Window(parent=parent)
-            self._workfiles_tool = workfiles_window
+            if AYON_SERVER_ENABLED:
+                self._init_ayon_workfiles_tool(parent)
+            else:
+                self._init_openpype_workfiles_tool(parent)
 
         return self._workfiles_tool
 
@@ -247,7 +261,9 @@ class HostToolsHelper:
             dialog.activateWindow()
             dialog.showNormal()
 
-    def get_publisher_tool(self, parent=None, controller=None):
+    def get_publisher_tool(
+        self, parent=None, controller=None, reset_on_show=None
+    ):
         """Create, cache and return publisher window."""
 
         if self._publisher_tool is None:
@@ -257,15 +273,19 @@ class HostToolsHelper:
             ILoadHost.validate_load_methods(host)
 
             publisher_window = PublisherWindow(
-                controller=controller, parent=parent or self._parent
+                controller=controller,
+                parent=parent or self._parent,
+                reset_on_show=reset_on_show
             )
             self._publisher_tool = publisher_window
 
         return self._publisher_tool
 
-    def show_publisher_tool(self, parent=None, controller=None, tab=None):
+    def show_publisher_tool(
+        self, parent=None, controller=None, reset_on_show=None, tab=None
+    ):
         with qt_app_context():
-            window = self.get_publisher_tool(parent, controller)
+            window = self.get_publisher_tool(parent, controller, reset_on_show)
             if tab:
                 window.set_current_tab(tab)
             window.make_sure_is_visible()

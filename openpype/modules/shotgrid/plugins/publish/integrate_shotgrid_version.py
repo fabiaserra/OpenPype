@@ -20,15 +20,6 @@ class IntegrateShotgridVersion(pyblish.api.InstancePlugin):
         "comment": (str, "description"),
         "family": (str, "sg_version_type"),
     }
-    families = [
-        "plate",
-        "render",
-        "prerender",
-        "reference",
-        "arnold_rop",
-        "mantra_rop",
-        "karma_rop"
-    ]
     ### Ends Alkemy-X Override ###
 
     sg = None
@@ -91,8 +82,8 @@ class IntegrateShotgridVersion(pyblish.api.InstancePlugin):
         version = self._find_existing_version(code, context, instance)
 
         if not version:
-            self.log.info("Creating Shotgrid version: {}".format(version))
             version = self._create_version(code, context, instance)
+            self.log.info("Created Shotgrid version: {}".format(version))
         else:
             self.log.info("Using existing Shotgrid version: {}".format(version))
 
