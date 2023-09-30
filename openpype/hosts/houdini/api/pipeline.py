@@ -337,7 +337,7 @@ def on_open():
 
     outdated_asset_variables = lib.get_outdated_asset_variables()
 
-    if outdated_asset_variables():
+    if outdated_asset_variables:
         parent = lib.get_main_window()
         if parent is None:
             # When opening Houdini with last workfile on launch the UI hasn't
