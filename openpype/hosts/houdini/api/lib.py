@@ -311,16 +311,31 @@ def show_outdated_asset_variables_popup(outdated_variables):
         dialog.setMessage("\n".join(outaded_vars_list))
         dialog.setButtonText("Fix")
 
-        width = outdated_variables.get("RESX")
-        height = outdated_variables.get("RESY")
-        pix_aspect = outdated_variables.get("PIX_AR")
-        fps = outdated_variables.get("FPS")
+        new_width = None
+        outdated_width = outdated_variables.get("RESX")
+        if outdated_width:
+            new_width = outdated_width[1]
+
+        new_height = None
+        outdated_height = outdated_variables.get("RESY")
+        if outdated_height:
+            new_height = outdated_height[1]
+
+        new_pix_aspect = None
+        outdated_pix_aspect = outdated_variables.get("PIX_AR")
+        if outdated_pix_aspect:
+            new_pix_aspect = outdated_pix_aspect[1]
+
+        new_fps = None
+        outdated_fps = outdated_variables.get("FPS")
+        if outdated_fps:
+            new_fps = outdated_fps[1]
 
         # on_show is the Fix button clicked callback
         dialog.on_clicked_state.connect(
             lambda: (
-                set_scene_resolution(width, height, pix_aspect),
-                set_scene_fps(fps)
+                set_scene_resolution(new_width, new_height, new_pix_aspect),
+                set_scene_fps(new_fps)
             )
         )
 
