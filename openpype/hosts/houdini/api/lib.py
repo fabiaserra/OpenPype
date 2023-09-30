@@ -244,107 +244,88 @@ def get_output_parameter(node):
 
 
 def set_scene_fps(fps):
-    hou.setFps(fps)
+    if fps:
+        hou.setFps(fps)
 
 
 def set_scene_resolution(width, height, pix_aspect):
-    hou.hscript(f"set -g RESX={width}")
-    hou.hscript(f"set -g RESY={height}")
-    hou.hscript(f"set -g PIX_AR={pix_aspect}")
-
-    hou.hscript("varchange -V RESX")
-    hou.hscript("varchange -V RESY")
-    hou.hscript("varchange -V PIX_AR")
-
-    log.info(
-        "Resolution variables are set -> \n" \
-        f"  $RESX={width}\n"
-        f"  $RESY={width}\n"
-        f"  $PIX_AR={pix_aspect}\n"
-    )
+    if width:
+        hou.hscript(f"set -g RESX={width}")
+        hou.hscript("varchange -V RESX")
+    if height:
+        hou.hscript(f"set -g RESY={height}")
+        hou.hscript("varchange -V RESY")
+    if pix_aspect:
+        hou.hscript(f"set -g PIX_AR={pix_aspect}")
+        hou.hscript("varchange -V PIX_AR")
 
 
-# Valid FPS
-def validate_fps():
-    """Validate current scene FPS and show pop-up when it is incorrect
+def get_outdated_asset_variables():
+    outdated_variables = {}
 
-    Returns:
-        bool
+    asset_doc = get_current_project_asset()
 
-    """
-
+    # Validate FPS
     fps = get_asset_fps()
     current_fps = hou.fps()  # returns float
 
     if current_fps != fps:
+        outdated_variables["FPS"] = (current_fps, fps)
 
-        from openpype.widgets import popup
-
-        # Find main window
-        parent = hou.ui.mainQtWindow()
-        if parent is None:
-            pass
-        else:
-            dialog = popup.PopupUpdateKeys(parent=parent)
-            dialog.setModal(True)
-            dialog.setWindowTitle("Houdini scene does not match project FPS")
-            dialog.setMessage("Scene %i FPS does not match project %i FPS" %
-                              (current_fps, fps))
-            dialog.setButtonText("Fix")
-
-            # on_show is the Fix button clicked callback
-            dialog.on_clicked_state.connect(lambda: set_scene_fps(fps))
-
-            dialog.show()
-
-            return False
-
-    return True
-
-
-# Valid FPS
-def validate_resolution():
-    """Validate current scene FPS and show pop-up when it is incorrect
-
-    Returns:
-        bool
-
-    """
-    asset_doc = get_current_project_asset()
+    # Validate resolution
     width, height, pix_aspect = get_resolution_from_doc(asset_doc)
-
     cur_width = hou.getenv("RESX")
     cur_height = hou.getenv("RESY")
     cur_pix_aspect = hou.getenv("PIX_AR")
 
-    if width != cur_width or height != cur_height or pix_aspect != cur_pix_aspect:
+    if width != cur_width:
+        outdated_variables["RESX"] = (cur_width, width)
 
+    if height != cur_height:
+        outdated_variables["RESY"] = (cur_height, height)
+
+    if pix_aspect != cur_pix_aspect:
+        outdated_variables["PIX_AR"] = (cur_pix_aspect, pix_aspect)
+
+    return outdated_variables
+
+
+def show_outdated_asset_variables_popup(outdated_variables):
+    # Get main window
+    parent = get_main_window()
+    if parent is None:
+        log.info("Skipping outdated content pop-up "
+                 "because Houdini window can't be found.")
+    else:
         from openpype.widgets import popup
-
-        # Find main window
-        parent = hou.ui.mainQtWindow()
-        if parent is None:
-            pass
-        else:
-            dialog = popup.PopupUpdateKeys(parent=parent)
-            dialog.setModal(True)
-            dialog.setWindowTitle("Houdini scene does not match shot resolution")
-            res_str = f"{width}x{height}x{pix_aspect}"
-            cur_res_str = f"{cur_width}x{cur_height}x{cur_pix_aspect}"
-            dialog.setMessage("Scene '%s' resolution does not match shot '%s'" %
-                              (cur_res_str, res_str))
-            dialog.setButtonText("Fix")
-
-            # on_show is the Fix button clicked callback
-            dialog.on_clicked_state.connect(
-                lambda: set_scene_resolution(width, height, pix_aspect)
+        dialog = popup.PopupUpdateKeys(parent=parent)
+        dialog.setModal(True)
+        dialog.setWindowTitle("Houdini scene has outdated asset variables")
+        outaded_vars_list = []
+        for variable_name, outdated_value in outdated_variables.items():
+            cur_value, new_value = outdated_value
+            outaded_vars_list.append(
+                f"${variable_name}: {cur_value} -> {new_value}"
             )
 
-            dialog.show()
+        dialog.setMessage("\n".join(outaded_vars_list))
+        dialog.setButtonText("Fix")
 
-            return False
+        width = outdated_variables.get("RESX")
+        height = outdated_variables.get("RESY")
+        pix_aspect = outdated_variables.get("PIX_AR")
+        fps = outdated_variables.get("FPS")
 
-    return True
+        # on_show is the Fix button clicked callback
+        dialog.on_clicked_state.connect(
+            lambda: (
+                set_scene_resolution(width, height, pix_aspect),
+                set_scene_fps(fps)
+            )
+        )
+
+        dialog.show()
+
 
 def create_remote_publish_node(force=True):
     """Function to create a remote publish node in /out
