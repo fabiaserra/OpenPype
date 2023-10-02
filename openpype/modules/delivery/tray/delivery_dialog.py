@@ -447,7 +447,6 @@ class DeliveryDialog(QtWidgets.QDialog):
             # Using reversed so they are ordered from newer to older
             self._sg_playlist_id_input.addItems(reversed(playlist_items))
 
-
     def _save_project_config(self):
         proj_code = self._current_proj_code
         if not proj_code:
@@ -730,4 +729,5 @@ def main():
 
     window = DeliveryDialog()
     window.show()
+    window.on_project_change()
     app_instance.exec_()
