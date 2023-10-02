@@ -729,5 +729,8 @@ def main():
 
     window = DeliveryDialog()
     window.show()
+
+    # Trigger on project change every time the tool loads
     window.on_project_change()
+
     app_instance.exec_()
