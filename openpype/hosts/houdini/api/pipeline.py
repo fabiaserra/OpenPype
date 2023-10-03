@@ -335,24 +335,24 @@ def on_open():
 
     log.info("Running callback on open..")
 
-    outdated_asset_variables = lib.get_outdated_asset_variables()
+    # outdated_asset_variables = lib.get_outdated_asset_variables()
 
-    if outdated_asset_variables:
-        parent = lib.get_main_window()
-        if parent is None:
-            # When opening Houdini with last workfile on launch the UI hasn't
-            # initialized yet completely when the `on_open` callback triggers.
-            # We defer the dialog popup to wait for the UI to become available.
-            # We assume it will open because `hou.isUIAvailable()` returns True
-            import hdefereval
-            hdefereval.executeDeferred(
-                lib.show_outdated_asset_variables_popup,
-                outdated_asset_variables
-            )
-        else:
-            lib.show_outdated_asset_variables_popup(outdated_asset_variables)
+    # if outdated_asset_variables:
+    #     parent = lib.get_main_window()
+    #     if parent is None:
+    #         # When opening Houdini with last workfile on launch the UI hasn't
+    #         # initialized yet completely when the `on_open` callback triggers.
+    #         # We defer the dialog popup to wait for the UI to become available.
+    #         # We assume it will open because `hou.isUIAvailable()` returns True
+    #         import hdefereval
+    #         hdefereval.executeDeferred(
+    #             lib.show_outdated_asset_variables_popup,
+    #             outdated_asset_variables
+    #         )
+    #     else:
+    #         lib.show_outdated_asset_variables_popup(outdated_asset_variables)
 
-        log.warning("Scene has outdated context variables.")
+    #     log.warning("Scene has outdated context variables.")
 
     if any_outdated_containers():
         parent = lib.get_main_window()
