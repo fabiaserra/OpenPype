@@ -458,7 +458,6 @@ def generate_delivery_media_version(
                 package_path, package_name, "_thumb"
             )
 
-
         # Append output information to CSV data
         csv_data.append(
             [
@@ -486,15 +485,15 @@ def generate_delivery_media_version(
             # contain a single DCC version at the time of writing this
             "Version": "14.0",
             "UseGpu": False,
+            "OutputFilePath": dest_path,
         }
 
         # Submit job to Deadline
         task_name = f"{output_name} - {output_anatomy_data['filename']}"
         response = submit.payload_submit(
-            dest_path,
-            (out_frame_start, out_frame_end),
             plugin="AxNuke",
             plugin_data=plugin_data,
+            frame_range=(out_frame_start, out_frame_end),
             batch_name=f"Delivery media - {package_path}",
             task_name=task_name,
             group=dl_constants.NUKE_CPU_GROUP,
