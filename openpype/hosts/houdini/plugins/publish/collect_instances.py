@@ -113,5 +113,7 @@ class CollectInstances(pyblish.api.ContextPlugin):
         data["frameStart"] = node.evalParm("f1")
         data["frameEnd"] = node.evalParm("f2")
         data["byFrameStep"] = node.evalParm("f3")
+        data["handleStart"] = 0
+        data["handleEnd"] = 0
 
         return data
