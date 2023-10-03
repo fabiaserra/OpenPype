@@ -107,7 +107,6 @@ class CollectArnoldROPRenderProducts(pyblish.api.InstancePlugin):
         # Hard-code review so it generates a review and uploads it
         # to SG
         instance.data["review"] = True
-        instance.data["families"].append("review")
         ### Ends Alkemy-X Override ###
 
     def get_render_product_name(self, prefix, suffix):
