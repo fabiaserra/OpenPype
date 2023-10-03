@@ -18,28 +18,8 @@ DEFAULT_PRIORITY = 50
 DEFAULT_CHUNK_SIZE = 9999
 DEAFAULT_CONCURRENT_TASKS = 1
 
-# Dictionary that maps each Deadline plugin with the required arguments
-# for the plugin that will be passed as plugin_data dictionary
-PLUGINS_DATA_MAP = {
-    "AxNuke": [
-        "ScriptJob",
-        "ScriptFilename",
-        "SceneFile",
-        "Version",
-        "UseGpu",
-    ],
-    "CommandLine": [
-        "Executable",
-        "Arguments",
-        "UseGpu",
-        "WorkingDirectory",
-    ]
-}
-
 
 def payload_submit(
-    render_path,
-    out_framerange,
     plugin,
     plugin_data,
     batch_name,
@@ -49,6 +29,7 @@ def payload_submit(
     priority=DEFAULT_PRIORITY,
     chunk_size=DEFAULT_CHUNK_SIZE,
     concurrent_tasks=DEAFAULT_CONCURRENT_TASKS,
+    frame_range=None,
     department="",
     extra_env=None,
     response_data=None,
@@ -56,12 +37,7 @@ def payload_submit(
     if not response_data:
         response_data = {}
 
-    render_dir = os.path.normpath(os.path.dirname(render_path))
-    try:
-        # Ensure render folder exists
-        os.makedirs(render_dir)
-    except OSError:
-        pass
+    frames = "1" if not frame_range else f"{frame_range[0]}-{frame_range[1]}"
 
     payload = {
         "JobInfo": {
@@ -79,30 +55,16 @@ def payload_submit(
             "SecondaryPool": "",
             "Group": group,
             "Plugin": plugin,
-            "Frames": f"{out_framerange[0]}-{out_framerange[1]}",
+            "Frames": frames,
             "Comment": comment or "",
             # Optional, enable double-click to preview rendered
             # frames from Deadline Monitor
-            "OutputFilename0": preview_fname(render_path).replace("\\", "/"),
+            # "OutputFilename0": preview_fname(render_path).replace("\\", "/"),
         },
-        "PluginInfo": {
-            # Output directory and filename
-            "OutputFilePath": render_dir.replace("\\", "/"),
-            # Resolve relative references
-            "AWSAssetFile0": render_path,
-        },
+        "PluginInfo": plugin_data,
         # Mandatory for Deadline, may be empty
         "AuxFiles": [],
     }
-
-    # Set plugin overrides data from plugin data
-    plugin_overrides = {}
-    for key in PLUGINS_DATA_MAP[plugin]:
-        if plugin_data.get(key):
-            plugin_overrides[key] = plugin_data[key]
-
-    # Update plugin info with overrides
-    payload["PluginInfo"].update(plugin_overrides)
 
     if response_data.get("_id"):
         payload["JobInfo"].update(
@@ -116,21 +78,12 @@ def payload_submit(
 
     # Include critical environment variables with submission
     keys = [
-        "AVALON_APP_NAME",
         "AVALON_ASSET",
-        "AVALON_PROJECT",
         "AVALON_TASK",
-        "FOUNDRY_LICENSE",
-        "FTRACK_API_KEY",
-        "FTRACK_API_USER",
-        "FTRACK_SERVER",
-        "NUKE_PATH",
-        "OPENPYPE_SG_USER",
-        "PATH",
-        "PYBLISHPLUGINPATH",
-        "PYTHONPATH",
-        "TOOL_ENV",
+        "AVALON_PROJECT",
+        "AVALON_APP_NAME",
         "OCIO",
+        "OPENPYPE_SG_USER",
     ]
 
     # Add OpenPype version if we are running from build.
@@ -141,10 +94,6 @@ def payload_submit(
         {key: os.environ[key] for key in keys if key in os.environ},
         **legacy_io.Session,
     )
-
-    for _path in os.environ:
-        if _path.lower().startswith("openpype_"):
-            environment[_path] = os.environ[_path]
 
     if extra_env:
         environment.update(extra_env)

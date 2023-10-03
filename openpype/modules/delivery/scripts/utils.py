@@ -6,6 +6,8 @@ quite a bit of refactoring. In the future we should abstract those functions
 in the plugins so they can be reused elsewhere.
 """
 import clique
+import re
+import glob
 import datetime
 import getpass
 import os
@@ -40,35 +42,64 @@ def create_metadata_path(instance_data):
     return os.path.join(output_dir, metadata_filename)
 
 
-def get_representations(instance_data, exp_files, do_not_add_review, publish_to_sg=False):
+def get_representations(
+    instance_data,
+    exp_representations,
+    add_review=True,
+    publish_to_sg=False,
+    frame_start=None,
+    frame_end=None,
+):
     """Create representations for file sequences.
 
-    This will return representations of expected files if they are not
-    in hierarchy of aovs. There should be only one sequence of files for
-    most cases, but if not - we create representation from each of them.
+    This will return representation dictionaries of expected files. There
+    should be only one sequence of files for most cases, but if not - we create
+    a representation for each.
+
+    If the file path given is just a frame, it
 
     Arguments:
         instance_data (dict): instance["data"] for which we are
                             setting representations
-        exp_files (list): list of expected files
-        do_not_add_review (bool): explicitly skip review
+        exp_representations (dict[str:str]): Dictionary of expected
+            representations that should be created. Key is name of
+            representation and value is a file path to one of the files
+            from the representation (i.e., "exr": "/path/to/beauty.1001.exr").
 
     Returns:
         list of representations
 
     """
-    representations = []
-    collections, _ = clique.assemble(exp_files)
-
     anatomy = Anatomy(instance_data["project"])
 
-    # create representation for every collected sequence
-    for collection in collections:
+    representations = []
+    for rep_name, file_path in exp_representations.values():
+
+        # Convert file path so it can be used with glob and find all the
+        # frames for the sequence
+        # TODO: create a function we can reuse to do this and can convert to
+        # whatever token (i.e., *, #, %d...)
+        file_pattern = re.sub(r"\d+(?=\.\w+$)", "*", file_path)
+
+        representation_files = glob.glob(file_pattern)
+
+        collections, _ = clique.assemble(
+            representation_files, patterns=[clique.PATTERNS["frames"]]
+        )
+        if len(collections) > 1:
+            logger.warning(
+                "More than one sequence find for the file pattern %s. Using only first one: %s",
+                file_pattern,
+                collections,
+            )
+        collection = collections[0]
+
         ext = collection.tail.lstrip(".")
-        preview = True
 
         staging = os.path.dirname(list(collection)[0])
-        success, rootless_staging_dir = anatomy.find_root_template_from_path(staging)
+        success, rootless_staging_dir = anatomy.find_root_template_from_path(
+            staging
+        )
         if success:
             staging = rootless_staging_dir
         else:
@@ -79,24 +110,25 @@ def get_representations(instance_data, exp_files, do_not_add_review, publish_to_
                 ).format(staging)
             )
 
-        frame_start = int(instance_data.get("frameStartHandle"))
-        if instance_data.get("slate"):
-            frame_start -= 1
+        if not frame_start:
+            frame_start = collection.start()
 
-        preview = preview and not do_not_add_review
+        if not frame_end:
+            frame_end = collection.end()
+
         tags = []
-        if preview:
+        if add_review:
             tags.append("review")
 
         if publish_to_sg:
             tags.append("shotgridreview")
 
         rep = {
-            "name": ext,
+            "name": rep_name,
             "ext": ext,
             "files": [os.path.basename(f) for f in list(collection)],
             "frameStart": frame_start,
-            "frameEnd": int(instance_data.get("frameEndHandle")),
+            "frameEnd": frame_end,
             # If expectedFile are absolute, we need only filenames
             "stagingDir": staging,
             "fps": instance_data.get("fps"),
@@ -113,7 +145,7 @@ def get_representations(instance_data, exp_files, do_not_add_review, publish_to_
 
         representations.append(rep)
 
-        solve_families(instance_data, preview)
+        solve_families(instance_data, add_review)
 
     return representations
 
