@@ -346,12 +346,20 @@ def prepare_representations(skeleton_data, exp_files, anatomy, aov_filter,
                 preview = True
             else:
                 render_file_name = list(collection)[0]
+                log.debug(
+                    "Checking if aov_filter '%s' matches filename '%s'.",
+                    aov_filter,
+                    render_file_name
+                )
                 # if filtered aov name is found in filename, toggle it for
                 # preview video rendering
                 preview = match_aov_pattern(
                     host_name, aov_filter, render_file_name
                 )
 
+        log.debug(
+            "Preview on collection '%s': %s", collection.tail, preview
+        )
         staging = os.path.dirname(list(collection)[0])
         success, rootless_staging_dir = (
             anatomy.find_root_template_from_path(staging)
@@ -409,6 +417,7 @@ def prepare_representations(skeleton_data, exp_files, anatomy, aov_filter,
             log.info("Adding scanline conversion.")
             rep["tags"].append("toScanline")
 
+        log.debug("Adding representation: %s", rep)
         representations.append(rep)
 
         if preview:
