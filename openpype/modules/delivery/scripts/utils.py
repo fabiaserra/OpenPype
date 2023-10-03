@@ -110,11 +110,13 @@ def get_representations(
                 ).format(staging)
             )
 
+        col_frame_range = list(collection.indexes)
+
         if not frame_start:
-            frame_start = collection.start()
+            frame_start = col_frame_range[0]
 
         if not frame_end:
-            frame_end = collection.end()
+            frame_end = col_frame_range[-1]
 
         tags = []
         if add_review:
