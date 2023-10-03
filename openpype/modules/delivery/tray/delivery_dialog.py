@@ -2,6 +2,7 @@ import os
 import re
 import platform
 import json
+import traceback
 from qtpy import QtCore, QtWidgets, QtGui
 
 from openpype import style
@@ -556,18 +557,25 @@ class DeliveryDialog(QtWidgets.QDialog):
     def _on_generate_delivery_media_clicked(self):
         delivery_data = self._get_delivery_data()
 
-        if self._sg_playlist_btn.isChecked():
-            playlist_id_str = self._sg_playlist_id_input.currentText()
-            playlist_id = re.search(r"\((\d+)\)$", playlist_id_str).group(1)
-            report_items, success = media.generate_delivery_media_playlist_id(
-                playlist_id,
-                delivery_data=delivery_data,
-            )
-        else:
-            report_items, success = media.generate_delivery_media_version_id(
-                self._sg_version_id_input.text(),
-                delivery_data=delivery_data,
-            )
+        try:
+            if self._sg_playlist_btn.isChecked():
+                playlist_id_str = self._sg_playlist_id_input.currentText()
+                playlist_id = re.search(r"\((\d+)\)$", playlist_id_str).group(1)
+                report_items, success = media.generate_delivery_media_playlist_id(
+                    playlist_id,
+                    delivery_data=delivery_data,
+                )
+            else:
+                report_items, success = media.generate_delivery_media_version_id(
+                    self._sg_version_id_input.text(),
+                    delivery_data=delivery_data,
+                )
+        except Exception:
+            logger.error(traceback.format_exc())
+            report_items = {
+                "Error": [traceback.format_exc()]
+            }
+            success = False
 
         self._text_area.setText(self._format_report(report_items, success))
         self._text_area.setVisible(True)
