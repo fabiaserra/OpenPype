@@ -598,14 +598,14 @@ def _create_instances_for_aov(instance, skeleton, aov_filter, additional_data,
 
         # create subset name `familyTaskSubset_AOV`
         # TODO refactor/remove me
-        family = skeleton["family"]
-        if not subset.startswith(family):
-            group_name = '{}{}{}{}{}'.format(
-                family,
-                task[0].upper(), task[1:],
-                subset[0].upper(), subset[1:])
-        else:
-            group_name = subset
+        # family = skeleton["family"]
+        # if not subset.startswith(family):
+        #     group_name = '{}{}{}{}{}'.format(
+        #         family,
+        #         task[0].upper(), task[1:],
+        #         subset[0].upper(), subset[1:])
+        # else:
+        group_name = subset
 
         # if there are multiple cameras, we need to add camera name
         if isinstance(col, (list, tuple)):
@@ -682,7 +682,7 @@ def _create_instances_for_aov(instance, skeleton, aov_filter, additional_data,
             # If expectedFile are absolute, we need only filenames
             "stagingDir": staging,
             "fps": new_instance.get("fps"),
-            "tags": ["review"] if preview else [],
+            "tags": ["review", "shotgridreview"] if preview else [],
             "colorspaceData": {
                 "colorspace": colorspace,
                 "config": {
