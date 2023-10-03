@@ -119,7 +119,7 @@ def get_export_parameter(node):
     Example:
         root = hou.node("/obj")
         my_alembic_node = root.createNode("alembic")
-        get_output_parameter(my_alembic_node)
+        get_export_parameter(my_alembic_node)
         # Result: "output"
 
     Args:
