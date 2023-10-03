@@ -752,6 +752,8 @@ def get_frame_data(node):
     data["frameStart"] = node.evalParm("f1")
     data["frameEnd"] = node.evalParm("f2")
     data["steps"] = node.evalParm("f3")
+    data["handleStart"] = 0
+    data["handleEnd"] = 0
 
     return data
 
