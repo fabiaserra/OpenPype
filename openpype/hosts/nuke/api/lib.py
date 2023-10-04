@@ -2617,12 +2617,16 @@ Reopening Nuke should synchronize these paths and resolve any discrepancies.
         asset = get_current_asset_name()
         favorite_items = OrderedDict()
 
+        ### Starts Alkemy-x Override ###
+        project_code = os.getenv("SHOW")
+
         # project
         # get project's root and split to parts
         projects_root = os.path.normpath(work_dir.split(
-            Context.project_name)[0])
+            project_code)[0])
         # add project name
-        project_dir = os.path.join(projects_root, Context.project_name) + "/"
+        project_dir = os.path.join(projects_root, project_code) + "/"
+        ### Ends Alkemy-x Override ###
         # add to favorites
         favorite_items.update({"Project dir": project_dir.replace("\\", "/")})
 
