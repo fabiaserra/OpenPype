@@ -383,6 +383,12 @@ def generate_delivery_media_version(
             anatomy_data.get("user"),
         "_AX_DELIVERY_NUKESCRIPT": delivery_data["nuke_template_script"],
         "_AX_DEBUG_PATH": os.path.join(package_path, "nuke_scripts"),
+        "AVALON_ASSET": anatomy_data["asset"],
+        "AVALON_TASK": anatomy_data["task"]["name"],
+        "AVALON_PROJECT": project_name,
+        "AVALON_APP": "nukex",
+        "AVALON_APP_NAME": "nukex/14-03",
+        "OPENPYPE_RENDER_JOB": "1",
     }
     if thumbnail_repre_doc:
         task_env["_AX_DELIVERY_THUMBNAIL_PATH"] = thumbnail_repre_doc["data"]["path"]
@@ -466,13 +472,6 @@ def generate_delivery_media_version(
                 sg_version.get(SG_SUBMISSION_NOTES, "")
             ]
         )
-
-        # Inject OP variables into session so farm job can resolve environment
-        legacy_io.Session["AVALON_ASSET"] = anatomy_data["asset"]
-        legacy_io.Session["AVALON_TASK"] = anatomy_data["task"]["name"]
-        legacy_io.Session["AVALON_PROJECT"] = project_name
-        legacy_io.Session["AVALON_APP"] = "nukex"
-        legacy_io.Session["AVALON_APP_NAME"] = "nukex/14-03"
 
         logger.info("Submitting Nuke delivery job for '%s'...", output_name)
 
