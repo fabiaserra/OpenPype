@@ -2618,9 +2618,7 @@ Reopening Nuke should synchronize these paths and resolve any discrepancies.
         favorite_items = OrderedDict()
 
         ### Starts Alkemy-x Override ###
-        project_name = os.environ["AVALON_PROJECT"]
-        project_doc = get_project(project_name)
-        project_code = project_doc["data"]["code"]
+        project_code = os.getenv("SHOW")
 
         # project
         # get project's root and split to parts
