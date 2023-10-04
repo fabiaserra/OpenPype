@@ -1,5 +1,4 @@
 import os
-import re
 import getpass
 import json
 
@@ -15,6 +14,15 @@ from openpype.modules.delivery.scripts import utils
 logger = Logger.get_logger(__name__)
 
 
+REVIEW_FAMILIES = {
+    "render"
+}
+
+PUBLISH_TO_SG_FAMILIES = {
+    "render"
+}
+
+
 def publish_version(
     project_name,
     asset_name,
@@ -26,7 +34,7 @@ def publish_version(
 ):
     # asset_entity = get_asset_by_name(project_name, asset_name)
     # context_data = asset_entity["data"]
-    context_data = {}
+    # context_data = {}
 
     # # Make sure input path frames are replaced with hashes
     # source_path = re.sub(
@@ -43,7 +51,7 @@ def publish_version(
 
     # TODO: write some logic that finds the main path from the list of
     # representations
-    source_path = expected_representations.values()[0]
+    source_path = list(expected_representations.values())[0]
 
     instance_data = {
         "project": project_name,
@@ -52,49 +60,47 @@ def publish_version(
         "families": publish_data.get("families", []),
         "asset": asset_name,
         "task": task_name,
-        # "frameStart": publish_data.get(
-            # "frameStart", context_data.get("frameStart")
-        # ),
-        # "frameEnd": publish_data.get("frameEnd", context_data.get("frameEnd")),
-        # "handleStart": publish_data.get("handleEnd", 0),
-        # "handleEnd": publish_data.get("handleEnd", 0),
-        # "frameStartHandle": out_frame_start,
-        # "frameEndHandle": out_frame_end,
         "comment": publish_data.get("comment", ""),
         "source": source_path,
         "overrideExistingFrame": False,
-        # "jobBatchName": "Publish - {} - {} - {}".format(
-        #     subset_name,
-        #     asset_name,
-        #     project_name
-        # ),
         "useSequenceForReview": True,
         "colorspace": publish_data.get("colorspace"),
         "version": publish_data.get("version"),
-        # "outputDir": render_path,
+        "outputDir": os.path.dirname(source_path),
     }
 
     representations = utils.get_representations(
         instance_data,
         expected_representations,
-        add_review=publish_data.get("add_review", True),
-        publish_to_sg=publish_data.get("publish_to_sg", True),
+        add_review=family_name in REVIEW_FAMILIES,
+        publish_to_sg=family_name in PUBLISH_TO_SG_FAMILIES,
     )
+    if not representations:
+        logger.error(
+            "No representations could be found on expected dictionary: %s",
+            expected_representations
+        )
+        return {}
 
-    # inject colorspace data
-    for rep in representations:
-        source_colorspace = publish_data.get("colorspace") or "scene_linear"
-        logger.debug(
-            "Setting colorspace '%s' to representation", source_colorspace
-        )
-        utils.set_representation_colorspace(
-            rep, project_name, colorspace=source_colorspace
-        )
+    if family_name in REVIEW_FAMILIES:
+        # inject colorspace data if we are generating a review
+        for rep in representations:
+            source_colorspace = publish_data.get("colorspace") or "scene_linear"
+            logger.debug(
+                "Setting colorspace '%s' to representation", source_colorspace
+            )
+            utils.set_representation_colorspace(
+                rep, project_name, colorspace=source_colorspace
+            )
+
+    instance_data["frameStartHandle"] = representations[0]["frameStart"]
+    instance_data["frameEndHandle"] = representations[0]["frameEnd"]
 
     # add representation
     instance_data["representations"] = representations
     instances = [instance_data]
 
+    # Create farm job to run OP publish
     metadata_path = utils.create_metadata_path(instance_data)
     logger.info("Metadata path: %s", metadata_path)
 
@@ -112,29 +118,38 @@ def publish_version(
     plugin_data = {
         "Arguments": " ".join(publish_args),
         "Version": os.getenv("OPENPYPE_VERSION"),
+        "SingleFrameOnly": "True",
     }
 
+    username = getpass.getuser()
+
     # Submit job to Deadline
-    task_name = "Publish {} - {} - {} - {}".format(
+    extra_env = {
+        "AVALON_PROJECT": project_name,
+        "AVALON_ASSET": asset_name,
+        "AVALON_TASK": task_name,
+        "OPENPYPE_USERNAME": username,
+        "AVALON_WORKDIR": os.path.dirname(source_path),
+        "OPENPYPE_PUBLISH_JOB": "1",
+        "OPENPYPE_RENDER_JOB": "0",
+        "OPENPYPE_REMOTE_JOB": "0",
+        "OPENPYPE_LOG_NO_COLORS": "1",
+        "OPENPYPE_SG_USER": username,
+    }
+
+    deadline_task_name = "Publish {} - {} - {} - {} - {}".format(
         family_name,
         subset_name,
+        task_name,
         asset_name,
         project_name
     )
 
-    extra_env = {
-        "AVALON_ASSET": asset_name,
-        "AVALON_TASK": task_name,
-        "AVALON_WORKDIR": os.path.dirname(source_path),
-        "AVALON_PROJECT": project_name,
-        "OPENPYPE_PUBLISH_JOB": "1",
-    }
-
     response = submit.payload_submit(
         plugin="OpenPype",
         plugin_data=plugin_data,
-        batch_name=publish_data.get("jobBatchName") or task_name,
-        task_name=task_name,
+        batch_name=publish_data.get("jobBatchName") or deadline_task_name,
+        task_name=deadline_task_name,
         group=dl_constants.OP_GROUP,
         extra_env=extra_env,
     )
@@ -144,13 +159,11 @@ def publish_version(
         "asset": instance_data["asset"],
         "frameStart": instance_data["frameStartHandle"],
         "frameEnd": instance_data["frameEndHandle"],
-        "fps": instance_data["fps"],
         "source": instance_data["source"],
         "user": getpass.getuser(),
         "version": None,  # this is workfile version
-        "intent": None,
         "comment": instance_data["comment"],
-        "job": None,
+        "job": {},
         "session": legacy_io.Session.copy(),
         "instances": instances,
         "deadline_publish_job_id": response.get("_id")
@@ -159,3 +172,5 @@ def publish_version(
     logger.info("Writing json file: {}".format(metadata_path))
     with open(metadata_path, "w") as f:
         json.dump(publish_job, f, indent=4, sort_keys=True)
+
+    return response

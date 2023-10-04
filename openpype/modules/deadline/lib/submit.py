@@ -37,7 +37,7 @@ def payload_submit(
     if not response_data:
         response_data = {}
 
-    frames = "1" if not frame_range else f"{frame_range[0]}-{frame_range[1]}"
+    frames = "0" if not frame_range else f"{frame_range[0]}-{frame_range[1]}"
 
     payload = {
         "JobInfo": {
@@ -83,6 +83,7 @@ def payload_submit(
         "AVALON_PROJECT",
         "AVALON_APP_NAME",
         "OCIO",
+        "USER",
         "OPENPYPE_SG_USER",
     ]
 
@@ -97,9 +98,6 @@ def payload_submit(
 
     if extra_env:
         environment.update(extra_env)
-
-    # to recognize job from PYPE for turning Event On/Off
-    environment["OPENPYPE_RENDER_JOB"] = "1"
 
     payload["JobInfo"].update(
         {

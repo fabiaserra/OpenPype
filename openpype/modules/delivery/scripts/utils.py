@@ -17,7 +17,14 @@ from openpype.lib import Logger, is_running_from_build
 from openpype.pipeline import Anatomy
 from openpype.pipeline.colorspace import get_imageio_config
 
+
 logger = Logger.get_logger(__name__)
+
+# Regular expression that allows us to replace the frame numbers of a file path
+# with any string token
+RE_FRAME_NUMBER = re.compile(
+    r"(?P<prefix>^(.*)+)\.(?P<frame>\d+)\.(?P<extension>\w+\.?(sc|gz)?$)"
+)
 
 
 def create_metadata_path(instance_data):
@@ -42,13 +49,17 @@ def create_metadata_path(instance_data):
     return os.path.join(output_dir, metadata_filename)
 
 
+def replace_frame_number_with_token(path, token):
+    return RE_FRAME_NUMBER.sub(
+        r"\g<prefix>.{}.\g<extension>".format(token), path
+    )
+
+
 def get_representations(
     instance_data,
     exp_representations,
     add_review=True,
-    publish_to_sg=False,
-    frame_start=None,
-    frame_end=None,
+    publish_to_sg=False
 ):
     """Create representations for file sequences.
 
@@ -73,28 +84,51 @@ def get_representations(
     anatomy = Anatomy(instance_data["project"])
 
     representations = []
-    for rep_name, file_path in exp_representations.values():
+    for rep_name, file_path in exp_representations.items():
+
+        rep_frame_start = None
+        rep_frame_end = None
+        ext = None
 
         # Convert file path so it can be used with glob and find all the
         # frames for the sequence
-        # TODO: create a function we can reuse to do this and can convert to
-        # whatever token (i.e., *, #, %d...)
-        file_pattern = re.sub(r"\d+(?=\.\w+$)", "*", file_path)
+        file_pattern = replace_frame_number_with_token(file_path, "*")
 
         representation_files = glob.glob(file_pattern)
+        collections, remainder = clique.assemble(representation_files)
 
-        collections, _ = clique.assemble(
-            representation_files, patterns=[clique.PATTERNS["frames"]]
-        )
+        # If file path is in remainder it means it was a single file
+        if file_path in remainder:
+            collections = [remainder]
+            frame_match = RE_FRAME_NUMBER.match(file_path)
+            if frame_match:
+                ext = frame_match.group("extension")
+                frame = frame_match.group("frame")
+                rep_frame_start = frame
+                rep_frame_end = frame
+            else:
+                rep_frame_start = 1
+                rep_frame_end = 1
+                ext = os.path.splitext(file_path)[1][1:]
+
+        elif not collections:
+            logger.warning(
+                "Couldn't find a collection for file pattern '%s'.",
+                file_pattern
+            )
+            continue
+
         if len(collections) > 1:
             logger.warning(
-                "More than one sequence find for the file pattern %s. Using only first one: %s",
+                "More than one sequence find for the file pattern '%s'."
+                " Using only first one: %s",
                 file_pattern,
                 collections,
             )
         collection = collections[0]
 
-        ext = collection.tail.lstrip(".")
+        if not ext:
+            ext = collection.tail.lstrip(".")
 
         staging = os.path.dirname(list(collection)[0])
         success, rootless_staging_dir = anatomy.find_root_template_from_path(
@@ -104,19 +138,15 @@ def get_representations(
             staging = rootless_staging_dir
         else:
             logger.warning(
-                (
-                    "Could not find root path for remapping '{}'."
-                    " This may cause issues on farm."
-                ).format(staging)
+                "Could not find root path for remapping '%s'."
+                " This may cause issues on farm.",
+                staging
             )
 
-        col_frame_range = list(collection.indexes)
-
-        if not frame_start:
-            frame_start = col_frame_range[0]
-
-        if not frame_end:
-            frame_end = col_frame_range[-1]
+        if not rep_frame_start or not rep_frame_end:
+            col_frame_range = list(collection.indexes)
+            rep_frame_start = col_frame_range[0]
+            rep_frame_end = col_frame_range[-1]
 
         tags = []
         if add_review:
@@ -125,12 +155,19 @@ def get_representations(
         if publish_to_sg:
             tags.append("shotgridreview")
 
+        files = [os.path.basename(f) for f in list(collection)]
+        # If it's a single file on the collection we remove it
+        # from the list as OP checks if "files" is a list or tuple
+        # at certain places to validate if it's a sequence or not
+        if len(files) == 1:
+            files = files[0]
+
         rep = {
             "name": rep_name,
             "ext": ext,
-            "files": [os.path.basename(f) for f in list(collection)],
-            "frameStart": frame_start,
-            "frameEnd": frame_end,
+            "files": files,
+            "frameStart": rep_frame_start,
+            "frameEnd": rep_frame_end,
             # If expectedFile are absolute, we need only filenames
             "stagingDir": staging,
             "fps": instance_data.get("fps"),
