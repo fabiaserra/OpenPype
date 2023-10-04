@@ -248,6 +248,44 @@ def set_scene_fps(fps):
         hou.setFps(fps)
 
 
+# Valid FPS
+def validate_fps():
+    """Validate current scene FPS and show pop-up when it is incorrect
+
+    Returns:
+        bool
+
+    """
+
+    fps = get_asset_fps()
+    current_fps = hou.fps()  # returns float
+
+    if current_fps != fps:
+
+        from openpype.widgets import popup
+
+        # Find main window
+        parent = hou.ui.mainQtWindow()
+        if parent is None:
+            pass
+        else:
+            dialog = popup.PopupUpdateKeys(parent=parent)
+            dialog.setModal(True)
+            dialog.setWindowTitle("Houdini scene does not match project FPS")
+            dialog.setMessage("Scene %i FPS does not match project %i FPS" %
+                              (current_fps, fps))
+            dialog.setButtonText("Fix")
+
+            # on_show is the Fix button clicked callback
+            dialog.on_clicked_state.connect(lambda: set_scene_fps(fps))
+
+            dialog.show()
+
+            return False
+
+    return True
+
+
 def set_scene_resolution(width, height, pix_aspect):
     if width:
         hou.hscript(f"set -g RESX={width}")
