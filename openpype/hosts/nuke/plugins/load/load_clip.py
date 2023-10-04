@@ -181,7 +181,6 @@ class LoadClip(plugin.NukeLoader):
                 if read_node.height() == format.height() and \
                     read_node.width() == format.width() and \
                     read_node.pixelAspect() == format.pixelAspect():
-                    print(format.name(), 'format.name()')
                     read_node["format"].setValue(format.name())
                     print(f"setting format on read node {read_node.name()}")
                     break
@@ -328,7 +327,7 @@ class LoadClip(plugin.NukeLoader):
         first -= self.handle_start
         last += self.handle_end
         ### Starts Alkemy-x override ###
-        slate_frame = "slate" in version_data.get("families", {}).values()
+        slate_frame = "slate" in version_data.get("families", {})
 
         if not is_sequence:
             duration = last - first
