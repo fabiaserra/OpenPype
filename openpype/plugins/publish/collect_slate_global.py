@@ -17,6 +17,10 @@ class CollectSlateGlobal(pyblish.api.InstancePlugin):
 
     def process(self, instance):
 
+        # Disabling Slate Global plugin completely for now as slates
+        # are only now being generated in the delivery pipeline
+        return
+
         context = instance.context
         slate_settings = context.data["project_settings"]["global"]\
             ["publish"].get("ExtractSlateGlobal")
