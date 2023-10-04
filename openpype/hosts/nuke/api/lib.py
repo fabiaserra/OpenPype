@@ -2617,6 +2617,7 @@ Reopening Nuke should synchronize these paths and resolve any discrepancies.
         asset = get_current_asset_name()
         favorite_items = OrderedDict()
 
+        ### Starts Alkemy-x Override ###
         project_name = os.environ["AVALON_PROJECT"]
         project_doc = get_project(project_name)
         project_code = project_doc["data"]["code"]
@@ -2627,6 +2628,7 @@ Reopening Nuke should synchronize these paths and resolve any discrepancies.
             project_code)[0])
         # add project name
         project_dir = os.path.join(projects_root, project_code) + "/"
+        ### Ends Alkemy-x Override ###
         # add to favorites
         favorite_items.update({"Project dir": project_dir.replace("\\", "/")})
 
