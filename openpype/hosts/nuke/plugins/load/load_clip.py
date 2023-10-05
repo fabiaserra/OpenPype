@@ -131,7 +131,7 @@ class LoadClip(plugin.NukeLoader):
         first -= self.handle_start
         last += self.handle_end
         ### Starts Alkemy-x override ###
-        slate_frame = "slate" in version_data.get("families", {})
+        slate_frame = "slate" in version_data.get("families", [])
 
         if not is_sequence:
             duration = last - first
@@ -328,7 +328,7 @@ class LoadClip(plugin.NukeLoader):
         first -= self.handle_start
         last += self.handle_end
         ### Starts Alkemy-x override ###
-        slate_frame = "slate" in version_data.get("families", {}).values()
+        slate_frame = "slate" in version_data.get("families", [])
 
         if not is_sequence:
             duration = last - first
