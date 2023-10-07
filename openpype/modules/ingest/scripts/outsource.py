@@ -2,11 +2,11 @@ import os
 import re
 import click
 import clique
-from collections import defaultdict
+
 from openpype.lib import Logger
 from openpype.modules.shotgrid.lib import credentials
-from openpype.modules.shotgrid.scripts import populate_tasks
-from openpype.modules.deadline.lib import publish
+# from openpype.modules.shotgrid.scripts import populate_tasks
+# from openpype.modules.deadline.lib import publish
 from openpype.client import get_assets, get_asset_by_name
 
 
@@ -80,10 +80,7 @@ SHOW_MATCH_RE = re.compile(r"/proj/(?P<show>\w+)")
 # Fields we want to query from OP Assets
 ASSET_FIELDS = ["name", "data.tasks"]
 
-
 logger = Logger.get_logger(__name__)
-sg = credentials.get_shotgrid_session()
-
 
 def ingest_vendor_package(package_path):
     """Ingest incoming vendor package that contains different assets.
@@ -100,6 +97,8 @@ def ingest_vendor_package(package_path):
         return False
 
     project_code = match.group("show")
+
+    sg = credentials.get_shotgrid_session()
     sg_project = sg.find_one(
         "Project", [["sg_code", "is", project_code]], ["name"]
     )
