@@ -36,10 +36,12 @@ EXT_TO_REP_NAME = {
 FAMILY_EXTS_MAP = {
     "render": {".exr", ".tif"},
     "pointcache": {".abc"},
+    "camera": {".abc", ".fbx"},
     "review": {".mov", ".mp4", ".mxf", ".avi", ".wmv"},
     "workfile": {".nk", ".ma", ".mb", ".hip", ".sfx", ".mocha"}
 }
 
+# Compatible file extensions for camera assets
 CAMERA_EXTS = {".abc", ".fbx"}
 
 # Regular expression that matches the generic file name format that we
@@ -246,11 +248,13 @@ def find_products(package_path, project_name):
 
 
 def get_product_from_filepath(project_name, filepath, strict_regex, asset_docs):
+
+    filename = os.path.basename(filepath)
+    extension = os.path.splitext(filename)[-1]
+
     # The level of confidence we have that we guessed the right tokens
     # from the filepath. The higher the number, the more confident we are
     confidence_level = 0
-    filename = os.path.basename(filepath)
-    extension = os.path.splitext(filename)[-1]
 
     asset_doc = None
     asset_name = None
@@ -265,7 +269,9 @@ def get_product_from_filepath(project_name, filepath, strict_regex, asset_docs):
         confidence_level = 3
 
     if not re_match:
-        logger.info("Strict regular expression didn't match filename '%s'.", filename)
+        logger.info(
+            "Strict regular expression didn't match filename '%s'.", filename
+        )
         re_match = GENERIC_FILENAME_RE.match(filename)
         confidence_level = 2
 
