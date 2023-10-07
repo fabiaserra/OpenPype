@@ -33,11 +33,11 @@ EXT_TO_REP_NAME = {
 # This is only used as a fallback in case we can't extract the family
 # information from other contexts like the file name (i.e, cameras would
 # for example have .abc as extension too)
-EXTS_TO_FAMILY_MAP = {
-    {".exr", ".tif"}: "render",
-    {".abc"}: "pointcache",
-    {".mov", ".mp4", ".mxf", ".avi", ".wmv"}: "review",
-    {".nk", ".ma", ".mb", ".hip", ".sfx", ".mocha"}: "workfile",
+FAMILY_EXTS_MAP = {
+    "render": {".exr", ".tif"},
+    "pointcache": {".abc"},
+    "review": {".mov", ".mp4", ".mxf", ".avi", ".wmv"},
+    "workfile": {".nk", ".ma", ".mb", ".hip", ".sfx", ".mocha"}
 }
 
 # Regular expression that matches the generic file name format that we
@@ -295,9 +295,15 @@ def get_product_from_filepath(project_name, filepath, strict_regex, asset_docs):
         logger.warning("Couldn't find asset with name '%s'", shot_code)
 
     # TODO: this is not enough for catching camera assets
-    family_name = EXTS_TO_FAMILY_MAP.get(extension)
+    for family, extensions in FAMILY_EXTS_MAP.items():
+        if extension in extensions:
+            family_name = family
+            break
+
     if not family_name:
-        logger.warning("Couldn't find a family for the file extension '%s'", extension)
+        logger.warning(
+            "Couldn't find a family for the file extension '%s'", extension
+        )
 
     rep_name = EXT_TO_REP_NAME.get(extension)
     if not rep_name:
