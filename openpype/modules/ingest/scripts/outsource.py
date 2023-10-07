@@ -40,6 +40,8 @@ FAMILY_EXTS_MAP = {
     "workfile": {".nk", ".ma", ".mb", ".hip", ".sfx", ".mocha"}
 }
 
+CAMERA_EXTS = {".abc", ".fbx"}
+
 # Regular expression that matches the generic file name format that we
 # expect from the vendor
 # Examples:
@@ -299,6 +301,14 @@ def get_product_from_filepath(project_name, filepath, strict_regex, asset_docs):
         if extension in extensions:
             family_name = family
             break
+
+    if extension in CAMERA_EXTS:
+        if "camera" in filepath.lower():
+            logger.info(
+                "Found 'camera' string in filepath %s, assuming it's a 'camera' product",
+                filepath
+            )
+            family_name = "camera"
 
     if not family_name:
         logger.warning(
