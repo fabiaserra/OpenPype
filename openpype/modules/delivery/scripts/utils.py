@@ -144,9 +144,8 @@ def get_representations(
             )
 
         if not rep_frame_start or not rep_frame_end:
-            col_frame_range = list(collection.indexes)
-            rep_frame_start = col_frame_range[0]
-            rep_frame_end = col_frame_range[-1]
+            rep_frame_start = min(collection.indexes)
+            rep_frame_end = max(collection.indexes)
 
         tags = []
         if add_review:
