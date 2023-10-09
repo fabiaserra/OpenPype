@@ -20,7 +20,7 @@ class IngestModule(OpenPypeModule):
 
 @click.command("ingest_vendor_package")
 @click.option(
-    "path", "-p", required=True, type=str, help="Path to the package."
+    "path", required=True, type=str, help="Path to the package."
 )
 def ingest_vendor_package(
     path,
