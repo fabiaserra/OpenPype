@@ -200,10 +200,10 @@ def find_products(package_path, project_name):
 
         for filepath in filepaths:
             publish_data = get_product_from_filepath(
-                filepath,
                 project_name,
-                asset_docs,
+                filepath,
                 strict_regex,
+                asset_docs,
             )
 
             # Validate that we have all the required fields to publish
@@ -244,8 +244,6 @@ def find_products(package_path, project_name):
             else:
                 products[asset_name][task_name][family_name][subset_name] = \
                     publish_data
-
-            products.append(publish_data)
 
     return products, unassigned
 

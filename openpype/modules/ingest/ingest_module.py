@@ -8,8 +8,7 @@ from openpype.modules.ingest.scripts import outsource
 
 class IngestModule(OpenPypeModule):
     label = "Ingest"
-    name = "delivery"
-    tray_wrapper = None
+    name = "ingest"
 
     def initialize(self, modules_settings):
         self.enabled = True
