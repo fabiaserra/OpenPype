@@ -9,7 +9,7 @@ import csv
 
 from openpype import client as op_cli
 from openpype.lib import Logger, StringTemplate, get_datetime_data
-from openpype.pipeline import delivery, template_data, legacy_io
+from openpype.pipeline import delivery, template_data
 from openpype.modules.deadline import constants as dl_constants
 from openpype.modules.deadline.lib import submit
 from openpype.modules.shotgrid.lib import credentials
