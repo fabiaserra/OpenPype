@@ -2,6 +2,7 @@ import os
 import re
 import click
 import clique
+from collections import defaultdict
 
 from openpype.lib import Logger
 from openpype.modules.shotgrid.lib import credentials
@@ -44,6 +45,23 @@ FAMILY_EXTS_MAP = {
 # Compatible file extensions for camera assets
 CAMERA_EXTS = {".abc", ".fbx"}
 
+# Dictionary that maps names that we find in a filename to different
+# data that we want to override in the publish data
+FUZZY_NAME_OVERRIDES = {
+    ("camera", "cam"): {
+        "family_name": "camera",
+    },
+}
+
+# List of fields that are required in the products in order to publish them
+MUST_HAVE_FIELDS = {
+    "asset_name",
+    "task_name",
+    "family_name",
+    "subset_name",
+    "expected_representations",
+}
+
 # Regular expression that matches the generic file name format that we
 # expect from the vendor
 # Examples:
@@ -82,6 +100,7 @@ ASSET_FIELDS = ["name", "data.tasks"]
 
 logger = Logger.get_logger(__name__)
 
+
 def ingest_vendor_package(package_path):
     """Ingest incoming vendor package that contains different assets.
 
@@ -104,7 +123,7 @@ def ingest_vendor_package(package_path):
     )
     project_name = sg_project["name"]
 
-    products, unaccurate, unassgined = find_products(
+    products, unassigned = find_products(
         package_path, project_name
     )
 
@@ -139,39 +158,29 @@ def ingest_vendor_package(package_path):
                 #     product["publish_data"],
                 # )
 
-    if unaccurate:
+    if unassigned:
         click.echo(
             click.style(
-                "Found some products to publish that we are not sure about some information",
+                "We were unable to find enough information to publish the "
+                "following files. If there's some that you'd expect the tool"
+                "to automatically ingest, please send the path to @pipe "
+                "so we can add more logic to identify them.",
                 fg="orange",
             )
         )
-        unaccurate_str = "\n".join(
-            "\t- {source}: {asset_name} - {task_name} - {family_name} - {subset_name}".format(
-                **unaccurate
-            )
-            for unaccurate in unaccurate
-        )
-        click.echo(click.style(unaccurate_str, fg="orange"))
-
-        if input("Publish? [y/n]: ") == "y":
-            for product in products:
-                click.echo(click.style(f"Publishing {product}", fg="green"))
-                # publish.publish_version(
-                #     project_name,
-                #     product["asset_name"],
-                #     product["task_name"],
-                #     product["family_name"],
-                #     product["subset_name"],
-                #     product["expected_representations"],
-                #     product["publish_data"],
-                # )
+        click.echo(click.style("\n\t- ".join(unassigned), fg="orange"))
 
 
 def find_products(package_path, project_name):
-    products = []
-    unaccurate_products = []
-    unassigned_products = []
+
+    # Create recursive defaultdict so we can create
+    # a data structure with nested dictionaries that contain
+    # all the products we find
+    def _recursive_defaultdict():
+        return defaultdict(_recursive_defaultdict)
+
+    products = _recursive_defaultdict()
+    unassigned = []
 
     asset_docs = get_assets(project_name, fields=["name", "data.tasks"])
     assets_re = "|".join([asset_doc["name"] for asset_doc in asset_docs])
@@ -180,6 +189,8 @@ def find_products(package_path, project_name):
     )
 
     for root, _, files in os.walk(package_path):
+        # Create a list of all the collections of files and single files that
+        # we find that could potentially be an ingestable product
         collections, remainders = clique.assemble(files)
         filepaths = [
             collection.format("{root}{basename}{extension}", root=root)
@@ -188,22 +199,55 @@ def find_products(package_path, project_name):
         filepaths.extend(remainders)
 
         for filepath in filepaths:
-            asset_doc, publish_data, confidence = get_product_from_filepath(
+            publish_data = get_product_from_filepath(
                 filepath,
                 project_name,
                 asset_docs,
                 strict_regex,
             )
-            if not asset_doc:
-                unassigned_products.append(filepath)
+
+            # Validate that we have all the required fields to publish
+            if not all([publish_data[field_name] for field_name in MUST_HAVE_FIELDS]):
+                unassigned.append(filepath)
                 continue
 
-            if confidence == 3:
-                products.append(publish_data)
-            else:
-                unaccurate_products.append(publish_data)
+            asset_name = publish_data["asset_name"]
+            task_name = publish_data["task_name"]
+            family_name = publish_data["family_name"]
+            subset_name = publish_data["subset_name"]
 
-    return products, unaccurate_products, unassigned_products
+            # Check if we already had added a product in the same destination
+            # so we just append it as another representation if that's the case
+            existing_data = products.get(asset_name, {}).get(
+                task_name, {}
+            ).get(family_name, {}).get(subset_name, {})
+
+            # Update expected representations if subset is the same
+            if existing_data:
+                existing_rep_names = set(
+                    existing_data["expected_representations"].keys()
+                )
+                new_rep_name = publish_data["expected_representations"][0][0]
+                if new_rep_name in existing_rep_names:
+                    orig_rep_name = new_rep_name
+                    index = 1
+                    while new_rep_name in existing_rep_names:
+                        new_rep_name = f"{orig_rep_name}_{index}"
+                        index += 1
+                    publish_data["expected_representations"][new_rep_name] = \
+                        publish_data["expected_representations"][orig_rep_name]
+                    publish_data["expected_representations"].pop(orig_rep_name)
+                else:
+                    existing_data["expected_representations"].update(
+                        publish_data["expected_representations"]
+                    )
+            else:
+                products[asset_name][task_name][family_name][subset_name] = \
+                    publish_data
+
+            products.append(publish_data)
+
+    return products, unassigned
 
 
 # def get_product_from_filepath(
@@ -220,7 +264,7 @@ def find_products(package_path, project_name):
 #         - chair_v001.mov
 #         - my_chair_to_upload.mov
 #     """
-#     asset_doc, publish_data, confidence_level = _get_product_from_filepath(
+#     publish_data = _get_product_from_filepath(
 #         project_name, filepath, strict_regex, asset_docs
 #     )
 #     # if asset_doc:
@@ -251,10 +295,6 @@ def get_product_from_filepath(project_name, filepath, strict_regex, asset_docs):
     filename = os.path.basename(filepath)
     extension = os.path.splitext(filename)[-1]
 
-    # The level of confidence we have that we guessed the right tokens
-    # from the filepath. The higher the number, the more confident we are
-    confidence_level = 0
-
     asset_doc = None
     asset_name = None
     task_name = None
@@ -264,18 +304,15 @@ def get_product_from_filepath(project_name, filepath, strict_regex, asset_docs):
     delivery_version = None
 
     re_match = strict_regex.match(filename)
-    if re_match:
-        confidence_level = 3
-
     if not re_match:
         logger.info(
             "Strict regular expression didn't match filename '%s'.", filename
         )
         re_match = GENERIC_FILENAME_RE.match(filename)
-        confidence_level = 2
 
     if re_match:
         logger.info("Found matching regular expression for '%s'.", filename)
+
         shot_code = re_match.group("shot_code")
         subset_name = re_match.group("subset")
         task_name = re_match.group("task")
@@ -290,10 +327,11 @@ def get_product_from_filepath(project_name, filepath, strict_regex, asset_docs):
         logger.info("Delivery version: '%s'", delivery_version)
         logger.info("Extension: '%s'", extension)
 
-        asset_doc = get_asset_by_name_case_not_sensitive(project_name, shot_code)
+        asset_doc = get_asset_by_name_case_not_sensitive(
+            project_name, shot_code
+        )
     else:
         logger.info("Looking for asset name in filename '%s'", filename)
-        confidence_level = 1
         asset_doc = parse_containing(project_name, filename, asset_docs)
 
     if asset_doc:
@@ -320,6 +358,7 @@ def get_product_from_filepath(project_name, filepath, strict_regex, asset_docs):
             "Couldn't find a family for the file extension '%s'", extension
         )
 
+    # Create representation name from extension
     rep_name = EXT_TO_REP_NAME.get(extension)
     if not rep_name:
         rep_name = extension
@@ -340,7 +379,33 @@ def get_product_from_filepath(project_name, filepath, strict_regex, asset_docs):
         "source": filepath,
     }
 
-    return asset_doc, publish_data, confidence_level
+    # Fallback if we haven't been able to find a task from filepath
+    if not task_name:
+        for possible_task_name in OUTSOURCE_TASKS:
+            if possible_task_name in filepath.lower():
+                logger.info(
+                    "Found '%s' in filepath '%s', assuming it's a '%s' task",
+                    possible_task_name, filepath, possible_task_name
+                )
+                publish_data["task_name"] = possible_task_name
+                break
+
+    # Go through the fuzzy name overrides and apply them if we find
+    # a match
+    for fuzzy_names, overrides in FUZZY_NAME_OVERRIDES.items():
+        for fuzzy_name in fuzzy_names:
+            if fuzzy_name in filepath.lower():
+                logger.info(
+                    "Found fuzzy name '%s' in filename '%s', applying overrides %s",
+                    fuzzy_name, filename, overrides
+                )
+                publish_data.update(overrides)
+
+    # Add variant name to subset name if we have one
+    if variant_name:
+        publish_data["subset_name"] = f"{subset_name}_{variant_name}"
+
+    return publish_data
 
 
 def get_asset_by_name_case_not_sensitive(project_name, asset_name):
