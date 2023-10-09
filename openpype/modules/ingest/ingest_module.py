@@ -18,11 +18,9 @@ class IngestModule(OpenPypeModule):
 
 
 @click.command("ingest_vendor_package")
-@click.argument(
-    "path", type=str, help="Path to the package."
-)
+@click.argument("folder_path", type=click.Path(exists=True))
 def ingest_vendor_package(
-    path,
+    folder_path,
 ):
     """Given an outsource vendor package folder, try ingest all its contents.
 
@@ -31,7 +29,7 @@ def ingest_vendor_package(
 
     """
     return outsource.ingest_vendor_package(
-        path
+        folder_path
     )
 
 

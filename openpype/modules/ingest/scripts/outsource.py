@@ -101,18 +101,18 @@ ASSET_FIELDS = ["name", "data.tasks"]
 logger = Logger.get_logger(__name__)
 
 
-def ingest_vendor_package(package_path):
+def ingest_vendor_package(folder_path):
     """Ingest incoming vendor package that contains different assets.
 
     Args:
-        package_path (str): Path to vendor package
+        folder_path (str): Path to vendor package
 
     Returns:
         str: Path to the package to ingest its files
     """
-    match = SHOW_MATCH_RE.search(package_path)
+    match = SHOW_MATCH_RE.search(folder_path)
     if not match:
-        logger.error("No $SHOW found in path '%s'", package_path)
+        logger.error("No $SHOW found in path '%s'", folder_path)
         return False
 
     project_code = match.group("show")
@@ -124,12 +124,12 @@ def ingest_vendor_package(package_path):
     project_name = sg_project["name"]
 
     products, unassigned = find_products(
-        package_path, project_name
+        folder_path, project_name
     )
 
     # Name of the package
-    # package_name = os.path.basename(package_path)
-    # vendor_code = package_path.rsplit("_", 1)[-1]
+    # package_name = os.path.basename(folder_path)
+    # vendor_code = folder_path.rsplit("_", 1)[-1]
 
     if products:
         click.echo(
