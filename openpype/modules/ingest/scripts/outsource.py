@@ -193,7 +193,7 @@ def find_products(package_path, project_name):
         # we find that could potentially be an ingestable product
         collections, remainders = clique.assemble(files)
         filepaths = [
-            collection.format("{root}{basename}{extension}", root=root)
+            os.path.join(root, collection.format("{basename}{extension}"))
             for collection in collections
         ]
         filepaths.extend(remainders)
