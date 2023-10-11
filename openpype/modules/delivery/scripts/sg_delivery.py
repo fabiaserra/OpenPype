@@ -617,7 +617,7 @@ def republish_version(
     representations = utils.get_representations(
         instance_data,
         expected_files,
-        do_not_add_review=False,
+        add_review=True,
         publish_to_sg=True,
     )
 
@@ -1010,7 +1010,7 @@ def generate_delivery_media_version(
     representations = utils.get_representations(
         instance_data,
         expected_files,
-        do_not_add_review=True,
+        add_review=False,
     )
 
     # inject colorspace data

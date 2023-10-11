@@ -39,7 +39,7 @@ class TranscodeFrames(publish.Extractor, publish.ColormanagedPyblishPluginMixin)
         "<STARTFRAME>-<ENDFRAME>",
         '"{input_path}"',  # Escape input path in case there's whitespaces
         "--eraseattrib",
-        '"Exif*"', # Image history is too long and not needed
+        '"Exif*"',  # Image history is too long and not needed
         "-v",
         "--compression",
         "zips",
@@ -80,6 +80,12 @@ class TranscodeFrames(publish.Extractor, publish.ColormanagedPyblishPluginMixin)
         # Output variables
         staging_dir = os.path.join(work_root(legacy_io.Session), "temp_transcode")
         instance.data["stagingDir"] = staging_dir
+
+        try:
+            # Ensure staging folder exists
+            os.makedirs(staging_dir)
+        except OSError:
+            pass
 
         # Determine color transformation
         src_media_color_transform = track_item.sourceMediaColourTransform()
@@ -177,15 +183,15 @@ class TranscodeFrames(publish.Extractor, publish.ColormanagedPyblishPluginMixin)
                     "ScriptFilename": self.nuke_transcode_py,
                     "Version": hiero_version,
                     "UseGpu": False,
+                    "OutputFilePath": staging_dir,
                 }
 
                 response = submit.payload_submit(
-                    output_path,
-                    (out_frame_start, out_frame_end),
                     plugin="AxNuke",
                     plugin_data=plugin_data,
                     batch_name=batch_name,
                     task_name=task_name,
+                    frame_range=(out_frame_start, out_frame_end),
                     department="Editorial",
                     group=dl_constants.NUKE_CPU_GROUP,
                     comment=context.data.get("comment", ""),
@@ -249,13 +255,12 @@ class TranscodeFrames(publish.Extractor, publish.ColormanagedPyblishPluginMixin)
                 # NOTE: We use src frame start/end because oiiotool doesn't support
                 # writing out a different frame range than input
                 response = submit.payload_submit(
-                    output_path,
-                    (src_frame_start, src_frame_end),
                     plugin="CommandLine",
                     plugin_data=plugin_data,
                     batch_name=batch_name,
                     task_name=task_name,
                     department="Editorial",
+                    frame_range=(src_frame_start, src_frame_end),
                     group=dl_constants.OP_GROUP,
                     comment=context.data.get("comment", ""),
                 )

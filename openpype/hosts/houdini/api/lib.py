@@ -119,7 +119,7 @@ def get_export_parameter(node):
     Example:
         root = hou.node("/obj")
         my_alembic_node = root.createNode("alembic")
-        get_output_parameter(my_alembic_node)
+        get_export_parameter(my_alembic_node)
         # Result: "output"
 
     Args:
@@ -244,7 +244,8 @@ def get_output_parameter(node):
 
 
 def set_scene_fps(fps):
-    hou.setFps(fps)
+    if fps:
+        hou.setFps(fps)
 
 
 # Valid FPS
@@ -283,6 +284,100 @@ def validate_fps():
             return False
 
     return True
+
+
+def set_scene_resolution(width, height, pix_aspect):
+    if width:
+        hou.hscript(f"set -g RESX={width}")
+        hou.hscript("varchange -V RESX")
+    if height:
+        hou.hscript(f"set -g RESY={height}")
+        hou.hscript("varchange -V RESY")
+    if pix_aspect:
+        hou.hscript(f"set -g PIX_AR={pix_aspect}")
+        hou.hscript("varchange -V PIX_AR")
+
+
+def get_outdated_asset_variables():
+    outdated_variables = {}
+
+    asset_doc = get_current_project_asset()
+
+    # Validate FPS
+    fps = get_asset_fps()
+    current_fps = hou.fps()  # returns float
+
+    if current_fps != fps:
+        outdated_variables["FPS"] = (current_fps, fps)
+
+    # Validate resolution
+    width, height, pix_aspect = get_resolution_from_doc(asset_doc)
+    cur_width = hou.getenv("RESX")
+    cur_height = hou.getenv("RESY")
+    cur_pix_aspect = hou.getenv("PIX_AR")
+
+    if width != cur_width:
+        outdated_variables["RESX"] = (cur_width, width)
+
+    if height != cur_height:
+        outdated_variables["RESY"] = (cur_height, height)
+
+    if pix_aspect != cur_pix_aspect:
+        outdated_variables["PIX_AR"] = (cur_pix_aspect, pix_aspect)
+
+    return outdated_variables
+
+
+def show_outdated_asset_variables_popup(outdated_variables):
+    # Get main window
+    parent = get_main_window()
+    if parent is None:
+        log.info("Skipping outdated content pop-up "
+                 "because Houdini window can't be found.")
+    else:
+        from openpype.widgets import popup
+        dialog = popup.PopupUpdateKeys(parent=parent)
+        dialog.setModal(True)
+        dialog.setWindowTitle("Houdini scene has outdated asset variables")
+        outaded_vars_list = []
+        for variable_name, outdated_value in outdated_variables.items():
+            cur_value, new_value = outdated_value
+            outaded_vars_list.append(
+                f"${variable_name}: {cur_value} -> {new_value}"
+            )
+
+        dialog.setMessage("\n".join(outaded_vars_list))
+        dialog.setButtonText("Fix")
+
+        new_width = None
+        outdated_width = outdated_variables.get("RESX")
+        if outdated_width:
+            new_width = outdated_width[1]
+
+        new_height = None
+        outdated_height = outdated_variables.get("RESY")
+        if outdated_height:
+            new_height = outdated_height[1]
+
+        new_pix_aspect = None
+        outdated_pix_aspect = outdated_variables.get("PIX_AR")
+        if outdated_pix_aspect:
+            new_pix_aspect = outdated_pix_aspect[1]
+
+        new_fps = None
+        outdated_fps = outdated_variables.get("FPS")
+        if outdated_fps:
+            new_fps = outdated_fps[1]
+
+        # on_show is the Fix button clicked callback
+        dialog.on_clicked_state.connect(
+            lambda: (
+                set_scene_resolution(new_width, new_height, new_pix_aspect),
+                set_scene_fps(new_fps)
+            )
+        )
+
+        dialog.show()
 
 
 def create_remote_publish_node(force=True):
@@ -610,6 +705,29 @@ def reset_framerange():
     hou.setFrame(frame_start)
 
 
+def reset_resolution():
+    """Set resolution and pixel aspect ratio variables to current asset"""
+
+    # Get asset data
+    project_name = get_current_project_name()
+    asset_name = get_current_asset_name()
+    # Get the asset ID from the database for the asset of current context
+    asset_doc = get_asset_by_name(project_name, asset_name)
+
+    width, height, pix_aspect = get_resolution_from_doc(asset_doc)
+
+    if width is None or height is None or pix_aspect is None:
+        msg = "Missing set shot attributes in DB." \
+            "\nContact your supervisor!." \
+            f"\n\nWidth: `{width}`\nHeight: `{height}`" \
+            f"\nPixel Aspect: `{pix_aspect}`"
+        log.error(msg)
+        return
+
+    # Update Houdini resolution variables
+    set_scene_resolution(width, height, pix_aspect)
+
+
 def get_main_window():
     """Acquire Houdini's main window"""
     if self._parent is None:
@@ -672,6 +790,8 @@ def get_frame_data(node):
     data["frameStart"] = node.evalParm("f1")
     data["frameEnd"] = node.evalParm("f2")
     data["steps"] = node.evalParm("f3")
+    data["handleStart"] = 0
+    data["handleEnd"] = 0
 
     return data
 
@@ -812,13 +932,15 @@ def get_resolution_from_doc(doc):
 
     resolution_width = doc["data"].get("resolutionWidth")
     resolution_height = doc["data"].get("resolutionHeight")
+    pixel_aspect = doc["data"].get("pixelAspect")
 
     # Make sure both width and height are set
-    if resolution_width is None or resolution_height is None:
+    if resolution_width is None or resolution_height is None \
+            or pixel_aspect is None:
         print("No resolution information found for \"{}\"".format(doc["name"]))
         return None
 
-    return int(resolution_width), int(resolution_height)
+    return int(resolution_width), int(resolution_height), float(pixel_aspect)
 
 
 def set_camera_resolution(camera, asset_doc=None):
@@ -830,11 +952,12 @@ def set_camera_resolution(camera, asset_doc=None):
     resolution = get_resolution_from_doc(asset_doc)
 
     if resolution:
-        print("Setting camera resolution: {} -> {}x{}".format(
-            camera.name(), resolution[0], resolution[1]
+        print("Setting camera resolution: {} -> {}x{}x{}".format(
+            camera.name(), resolution[0], resolution[1], resolution[2]
         ))
         camera.parm("resx").set(resolution[0])
         camera.parm("resy").set(resolution[1])
+        camera.parm("aspect").set(resolution[2])
 
 
 def get_camera_from_container(container):

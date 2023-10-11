@@ -130,11 +130,15 @@ class ProcessSubmittedJobOnFarm(pyblish.api.InstancePlugin,
     ]
     ### Ends Alkemy-X Override ###
 
-    aov_filter = {"maya": [r".*([Bb]eauty).*"],
-                  "aftereffects": [r".*"],  # for everything from AE
-                  "harmony": [r".*"],  # for everything from AE
-                  "celaction": [r".*"],
-                  "max": [r".*"]}
+    aov_filter = {
+        "maya": [r".*([Bb]eauty).*"],
+        "houdini": [r".*"],
+        "aftereffects": [r".*"],  # for everything from AE
+        "harmony": [r".*"],  # for everything from AE
+        "celaction": [r".*"],
+        "max": [r".*"],
+        "nuke": [r".*"],
+    }
 
     environ_job_filter = [
         "OPENPYPE_METADATA_FILE"

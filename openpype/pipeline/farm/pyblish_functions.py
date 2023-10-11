@@ -338,21 +338,28 @@ def prepare_representations(skeleton_data, exp_files, anatomy, aov_filter,
         #   should be review made.
         # - "review" tag is never added when is set to 'False'
         if skeleton_data["useSequenceForReview"]:
-            preview = True
             # toggle preview on if multipart is on
-            # if skeleton_data.get("multipartExr", False):
-            #     log.debug(
-            #         "Adding preview tag because its multipartExr"
-            #     )
-            #     preview = True
-            # else:
-            #     render_file_name = list(collection)[0]
-            #     # if filtered aov name is found in filename, toggle it for
-            #     # preview video rendering
-            #     preview = match_aov_pattern(
-            #         host_name, aov_filter, render_file_name
-            #     )
+            if skeleton_data.get("multipartExr", False):
+                log.debug(
+                    "Adding preview tag because its multipartExr"
+                )
+                preview = True
+            else:
+                render_file_name = list(collection)[0]
+                log.debug(
+                    "Checking if aov_filter '%s' matches filename '%s'.",
+                    aov_filter,
+                    render_file_name
+                )
+                # if filtered aov name is found in filename, toggle it for
+                # preview video rendering
+                preview = match_aov_pattern(
+                    host_name, aov_filter, render_file_name
+                )
 
+        log.debug(
+            "Preview on collection '%s': %s", collection.tail, preview
+        )
         staging = os.path.dirname(list(collection)[0])
         success, rootless_staging_dir = (
             anatomy.find_root_template_from_path(staging)
@@ -410,6 +417,7 @@ def prepare_representations(skeleton_data, exp_files, anatomy, aov_filter,
             log.info("Adding scanline conversion.")
             rep["tags"].append("toScanline")
 
+        log.debug("Adding representation: %s", rep)
         representations.append(rep)
 
         if preview:
@@ -590,14 +598,14 @@ def _create_instances_for_aov(instance, skeleton, aov_filter, additional_data,
 
         # create subset name `familyTaskSubset_AOV`
         # TODO refactor/remove me
-        family = skeleton["family"]
-        if not subset.startswith(family):
-            group_name = '{}{}{}{}{}'.format(
-                family,
-                task[0].upper(), task[1:],
-                subset[0].upper(), subset[1:])
-        else:
-            group_name = subset
+        # family = skeleton["family"]
+        # if not subset.startswith(family):
+        #     group_name = '{}{}{}{}{}'.format(
+        #         family,
+        #         task[0].upper(), task[1:],
+        #         subset[0].upper(), subset[1:])
+        # else:
+        group_name = subset
 
         # if there are multiple cameras, we need to add camera name
         if isinstance(col, (list, tuple)):
@@ -674,7 +682,7 @@ def _create_instances_for_aov(instance, skeleton, aov_filter, additional_data,
             # If expectedFile are absolute, we need only filenames
             "stagingDir": staging,
             "fps": new_instance.get("fps"),
-            "tags": ["review"] if preview else [],
+            "tags": ["review", "shotgridreview"] if preview else [],
             "colorspaceData": {
                 "colorspace": colorspace,
                 "config": {

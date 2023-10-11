@@ -46,7 +46,12 @@ class ExtractReview(pyblish.api.InstancePlugin):
 
     label = "Extract Review"
     order = pyblish.api.ExtractorOrder + 0.02
-    families = ["review", "client_review", "client_final"]
+    families = [
+        "review",
+        "arnold_rop",
+        "mantra_rop",
+        "karma_rop"
+    ]
     hosts = [
         "nuke",
         "maya",
