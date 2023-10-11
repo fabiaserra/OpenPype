@@ -1,20 +1,36 @@
 import click
 
 from openpype.modules import (
-    OpenPypeModule
+    OpenPypeModule,
+    ITrayModule
 )
 from openpype.modules.ingest.scripts import outsource
 
 
-class IngestModule(OpenPypeModule):
+class IngestModule(OpenPypeModule, ITrayModule):
     label = "Ingest"
     name = "ingest"
+    tray_wrapper = None
 
     def initialize(self, modules_settings):
         self.enabled = True
 
     def cli(self, click_group):
         click_group.add_command(cli_main)
+
+    def tray_init(self):
+        from .tray.ingest_tray import IngestTrayWrapper
+
+        self.tray_wrapper = IngestTrayWrapper(self)
+
+    def tray_start(self):
+        return
+
+    def tray_exit(self, *args, **kwargs):
+        return self.tray_wrapper
+
+    def tray_menu(self, tray_menu):
+        return self.tray_wrapper.tray_menu(tray_menu)
 
 
 @click.command("ingest_vendor_package")
