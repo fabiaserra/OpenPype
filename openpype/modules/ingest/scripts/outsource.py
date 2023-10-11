@@ -17,7 +17,8 @@ ROTO_TASK = "roto"
 PAINT_TASK = "paint"
 TRACK_TASK = "track"
 COMP_TASK = "comp"
-OUTSOURCE_TASKS = {ROTO_TASK, PAINT_TASK, COMP_TASK, TRACK_TASK}
+EDIT_TASK = "edit"
+OUTSOURCE_TASKS = [ROTO_TASK, PAINT_TASK, COMP_TASK, TRACK_TASK, EDIT_TASK]
 
 # Dictionary that maps the extension name to the representation name
 # we want to use for it
@@ -28,6 +29,7 @@ EXT_TO_REP_NAME = {
     ".hip": "houdini",
     ".sfx": "silhouette",
     ".mocha": "mocha",
+    ".psd": "photoshop"
 }
 
 # Dictionary that maps the file extensions to the family name we want to
@@ -40,7 +42,7 @@ FAMILY_EXTS_MAP = {
     "pointcache": {".abc"},
     "camera": {".abc", ".fbx"},
     "reference": {".mov", ".mp4", ".mxf", ".avi", ".wmv"},
-    "workfile": {".nk", ".ma", ".mb", ".hip", ".sfx", ".mocha"},
+    "workfile": {".nk", ".ma", ".mb", ".hip", ".sfx", ".mocha", ".psd"},
     "color_grade": {".ccc", ".cc"},
 }
 
@@ -50,9 +52,12 @@ CAMERA_EXTS = {".abc", ".fbx"}
 # Dictionary that maps names that we find in a filename to different
 # data that we want to override in the publish data
 FUZZY_NAME_OVERRIDES = {
-    ("camera", "cam"): {
+    ("_cam", "camera"): {
         "family_name": "camera",
     },
+    ("_mm", "_trk", "matchmove", "tracking"): {
+        "task_name": TRACK_TASK
+    }
 }
 
 # List of fields that are required in the products in order to publish them
@@ -412,7 +417,9 @@ def get_product_from_filepath(
             "Asset name not found yet, doing string comparison in filepath '%s'",
             filepath
         )
-        asset_doc, found_name = parse_containing(project_name, project_code, filepath, asset_names)
+        asset_doc, found_name = parse_containing(
+            project_name, project_code, filepath, asset_names
+        )
         if asset_doc:
             logger.debug(
                 "Found asset name '%s' in filepath '%s'.", asset_doc["name"], filepath
@@ -424,8 +431,8 @@ def get_product_from_filepath(
                 # Remove the first character after removing the asset name
                 # which is likely a "_" or "-"
                 simple_filename = simple_filename[1:]
-                logger.warning(
-                    "Subset name not found yet, trying last resort with %s, %s",
+                logger.debug(
+                    "Subset name not found yet, trying last resort with '%s' after removing prefix '%s'",
                     simple_filename, "{}_".format(found_name)
                 )
                 fallback_re = FALLBACK_FILENAME_RE.match(simple_filename)
@@ -434,8 +441,8 @@ def get_product_from_filepath(
                     delivery_version = fallback_re.group("delivery_version")
                     extension = fallback_re.group("extension")
 
-                if not task_name:
-                    task_name = TASK_NAME_FALLBACK
+            if not task_name:
+                task_name = TASK_NAME_FALLBACK
 
     if asset_doc:
         asset_name = asset_doc["name"]
@@ -468,6 +475,25 @@ def get_product_from_filepath(
     # the found product
     expected_representations = {rep_name: filepath}
 
+    # Override task name if we find any of the names of the supported tasks in the
+    # filepath
+    if task_name not in OUTSOURCE_TASKS:
+        logger.debug(
+            "Overriding subset name '%s' with task name '%s'",
+            subset_name, task_name
+        )
+        subset_name = task_name
+        for possible_task_name in OUTSOURCE_TASKS:
+            if possible_task_name in filepath.split("/") or f"_{possible_task_name}_" in filepath:
+                logger.debug(
+                    "Found '%s' in filepath '%s', assuming it's a '%s' task",
+                    possible_task_name,
+                    filepath,
+                    possible_task_name,
+                )
+                task_name = possible_task_name
+                break
+
     publish_data = {
         "project_name": project_name,
         "asset_name": asset_name,
@@ -479,19 +505,6 @@ def get_product_from_filepath(
         "expected_representations": expected_representations,
         "source": filepath,
     }
-
-    # Override task name if we find any of the names of the supported tasks in the
-    # filepath
-    for possible_task_name in OUTSOURCE_TASKS:
-        if possible_task_name in filepath.lower():
-            logger.debug(
-                "Found '%s' in filepath '%s', assuming it's a '%s' task",
-                possible_task_name,
-                filepath,
-                possible_task_name,
-            )
-            publish_data["task_name"] = possible_task_name
-            break
 
     # Go through the fuzzy name overrides and apply them if we find
     # a match
@@ -505,6 +518,19 @@ def get_product_from_filepath(
                     overrides,
                 )
                 publish_data.update(overrides)
+
+    # If task name is still not one of the supported ones, mark it as None so we
+    # can clearly see what happened and not error out during the publish
+    if publish_data["task_name"] not in OUTSOURCE_TASKS:
+        logger.error(
+            "Task name found '%s' in filepath '%s' is not one of the supported ones "
+            "by this tool: %s.\nIf you think the task should be parsed by the tool "
+            "please report it to @pipe",
+            task_name,
+            filepath,
+            OUTSOURCE_TASKS
+        )
+        task_name = None
 
     # Add variant name to subset name if we have one
     if variant_name:
