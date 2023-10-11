@@ -126,11 +126,15 @@ class LoadClip(plugin.NukeLoader):
         self.handle_start = version_data.get("handleStart", 0)
         self.handle_end = version_data.get("handleEnd", 0)
 
-        first = version_data.get("frameStart", None)
-        last = version_data.get("frameEnd", None)
+        first = version_data.get("frameStart", 1)
+        last = version_data.get("frameEnd", 1)
         first -= self.handle_start
         last += self.handle_end
         ### Starts Alkemy-x override ###
+        # Make sure first and last are integers
+        first = int(first)
+        last = int(last)
+
         slate_frame = "slate" in version_data.get("families", [])
 
         if not is_sequence:
@@ -179,11 +183,21 @@ class LoadClip(plugin.NukeLoader):
             # Override root setting of format. Read format shouldn't be dynamic
             for format in nuke.formats():
                 if read_node.height() == format.height() and \
-                    read_node.width() == format.width() and \
-                    read_node.pixelAspect() == format.pixelAspect():
-                    read_node["format"].setValue(format.name())
-                    print(f"setting format on read node {read_node.name()}")
-                    break
+                        read_node.width() == format.width() and \
+                        read_node.pixelAspect() == format.pixelAspect():
+                    self.log.info(
+                        "Setting format '%s' (%sx%sx%s) in read node %s.",
+                            format.name() or "",
+                            format.width(),
+                            format.height(),
+                            format.pixelAspect(),
+                            read_node.name()
+                    )
+                    try:
+                        read_node["format"].setValue(format)
+                        break
+                    except TypeError:
+                        self.log.error("Couldn't set format")
 
             used_colorspace = self._set_colorspace(
                 read_node, version_data, representation["data"], filepath)
@@ -195,7 +209,7 @@ class LoadClip(plugin.NukeLoader):
                     start_frame = load_first_frame - load_handle_start
                 else:
                     start_frame = self.script_start
-                self._loader_shift(read_node, slate_frame, start_frame, start_at_workfile)
+                self._loader_shift(read_node, int(slate_frame), int(start_frame), start_at_workfile)
             ### Ends Alkemy-x override ###
 
             # add additional metadata from the version to imprint Avalon knob
@@ -359,7 +373,7 @@ class LoadClip(plugin.NukeLoader):
                 load_first_frame = version_data.get("frameStart", None)
                 load_handle_start = version_data.get("handleStart", None)
                 if load_first_frame and load_handle_start:
-                    start_frame = load_first_frame - load_handle_start
+                    start_frame = int(load_first_frame - load_handle_start)
                 else:
                     start_frame = self.script_start
 
