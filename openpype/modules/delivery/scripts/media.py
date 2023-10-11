@@ -238,6 +238,8 @@ def generate_delivery_media_version_id(
         tuple: A tuple containing a dictionary of report items and a boolean indicating
             whether the republish was successful.
     """
+    report_items = collections.defaultdict(list)
+
     sg = credentials.get_shotgrid_session()
 
     sg_version = sg.find_one(
@@ -251,6 +253,7 @@ def generate_delivery_media_version_id(
         sg_version,
         sg_version["project"]["name"],
         delivery_data,
+        report_items
     )
 
 
