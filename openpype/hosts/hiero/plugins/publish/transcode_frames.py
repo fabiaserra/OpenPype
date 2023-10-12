@@ -1,6 +1,7 @@
 import os
 import re
 import json
+import glob
 import getpass
 import requests
 import pyblish.api
@@ -29,7 +30,7 @@ class TranscodeFrames(publish.Extractor, publish.ColormanagedPyblishPluginMixin)
 
     # TODO: Replace these with published Templates workflow
     nuke_transcode_py = "/pipe/hiero/templates/nuke_transcode.py"
-    nuke_transcode_script = "/pipe/hiero/templates/ingest_transcode.nk"
+    default_nuke_transcode_script = "/pipe/hiero/templates/ingest_transcode.nk"
 
     # WARNING: Need to be very careful about the length of the overall command
     # Anything around 490-505 will cause ffmpeg to through an error
@@ -108,6 +109,7 @@ class TranscodeFrames(publish.Extractor, publish.ColormanagedPyblishPluginMixin)
         hiero_version = "{}.{}".format(
             hiero.core.env["VersionMajor"], hiero.core.env["VersionMinor"]
         )
+        app_name = hiero.core.env["VersionString"].split("Hiero ")[-1].replace(".", "-").replace('v', "")
 
         # By default, we only ingest a single resolution (WR) unless
         # we have an ingest_resolution on the data stating a different
@@ -126,6 +128,9 @@ class TranscodeFrames(publish.Extractor, publish.ColormanagedPyblishPluginMixin)
         # For each output resolution we create a job in the farm
         submission_jobs = []
         for resolution in ingest_resolutions:
+            nuke_transcode_script = self.get_show_nuke_transcode_script(resolution)
+            if not nuke_transcode_script:
+                nuke_transcode_script = self.default_nuke_transcode_script
 
             representation_name = instance.data["name"]
             if resolution == "fr":
@@ -166,7 +171,7 @@ class TranscodeFrames(publish.Extractor, publish.ColormanagedPyblishPluginMixin)
 
                 # Add environment variables required to run Nuke script
                 extra_env = {}
-                extra_env["_AX_TRANSCODE_NUKESCRIPT"] = self.nuke_transcode_script
+                extra_env["_AX_TRANSCODE_NUKESCRIPT"] = nuke_transcode_script
                 extra_env["_AX_TRANSCODE_FRAMES"] = "{0}_{1}_{2}".format(
                     int(out_frame_start), int(out_frame_end), int(src_frame_start)
                 )
@@ -175,6 +180,11 @@ class TranscodeFrames(publish.Extractor, publish.ColormanagedPyblishPluginMixin)
                 extra_env["_AX_TRANSCODE_WRITEPATH"] = output_path
                 extra_env["_AX_TRANSCODE_READCOLORSPACE"] = src_media_color_transform
                 extra_env["_AX_TRANSCODE_TARGETCOLORSPACE"] = self.dst_media_color_transform
+
+                extra_env["OPENPYPE_RENDER_JOB"] = 1
+                extra_env["AVALON_ASSET"] = instance.data["asset"]
+                extra_env["AVALON_APP"] = "nuke"
+                extra_env["AVALapp_nameON_APP"] = app_name
 
                 # Create dictionary of data specific to Nuke plugin for payload submit
                 plugin_data = {
@@ -198,6 +208,8 @@ class TranscodeFrames(publish.Extractor, publish.ColormanagedPyblishPluginMixin)
                     extra_env=extra_env,
                 )
             else:
+                self.log.info("Submitting OIIO transcode")
+
                 input_args = ""
 
                 if ingest_resolution and resolution == "wr":
@@ -336,3 +348,16 @@ class TranscodeFrames(publish.Extractor, publish.ColormanagedPyblishPluginMixin)
         # the frames to the correct frame range
         instance.data["frameStartHandle"] = out_frame_start
         instance.data["frameEndHandle"] = out_frame_end
+
+    def get_show_nuke_transcode_script(self, representation):
+        ingest_template = ""
+        ingest_template_path = os.path.join(
+            os.getenv("AX_PROJ_ROOT"),
+            os.getenv("SHOW"),
+            "resources/ingest_template"
+        )
+        ingest_templates = sorted(glob.glob(ingest_template_path + f"/{representation}*"), reverse=True)
+        if ingest_templates:
+            ingest_template = ingest_templates[-1]
+
+        return ingest_template

@@ -175,7 +175,6 @@ def add_nuke_callbacks():
 
     # set checker for last versions on loaded containers
     nuke.addOnScriptLoad(check_inventory_versions)
-    nuke.addOnScriptSave(check_inventory_versions)
 
     # set apply all workfile settings on script load and save
     nuke.addOnScriptLoad(WorkfileSettings().set_context_settings)

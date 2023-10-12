@@ -50,7 +50,8 @@ class IntegrateShotgridShotData(pyblish.api.InstancePlugin):
             )
             return
 
-        self.update_cut_info(instance, sg_shot)
+        if instance.data["family"] == "reference":
+            self.update_cut_info(instance, sg_shot)
         self.update_shot_tags(instance, sg_shot)
         self.update_working_resolution(instance, sg_shot)
         self.update_edit_note(instance, sg_shot)
