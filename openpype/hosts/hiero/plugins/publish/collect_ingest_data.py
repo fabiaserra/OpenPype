@@ -23,17 +23,6 @@ class CollectIngestData(pyblish.api.InstancePlugin):
 
         track_item = instance.data["item"]
 
-        cut_info_data = track_item.cut_info_data()
-        instance.data["cut_info_data"] = cut_info_data
-        if cut_info_data:
-            self.log.info("Cut info found on instance track item: %s",
-                          cut_info_data
-            )
-        else:
-            self.log.info(
-                "No cut info found on instance track item. Ignoring cut update"
-            )
-
         sg_tags_data =  track_item.sg_tags_data()
         instance.data["sg_tags_data"] = sg_tags_data
         if sg_tags_data:
@@ -109,23 +98,8 @@ class CollectIngestData(pyblish.api.InstancePlugin):
             )
             return
 
-        main_plate_track = None
-        for track in track_item.sequence().videoTracks():
-            if not "ref" in track.name():
-                main_plate_track = track
-                break
-
-        if not main_plate_track:
-            self.log.warning(
-                "Could not determine main track in sequence. "
-                "Ignoring working resolution collection"
-            )
-            return
-
-        # Keep in mind that when track items are duplicated, sometimes, they
-        # don't contain different object data. It's shared resulting in a
-        # possibility that the real parent track might be impossible to know
-        if not track_item.parentTrack() == main_plate_track:
+        main_plate = instance.data["main_plate"]
+        if not main_plate:
             self.log.info(
                 "Track Item track not determined to be main plate track. "
                 "Ignoring working resolution collection"
