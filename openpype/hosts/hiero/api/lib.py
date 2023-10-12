@@ -21,7 +21,7 @@ try:
 except ImportError:
     from PySide2 import QtXml
 
-from openpype.client import get_project
+from openpype.client import get_project, get_asset_by_name
 from openpype.settings import get_project_settings
 from openpype.pipeline import Anatomy, get_current_project_name
 from openpype.pipeline.load import filter_containers
@@ -34,6 +34,10 @@ from .constants import (
 )
 from openpype.pipeline.colorspace import (
     get_imageio_config
+)
+
+from openpype.pipeline.context_tools import (
+    get_hierarchy_env,
 )
 
 
@@ -1611,4 +1615,325 @@ def parse_cdl(path):
     }
 
     return cdl
+
+
+class MainPlate():
+    def sequence(function):
+        """Decorator class funtion that ensures that the conditions needed to
+        operate main plate changes are met
+        """
+        def wrapper(self, *args, **kwargs):
+            # Need to know the main track in order to perform operations
+            if not self.main_track and self.track_items:
+                return None
+
+            result = function(self, *args, **kwargs)
+
+            return result
+
+        return wrapper
+
+    def get_track_index(self=None, track=None):
+        video_tracks = hiero.ui.activeSequence().videoTracks()
+        track_index = video_tracks.index(track)
+
+        return track_index
+
+    def get_main_plate_track(self=None):
+        main_plate_track = None
+        sequence = hiero.ui.activeSequence()
+        for track in sequence.videoTracks():
+            if not "ref" in track.name():
+                main_plate_track = track
+                break
+
+        return main_plate_track
+
+    def get_plate_tracks(self=None):
+        if not self:
+            main_plate = MainPlate.get_main_plate_track()
+        else:
+            main_plate = self.main_track
+
+        video_tracks = hiero.ui.activeSequence().videoTracks()
+        main_plate_index = MainPlate.get_track_index(track=main_plate)
+        plate_tracks = video_tracks[main_plate_index:]
+
+        return plate_tracks
+
+    def get_ref_tracks(self=None):
+        if not self:
+            main_plate = MainPlate.get_main_plate_track()
+        else:
+            main_plate = self.main_track
+
+        video_tracks = hiero.ui.activeSequence().videoTracks()
+        main_plate_index = MainPlate.get_track_index(track=main_plate)
+        plate_tracks = video_tracks[:main_plate_index]
+
+        return plate_tracks
+
+    def __init__(self):
+        # Should main grade be a track index instead?
+        self.main_track = self.get_main_plate_track()
+        self.track_plate_items = self.get_plate_track_items()
+        self.track_ref_items = self.get_ref_track_items()
+
+    def get_plate_track_items(self):
+        track_items = []
+        for track in self.get_plate_tracks():
+            track_items.extend(track.items())
+
+        return track_items
+
+    def get_ref_track_items(self):
+        track_items = []
+        for track in self.get_ref_tracks():
+            track_items.extend(track.items())
+
+        return track_items
+
+    @sequence
+    def set_track_item_main_plate(self, track_item):
+        shot_name = track_item.name()
+        shot_items = [track_item for track_item in self.track_plate_items if track_item.name() == shot_name]
+        main_plate_tags_to_remove = []
+        has_main_track = False
+        # Check to see if a item of the shot is on main grade track
+        # If so then if no override set that track item as main
+        if self.main_track.name() == shot_items[0].parent().name():
+            has_main_track = True
+
+        remove_default_tags = False
+        # track items need to be sorted by track index
+        # sorted(shot_items, key=lambda item: item MainPlate.get_track_index(item))
+        for shot_item in shot_items:
+            main_plate_tag = shot_item.get_main_plate()
+            # If override found leave shot altogether
+            if not main_plate_tag:
+                continue
+            if "override" in main_plate_tag.metadata():
+                remove_default_tags = True
+            else:
+                # Default tag list. Main track will never be added
+                main_plate_tags_to_remove.append((shot_item, main_plate_tag))
+
+
+        # Remove default tags needs to inlude potentially old plate tracks
+        for track_ref_item in self.track_ref_items:
+            if track_ref_item.name() == shot_name:
+                main_plate_tag = track_ref_item.get_main_plate()
+                if not main_plate_tag:
+                    continue
+                main_plate_tags_to_remove.append((track_ref_item, main_plate_tag))
+
+        # Set default tag on main track item
+        if has_main_track and not remove_default_tags:
+            main_track_tag = (shot_items[0], shot_items[0].get_main_plate())
+
+            # Remove main grade from remove list and add tag if not found and no override
+            tagged_tracks = [tag[0].parent() for tag in main_plate_tags_to_remove]
+            if shot_items[0].parent() in tagged_tracks:
+                main_plate_tags_to_remove.pop(0)
+            else:
+                shot_items[0].set_main_plate(default_tag=True, spreadsheet=False)
+
+        for track_item, tag in main_plate_tags_to_remove:
+            # Sometimes the track doesn't update
+            try:
+                track_item.removeTag(tag)
+            except RuntimeError:
+                pass
+
+    @sequence
+    def set_track_main_plates(self):
+        # Main grades will only ever be set on main grade track
+        for track_item in self.main_track.items():
+            self.set_track_item_main_plate(track_item)
+
+
+def is_valid_asset(track_item):
+    """Check if the given asset name is valid for the current project.
+
+    Args:
+        asset_name (str): The name of the asset to validate.
+
+    Returns:
+        dict: The asset document if found, otherwise an empty dictionary.
+    """
+    # Track item may not have ran through callback to is valid attr
+    if "hierarchy_env" in track_item.__dir__():
+        return track_item.hierarchy_env
+
+    project_name = get_current_project_name()
+    asset_doc = get_asset_by_name(project_name, track_item.name())
+    if asset_doc:
+        return True
+    else:
+        return False
+
+
+def get_entity_hierarchy(asset_doc, project_name):
+    """Retrieve entity links for the given asset.
+
+    This function creates a dictionary of linked entities for the specified
+    asset. The linked entities may include:
+    - episode
+    - sequence
+    - shot
+    - folder
+
+    Args:
+        asset_name (str): The name of the asset.
+
+    Returns:
+        dict: A dictionary containing linked entities, including episode,
+                sequence, shot, and folder information.
+    """
+    project_doc = get_project(project_name)
+    hierarchy_env = get_hierarchy_env(project_doc, asset_doc)
+
+    asset_entities = {}
+    episode = hierarchy_env.get("EPISODE")
+    if episode:
+        asset_entities["episode"] = episode
+
+    sequence = hierarchy_env.get("SEQ")
+    if sequence:
+        asset_entities["sequence"] = sequence
+
+    asset = hierarchy_env.get("SHOT")
+    if asset:
+        asset_entities["shot"] = asset
+
+    if hierarchy_env.get("ASSET_TYPE"):
+        folder = "asset"
+    else:
+        folder = "shots"
+    asset_entities["folder"] = folder
+
+    return asset_entities
+
+
+def get_hierarchy_data(asset_doc, project_name, track_name):
+    hierarchy_data = get_entity_hierarchy(asset_doc, project_name)
+    hierarchy_data["track"] = track_name
+
+    return hierarchy_data
+
+
+def get_hierarchy_path(asset_doc):
+    """Asset path is always the joining of the asset parents"""
+    hierarchy_path = os.sep.join(asset_doc["data"]["parents"])
+
+    return hierarchy_path
+
+
+def get_hierarchy_parents(hierarchy_data):
+    parents = []
+    parents_types = ["folder", "episode", "sequence"]
+    for key, value in hierarchy_data.items():
+        if key in parents_types:
+            entity = {"entity_type": key, "entity_name": value}
+            parents.append(entity)
+
+    return parents
+
+
+def set_framing_info(cut_info, track_item):
+    # Only reference will update cut info to SG
+    cut_info["cut_in"] = int(cut_info["cut_in"])
+    if cut_info["cut_range"] == "False":
+        cut_info["head_handles"] = int(track_item.handleInLength())
+        cut_info["tail_handles"] = int(track_item.handleOutLength())
+    else:
+        cut_info["head_handles"] = int(cut_info["head_handles"])
+        cut_info["tail_handles"] = int(cut_info["tail_handles"])
+
+    # Cut out is always cut_in + duration - 1
+    cut_out = cut_info["cut_in"] + track_item.duration() - 1
+    cut_info["cut_out"] = cut_out
+
+    return cut_info
+
+
+def create_op_instance(track_item):
+    """
+    Only one key of the tag can be modified at a time for items that already
+    have a tag.
+    """
+    track_item_name = track_item.name()
+    track_name = track_item.parentTrack().name()
+
+    ingest_instance_data = track_item.ingest_instance_data()
+    cut_info_data = track_item.cut_info_data()
+    if not cut_info_data:
+        return "No cut info tag"
+
+    if not  ingest_instance_data:
+        return "No ingest data tag"
+
+    # Check if asset has valid name
+    if not is_valid_asset(track_item):
+        log.info(
+            f"{track_item.parent().name()}.{track_item.name()}: "
+            "Track item name not found in DB!"
+        )
+
+        return "Shot found in DB"
+
+    else:
+        project_name = get_current_project_name()
+        asset_doc = get_asset_by_name(project_name, track_item.name())
+
+    instance_data = {}
+
+    family = ingest_instance_data["family"]
+    families = ["clip"]
+    if family == "plate":
+        families.append("review")
+
+    use_nuke = ingest_instance_data["use_nuke"]
+
+    hierarchy_data = get_hierarchy_data(
+        asset_doc, project_name, track_name
+    )
+    hierarchy_path = get_hierarchy_path(asset_doc)
+    hierarchy_parents = get_hierarchy_parents(hierarchy_data)
+
+    # Framing comes from tag
+    cut_info = set_framing_info(cut_info_data, track_item)
+    instance_data["cut_info_data"] = cut_info
+
+    frame_start = cut_info["cut_in"] - cut_info["head_handles"]
+    handle_start = cut_info["head_handles"]
+    handle_end = cut_info["tail_handles"]
+
+    main_plate = "True" if track_item.get_main_plate() else "False"
+
+    instance_data["hierarchyData"] = hierarchy_data
+    instance_data["hierarchy"] = hierarchy_path
+    instance_data["parents"] = hierarchy_parents
+    instance_data["asset"] = track_item_name
+    instance_data["subset"] = track_name
+    instance_data["family"] = family
+    instance_data["families"] = str(families)
+    instance_data["workfileFrameStart"] = frame_start
+    instance_data["handleStart"] = handle_start
+    instance_data["handleEnd"] = handle_end
+    instance_data["main_plate"] = main_plate
+    instance_data["use_nuke"] = use_nuke
+
+    # Constants
+    instance_data["audio"] = "True"
+    instance_data["heroTrack"] = "True"
+    instance_data["id"] = "pyblish.avalon.instance"
+    instance_data["publish"] = "True"
+    instance_data["reviewTrack"] = "None"
+    instance_data["sourceResolution"] = "False"
+    instance_data["variant"] = "Main"
+    instance_data["ingested_grade"] = "None"
+
+    tag = set_trackitem_openpype_tag(track_item, instance_data)
+    return True if tag else "OP tag couldn't be added"
 ### Ends Alkemy-X Override ###
