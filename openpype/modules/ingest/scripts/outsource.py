@@ -8,7 +8,7 @@ from openpype.lib import Logger
 from openpype.modules.shotgrid.lib import credentials
 
 # from openpype.modules.shotgrid.scripts import populate_tasks
-# from openpype.modules.deadline.lib import publish
+from openpype.modules.deadline.lib import publish
 from openpype.client import get_assets, get_asset_by_name
 
 
@@ -128,8 +128,8 @@ VENDOR_PACKAGE_RE = r"From_(\w+)"
 logger = Logger.get_logger(__name__)
 
 
-def ingest_vendor_package(folder_path):
-    """Ingest incoming vendor package that contains different assets.
+def ingest_folder_path(folder_path):
+    """Ingest all the products found in a given path.
 
     Args:
         folder_path (str): Path to vendor package
@@ -148,12 +148,9 @@ def ingest_vendor_package(folder_path):
     sg_project = sg.find_one("Project", [["sg_code", "is", project_code]], ["name"])
     project_name = sg_project["name"]
 
-    products, unassigned = find_products(folder_path, project_name, project_code)
-
-    # Name of the package
-    # package_name = os.path.basename(folder_path)
-    # vendor_code = folder_path.rsplit("_", 1)[-1]
-    # vendor_match = VENDOR_PACKAGE_RE.search(folder_path)
+    products, unassigned = get_products_from_filepath(
+        folder_path, project_name, project_code
+    )
 
     # If products, print all the products that we will publish
     if products:
@@ -236,7 +233,61 @@ def ingest_vendor_package(folder_path):
                             # )
 
 
-def find_products(package_path, project_name, project_code):
+def publish_products(project_name, products_data):
+
+    report_items = defaultdict(list)
+
+    # Go through list of products data from ingest dialog table and combine the
+    # representations dictionary for the products that target the same subset
+    products = {}
+    for product_item in products_data:
+        item_str = f"{product_item.asset} - {product_item.task} - {product_item.family} - {product_item.subset}"
+
+        key = (
+            product_item.asset,
+            product_item.task,
+            product_item.family,
+            product_item.subset
+        )
+        if key not in products:
+            products[key] = {
+               product_item.rep_name: product_item.path,
+            }
+        else:
+            if product_item.rep_name in products[key]:
+                report_items["Duplicated representation in product"].append(
+                    item_str
+                )
+                continue
+
+            products[key][product_item.rep_name] = product_item.path
+
+    for product_fields, expected_representations in products.items():
+        asset, task, family, subset = product_fields
+        item_str = f"{asset} - {task} - {family} - {subset}"
+
+        publish.publish_version(
+            project_name,
+            asset,
+            task,
+            family,
+            subset,
+            expected_representations,
+            {},
+        )
+        report_items["Successfully submitted products to publish in Deadline"].append(item_str)
+
+    return report_items
+
+def get_products_from_filepath(package_path, project_name, project_code):
+
+    def _split_camel_case(name):
+        result = ""
+        for i, c in enumerate(name):
+            if i > 0 and c.isupper():
+                result += "_"
+            result += c.lower()
+        return result
 
     # Created nested dictionaries for storing all the products we find
     # categorized by asset -> task -> family -> subset
@@ -293,6 +344,9 @@ def find_products(package_path, project_name, project_code):
             family_name = publish_data["family_name"]
             subset_name = publish_data["subset_name"]
 
+            # Make sure subset name is always lower case and split by underscores
+            subset_name = _split_camel_case(subset_name)
+
             # Check if we already had added a product in the same destination
             # so we just append it as another representation if that's the case
             existing_data = (
@@ -336,14 +390,6 @@ def find_products(package_path, project_name, project_code):
 #     asset_docs,
 #     strict_regex,
 # ):
-#     """Try to parse out asset name from file name provided.
-
-#     Artists might provide various file name formats.
-#     Currently handled:
-#         - chair.mov
-#         - chair_v001.mov
-#         - my_chair_to_upload.mov
-#     """
 #     publish_data = _get_product_from_filepath(
 #         project_name, filepath, strict_regex, asset_docs
 #     )

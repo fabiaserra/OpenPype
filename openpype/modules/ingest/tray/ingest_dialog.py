@@ -1,9 +1,11 @@
 import os
-import re
+import attr
 import platform
-import json
+import collections
 import traceback
+
 from qtpy import QtCore, QtWidgets, QtGui
+import qtawesome
 
 from openpype import style
 from openpype import resources
@@ -11,8 +13,12 @@ from openpype.lib import Logger
 from openpype.client import get_projects
 from openpype.pipeline import AvalonMongoDB
 from openpype.tools.utils import lib as tools_lib
+from openpype.modules.shotgrid.lib import credentials
 from openpype.modules.ingest.scripts import outsource
-
+from openpype.tools.utils.constants import (
+    HEADER_NAME_ROLE,
+    EDIT_ICON_ROLE,
+)
 
 logger = Logger.get_logger(__name__)
 
@@ -23,8 +29,17 @@ class IngestDialog(QtWidgets.QDialog):
     tool_title = "Ingest Products"
     tool_name = "batch_ingester"
 
-    SIZE_W = 1200
+    SIZE_W = 1500
     SIZE_H = 800
+
+    DEFAULT_WIDTHS = (
+        ("path", 800),
+        ("asset", 150),
+        ("task", 100),
+        ("family", 100),
+        ("subset", 200),
+        ("rep_name", 100),
+    )
 
     def __init__(self, module, parent=None):
         super(IngestDialog, self).__init__(parent)
@@ -44,7 +59,7 @@ class IngestDialog(QtWidgets.QDialog):
 
         self.setMinimumSize(QtCore.QSize(self.SIZE_W, self.SIZE_H))
 
-        # self.sg = credentials.get_shotgrid_session()
+        self.sg = credentials.get_shotgrid_session()
 
         self._first_show = True
         self._initial_refresh = False
@@ -77,26 +92,72 @@ class IngestDialog(QtWidgets.QDialog):
         projects_combobox.currentTextChanged.connect(self.on_project_change)
         input_layout.addRow("Project", projects_combobox)
 
-        folder_dialog = QtWidgets.QFileDialog()
-        folder_dialog.setFileMode(QtWidgets.QFileDialog.Directory)
+        file_browser = FileBrowserWidget()
+        file_browser.filepath_changed.connect(self.on_filepath_changed)
 
-        input_layout.addRow("Folder to ingest", folder_dialog)
+        input_layout.addRow("Folder to ingest", file_browser)
+
+        main_layout.addWidget(input_widget)
+
+        table_view = QtWidgets.QTableView()
+        headers = [item[0] for item in self.DEFAULT_WIDTHS]
+
+        model = ProductsTableModel(headers, parent=self)
+
+        table_view.setModel(model)
+        table_view.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
+
+        # TODO: Enable if we want to support publishing only selected
+        # table_view.setSelectionMode(QtWidgets.QAbstractItemView.ExtendedSelection)
+        # table_view.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
+
+        table_view.horizontalHeader().setSortIndicator(-1, QtCore.Qt.AscendingOrder)
+        table_view.setAlternatingRowColors(True)
+        table_view.verticalHeader().hide()
+        table_view.viewport().setAttribute(QtCore.Qt.WA_Hover, True)
+
+        table_view.setSortingEnabled(True)
+        table_view.setTextElideMode(QtCore.Qt.ElideLeft)
+
+        header = table_view.horizontalHeader()
+        for column_name, width in self.DEFAULT_WIDTHS:
+            idx = model.get_header_index(column_name)
+            header.setSectionResizeMode(idx, QtWidgets.QHeaderView.Interactive)
+            table_view.setColumnWidth(idx, width)
+
+        header.setStretchLastSection(True)
+
+        # Add delegates to automatically fill possible options on columns
+        task_delegate = ComboBoxDelegate(outsource.OUTSOURCE_TASKS, parent=self)
+        column = model.get_header_index("task")
+        table_view.setItemDelegateForColumn(column, task_delegate)
+
+        family_delegate = ComboBoxDelegate(
+            outsource.FAMILY_EXTS_MAP.keys(), parent=self
+        )
+        column = model.get_header_index("family")
+        table_view.setItemDelegateForColumn(column, family_delegate)
+
+        main_layout.addWidget(table_view)
 
         # Add button to generate delivery media
-        validate_ingest_btn = QtWidgets.QPushButton(
-            "Validate ingest folder"
+        publish_btn = QtWidgets.QPushButton(
+            "Publish Products"
         )
-        validate_ingest_btn.setDefault(True)
-        validate_ingest_btn.setToolTip(
-            "Run the ingest tool to validate which products will be published"
+        publish_btn.setDefault(True)
+        publish_btn.setToolTip(
+            "Submit all products to publish in Deadline"
         )
-        validate_ingest_btn.clicked.connect(
-            self._on_validate_ingest_clicked
-        )
+        publish_btn.clicked.connect(self._on_publish_clicked)
 
-        main_layout.addWidget(validate_ingest_btn)
+        main_layout.addWidget(publish_btn)
 
         #### REPORT ####
+        message_label = QtWidgets.QLabel("")
+        message_label.setWordWrap(True)
+        message_label.hide()
+        main_layout.addWidget(message_label)
+
         text_area = QtWidgets.QTextEdit()
         text_area.setReadOnly(True)
         text_area.setVisible(False)
@@ -104,9 +165,11 @@ class IngestDialog(QtWidgets.QDialog):
         main_layout.addWidget(text_area)
 
         # Assign widgets we want to reuse to class instance
-
         self._projects_combobox = projects_combobox
-        self._folder_dialog = folder_dialog
+        self._table_view = table_view
+        self._model = model
+        self._file_browser = file_browser
+        self._message_label = message_label
         self._text_area = text_area
 
     def showEvent(self, event):
@@ -183,8 +246,8 @@ class IngestDialog(QtWidgets.QDialog):
 
         sg_project = self.sg.find_one(
             "Project",
-            [["name", "is", project_name]]
-            ["sg_code"]
+            [["name", "is", project_name]],
+            fields=["sg_code"]
         )
 
         project_name = self.dbcon.active_project() or "No project selected"
@@ -194,6 +257,52 @@ class IngestDialog(QtWidgets.QDialog):
         # Store project code as class variable so we can reuse it throughout
         proj_code = sg_project.get("sg_code")
         self._current_proj_code = proj_code
+
+        self._file_browser.set_default_directory(f"/proj/{proj_code}/io/incoming")
+
+    def set_message(self, msg):
+        self._message_label.setText(msg)
+        self._message_label.show()
+
+    def on_filepath_changed(self, filepath):
+        if not os.path.exists(filepath):
+            msg = "Filepath '%s' does not exist!"
+            logger.error(msg)
+            self.set_message(msg)
+            return
+
+        row = self._projects_combobox.currentIndex()
+        index = self._projects_combobox.model().index(row, 0)
+        project_name = index.data(QtCore.Qt.UserRole + 1)
+        if not project_name:
+            msg = "Must select a project first."
+            logger.error(msg)
+            self.set_message(msg)
+            return
+
+        products, unassigned = outsource.get_products_from_filepath(
+            filepath,
+            project_name,
+            self._current_proj_code
+        )
+        self._model.set_products(products, unassigned)
+
+    def _on_publish_clicked(self):
+        try:
+            products_data = self._model.get_products()
+            report_items, success = outsource.publish_products(
+                products_data,
+            )
+
+        except Exception:
+            logger.error(traceback.format_exc())
+            report_items = {
+                "Error": [traceback.format_exc()]
+            }
+            success = False
+
+        self._text_area.setText(self._format_report(report_items, success))
+        self._text_area.setVisible(True)
 
     def _format_report(self, report_items, success):
         """Format final result and error details as html."""
@@ -210,30 +319,269 @@ class IngestDialog(QtWidgets.QDialog):
 
         return txt
 
-    def _on_validate_ingest_clicked(self):
-
-        try:
-            folder_path = self._folder_dialog.selectedFiles()[0]
-            report_items, success = outsource.ingest_vendor_package(
-                folder_path,
-            )
-
-        except Exception:
-            logger.error(traceback.format_exc())
-            report_items = {
-                "Error": [traceback.format_exc()]
-            }
-            success = False
-
-        self._text_area.setText(self._format_report(report_items, success))
-        self._text_area.setVisible(True)
-
     # -------------------------------
     # Delay calling blocking methods
     # -------------------------------
 
     def refresh(self):
         tools_lib.schedule(self._refresh, 50, channel="mongo")
+
+
+class FileBrowserWidget(QtWidgets.QWidget):
+
+    filepath_changed = QtCore.Signal(str)
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.filepath_edit = QtWidgets.QLineEdit()
+        self.browse_button = QtWidgets.QPushButton("Browse...")
+        self.browse_button.clicked.connect(self.browse_file)
+        self.filepath_edit.textChanged.connect(self.emit_filepath_changed)
+
+        self.default_directory = ""
+
+        layout = QtWidgets.QHBoxLayout(self)
+        layout.addWidget(self.filepath_edit)
+        layout.addWidget(self.browse_button)
+
+    def browse_file(self):
+        options = QtWidgets.QFileDialog.Options()
+        options |= QtWidgets.QFileDialog.DontUseNativeDialog
+        options |= QtWidgets.QFileDialog.ShowDirsOnly
+
+        directory = QtWidgets.QFileDialog.getExistingDirectory(
+            self, "Select a directory to ingest", self.default_directory, options=options
+        )
+        if directory:
+            self.filepath_edit.setText(directory)
+
+    def emit_filepath_changed(self, text):
+        self.filepath_changed.emit(text)
+
+    def get_filepath(self):
+        return self.filepath_edit.text()
+
+    def set_default_directory(self, path):
+        self.default_directory = path
+
+
+class ProductsTableModel(QtCore.QAbstractTableModel):
+
+    COLUMN_LABELS = [
+        ("path", "Filepath"),
+        ("asset", "Asset"),
+        ("task", "Task"),
+        ("family", "Family"),
+        ("subset", "Subset"),
+        ("rep_name", "Representation")
+    ]
+
+    EDITABLE_COLUMNS = ["asset", "task", "family", "subset", "rep_name"]
+
+    @attr.s
+    class ProductRepresentation:
+        path = attr.ib()
+        asset = attr.ib()
+        task = attr.ib()
+        family = attr.ib()
+        subset = attr.ib()
+        rep_name = attr.ib()
+
+    def __init__(self, header, parent=None):
+        super().__init__(parent=parent)
+        self._header = header
+        self._data = []
+
+        self.edit_icon = qtawesome.icon("fa.edit", color="white")
+
+    def rowCount(self, parent=None):
+        return len(self._data)
+
+    def columnCount(self, parent=None):
+        return len(self._header)
+
+    def get_column(self, index):
+        """Return info about column
+
+        Args:
+            index (QModelIndex)
+
+        Returns:
+            (tuple): (COLUMN_NAME: COLUMN_LABEL)
+        """
+        return self.COLUMN_LABELS[index]
+
+    def get_header_index(self, value):
+        """Return index of 'value' in headers
+
+        Args:
+            value (str): header name value
+
+        Returns:
+            (int)
+        """
+        return self._header.index(value)
+
+    def flags(self, index):
+        default_flags = super(ProductsTableModel, self).flags(index)
+        header_value = self._header[index.column()]
+
+        # Make some columns editable
+        if header_value in self.EDITABLE_COLUMNS:
+            return default_flags | QtCore.Qt.ItemIsEditable
+        return default_flags
+
+    def setData(self, index, value, role=QtCore.Qt.EditRole):
+        if not index.isValid():
+            return False
+
+        if role == QtCore.Qt.EditRole:
+            if index.column() == 1:
+                self._data[index.row()].asset = value
+            elif index.column() == 2:
+                self._data[index.row()].task = value
+            elif index.column() == 3:
+                self._data[index.row()].family = value
+            elif index.column() == 4:
+                self._data[index.row()].subset = value
+            elif index.column() == 5:
+                self._data[index.row()].rep_name = value
+            else:
+                return False
+
+            self.dataChanged.emit(index, index)  # Emit data changed signal
+
+            return True
+
+        return False
+
+    def data(self, index, role=QtCore.Qt.DisplayRole):
+        """Return data depending on index, Qt::ItemDataRole and data type of the column.
+
+        Args:
+            index (QtCore.QModelIndex): Index to define column and row you want to return
+            role (Qt::ItemDataRole): Define which data you want to return.
+
+        Returns:
+            None if index is invalid
+            None if role is none of: DisplayRole, EditRole, CheckStateRole, DATAFRAME_ROLE
+        """
+        if not index.isValid():
+            return
+
+        product_item = self._data[index.row()]
+        header_value = self._header[index.column()]
+
+        if role in (QtCore.Qt.DisplayRole, QtCore.Qt.EditRole):
+            return attr.asdict(product_item)[self._header[index.column()]]
+
+        if role == EDIT_ICON_ROLE:
+            if self.can_edit and header_value in self.EDITABLE_COLUMNS:
+                return self.edit_icon
+
+        # Change the color if the row has missing data
+        if role == QtCore.Qt.ForegroundRole:
+            product_dict = attr.asdict(product_item)
+            if any(value is None or value == "" for value in product_dict.values()):
+                return QtGui.QColor(QtCore.Qt.yellow)
+
+        return None
+
+    def headerData(self, section, orientation, role=QtCore.Qt.DisplayRole):
+        if section >= len(self.COLUMN_LABELS):
+            return
+
+        if role == QtCore.Qt.DisplayRole:
+            if orientation == QtCore.Qt.Horizontal:
+                return self.COLUMN_LABELS[section][1]
+
+        if role == HEADER_NAME_ROLE:
+            if orientation == QtCore.Qt.Horizontal:
+                return self.COLUMN_LABELS[section][0]  # return name
+
+    def sort(self, column, order):
+        self.layoutAboutToBeChanged.emit()
+
+        if column == 0:
+            self._data.sort(key=lambda x: x.path)
+
+        # For the columns that could be empty, we need to make sure we
+        # sort None type values
+        if column == 1:
+            self._data.sort(key=lambda x: (x.asset is not None, x.asset))
+
+        if column == 2:
+            self._data.sort(key=lambda x: (x.task is not None, x.task))
+
+        if column == 3:
+            self._data.sort(key=lambda x: (x.family is not None, x.family))
+
+        if column == 4:
+            self._data.sort(key=lambda x: (x.subset is not None, x.subset))
+
+        if column == 5:
+            self._data.sort(key=lambda x: (x.rep_name is not None, x.rep_name))
+
+        if order == QtCore.Qt.DescendingOrder:
+            self._data.reverse()
+
+        self.layoutChanged.emit()
+
+    def set_products(self, products, unassigned):
+
+        self.beginResetModel()
+
+        self._data = []
+
+        for asset_name, tasks in products.items():
+            for task_name, families in tasks.items():
+                for family_name, subsets in families.items():
+                    for subset_name, publish_data in subsets.items():
+                        for rep_name, rep_path in publish_data["expected_representations"].items():
+                            item = self.ProductRepresentation(
+                                rep_path,
+                                asset_name,
+                                task_name,
+                                family_name,
+                                subset_name,
+                                rep_name,
+                            )
+                            self._data.append(item)
+
+        for path in unassigned:
+            item = self.ProductRepresentation(
+                path,
+                None,
+                None,
+                None,
+                None,
+                None,
+            )
+            self._data.append(item)
+
+        self.endResetModel()
+
+    def get_products(self):
+        return self._data
+
+
+class ComboBoxDelegate(QtWidgets.QStyledItemDelegate):
+
+    def __init__(self, items, parent=None):
+        self.items = items
+        super().__init__(parent)
+
+    def createEditor(self, parent, option, index):
+        editor = QtWidgets.QComboBox(parent)
+        editor.addItems(self.items)
+        return editor
+
+    def setEditorData(self, editor, index):
+        value = index.model().data(index, QtCore.Qt.EditRole)
+        editor.setCurrentText(value)
+
+    def setModelData(self, editor, model, index):
+        model.setData(index, editor.currentText(), QtCore.Qt.EditRole)
 
 
 def main():
