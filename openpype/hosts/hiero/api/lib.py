@@ -1367,6 +1367,7 @@ def regex_parse_edl_events(path, color_edits_only=False):
     first_match = re.search(edit_pattern, edl_data)
     first_entry = int(first_match.group().split(" ", 1)[0]) if first_match else 1
 
+    edl = {"events": {}}
     for edit_match in re.finditer(edit_pattern, edl_data):
         slope, offset, power, sat = None, None, None, None
 
@@ -1561,6 +1562,13 @@ def parse_edl_events(color_file, color_edits_only=True):
 
     except UnicodeDecodeError:
         return False
+
+    except ValueError:
+        # Try using regex to parse if OTIO fails
+        try:
+            edl = regex_parse_edl_events(color_file, color_edits_only)
+        except:
+            return False
 
     return edl
 

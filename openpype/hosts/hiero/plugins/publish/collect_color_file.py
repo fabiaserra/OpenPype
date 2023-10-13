@@ -55,17 +55,17 @@ class MissingColorFile(QtWidgets.QDialog):
     """
 
     data = {}
-    default_browser_path = ""
     prev_file_path_input = ""
     prev_edl_entries_path = ""
     edl = {}
     ignore_grade = False
 
-    def __init__(self, shot_name, source_name, main_grade, parent=None):
+    def __init__(self, shot_name, source_name, source_path, main_grade, parent=None):
         super(MissingColorFile, self).__init__(parent)
         self.shot_name = shot_name
         self.source_name = source_name
         self.main_grade = main_grade
+        self.default_browser_path = os.path.dirname(source_path)
 
         self.setWindowTitle("Locate Color File")
         width = 519
@@ -609,7 +609,7 @@ class CollectColorFile(pyblish.api.InstancePlugin):
                 color_info["ignore"] = False
 
         if not color_file:
-            dialog = MissingColorFile(item_name, source_name, main_grade)
+            dialog = MissingColorFile(item_name, source_name, source_path, main_grade)
             dialog_result = dialog.exec()
             if dialog_result:
                 color_info = dialog.data
@@ -769,8 +769,8 @@ class CollectColorFile(pyblish.api.InstancePlugin):
                         color_file, color_edits_only=True
                     )
                     if edits is False:
-                        self.log.warning(f"UnicodeDecodeError error. Color "
-                                        "file not be parsed: {color_file}")
+                        self.log.warning("UnicodeDecodeError error. Color "
+                                        f"file not be parsed: {color_file}")
                         continue
 
                     for edit, edl_event in edits["events"].items():
