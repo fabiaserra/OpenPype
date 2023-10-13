@@ -626,6 +626,10 @@ class CustomSpreadsheetColumns(QObject):
         {"name": "cut_out", "cellType": "readonly"},
         {"name": "tail_handles", "cellType": "text"},
         {"name": "cut_range", "cellType": "text"},
+        {
+            "name": "valid_entity",
+            "cellType": "readonly",
+        },
         {"name": "main_plate", "cellType": "custom"},
         {"name": "family", "cellType": "dropdown", "size": QSize(10, 25)},
         {"name": "use_nuke", "cellType": "custom"}, # -> use_nuke
@@ -678,7 +682,13 @@ class CustomSpreadsheetColumns(QObject):
             return self.get_tags_string(item)
 
         elif current_column_name == "Colorspace":
-            return item.sourceMediaColourTransform()
+            # RuntimeError: Clip must be added to a project before accessing color transforms
+            try:
+                colorspace = item.sourceMediaColourTransform()
+            except RuntimeError:
+                colorspace = ""
+
+            return colorspace
 
         elif current_column_name == "Notes":
             return self.get_notes(item)
@@ -977,6 +987,16 @@ class CustomSpreadsheetColumns(QObject):
         current_column = self.column_list[column]
         if current_column["name"] == "Colorspace":
             return QIcon("icons:LUT.png")
+
+        elif current_column["name"] == "valid_entity":
+            project_name = get_current_project_name()
+            asset_doc = get_asset_by_name(project_name, item.name())
+            if asset_doc:
+                icon_name = "icons:status/TagFinal.png"
+            else:
+                icon_name = "icons:status/TagOmitted.png"
+
+            return QIcon(icon_name)
 
         return None
 
