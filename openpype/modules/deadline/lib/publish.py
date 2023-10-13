@@ -15,11 +15,14 @@ logger = Logger.get_logger(__name__)
 
 
 REVIEW_FAMILIES = {
-    "render"
+    "render",
+    "reference",
 }
 
 PUBLISH_TO_SG_FAMILIES = {
-    "render"
+    "render",
+    "review",
+    "reference",
 }
 
 
@@ -32,6 +35,25 @@ def publish_version(
     expected_representations,
     publish_data,
 ):
+    if not all(
+        [
+            project_name,
+            asset_name,
+            task_name,
+            family_name,
+            subset_name,
+            expected_representations
+        ]
+    ):
+        logger.error(
+            "Can't publish version. You need to pass a value for each of these: "
+            "\nProject name: %s\nAsset name: %s\nTask name: %s\nFamily name: %s\n"
+            "Subset name: %s\nExpected representations: %s",
+            project_name, asset_name, task_name, family_name, subset_name,
+            expected_representations
+        )
+        return False
+
     # asset_entity = get_asset_by_name(project_name, asset_name)
     # context_data = asset_entity["data"]
     # context_data = {}
@@ -69,6 +91,8 @@ def publish_version(
         "outputDir": os.path.dirname(source_path),
     }
 
+    logger.debug("Getting representations...")
+
     representations = utils.get_representations(
         instance_data,
         expected_representations,
@@ -80,7 +104,7 @@ def publish_version(
             "No representations could be found on expected dictionary: %s",
             expected_representations
         )
-        return {}
+        return False
 
     if family_name in REVIEW_FAMILIES:
         # inject colorspace data if we are generating a review
@@ -144,6 +168,7 @@ def publish_version(
         asset_name,
         project_name
     )
+    logger.debug("Submitting payload...")
 
     response = submit.payload_submit(
         plugin="OpenPype",
@@ -153,6 +178,13 @@ def publish_version(
         group=dl_constants.OP_GROUP,
         extra_env=extra_env,
     )
+
+    # Set session environment variables as a few OP plugins
+    # rely on these
+    legacy_io.Session["AVALON_PROJECT"] = project_name
+    legacy_io.Session["AVALON_ASSET"] = asset_name
+    legacy_io.Session["AVALON_TASK"] = task_name
+    legacy_io.Session["AVALON_WORKDIR"] = extra_env["AVALON_WORKDIR"]
 
     # publish job file
     publish_job = {

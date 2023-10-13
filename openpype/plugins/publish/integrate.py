@@ -93,6 +93,8 @@ class IntegrateAsset(pyblish.api.InstancePlugin):
         "blendScene",
         "camera",
         "camerarig",
+        "color_grade",
+        "distortion",
         "editorial",
         "effect",
         "fbx",
@@ -145,7 +147,7 @@ class IntegrateAsset(pyblish.api.InstancePlugin):
         "workfile",
         "xgen",
         "yeticache",
-        "yeticacheUE"
+        "yeticacheUE",
         "yetiRig",
     ]
 

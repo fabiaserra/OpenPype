@@ -454,7 +454,7 @@ def is_representation_from_latest(representation):
     return version_is_latest(project_name, representation["parent"])
 
 
-def get_template_data_from_session(session=None, system_settings=None):
+def get_template_data_from_session(session=None, system_settings=None, project_name=None):
     """Template data for template fill from session keys.
 
     Args:
@@ -470,10 +470,10 @@ def get_template_data_from_session(session=None, system_settings=None):
     if session is None:
         session = legacy_io.Session
 
-    project_name = session["AVALON_PROJECT"]
-    asset_name = session["AVALON_ASSET"]
-    task_name = session["AVALON_TASK"]
-    host_name = session["AVALON_APP"]
+    project_name = session.get("AVALON_PROJECT") or project_name
+    asset_name = session.get("AVALON_ASSET")
+    task_name = session.get("AVALON_TASK")
+    host_name = session.get("AVALON_APP")
 
     return get_template_data_with_names(
         project_name, asset_name, task_name, host_name, system_settings

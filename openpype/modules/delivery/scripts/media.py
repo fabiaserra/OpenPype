@@ -9,7 +9,7 @@ import csv
 
 from openpype import client as op_cli
 from openpype.lib import Logger, StringTemplate, get_datetime_data
-from openpype.pipeline import delivery, template_data, legacy_io
+from openpype.pipeline import delivery, template_data
 from openpype.modules.deadline import constants as dl_constants
 from openpype.modules.deadline.lib import submit
 from openpype.modules.shotgrid.lib import credentials
@@ -209,7 +209,8 @@ def generate_delivery_media_playlist_id(
         new_report_items, new_success = generate_delivery_media_version(
             sg_version,
             project_name,
-            delivery_data
+            delivery_data,
+            report_items,
         )
         if new_report_items:
             report_items.update(new_report_items)
@@ -237,6 +238,8 @@ def generate_delivery_media_version_id(
         tuple: A tuple containing a dictionary of report items and a boolean indicating
             whether the republish was successful.
     """
+    report_items = collections.defaultdict(list)
+
     sg = credentials.get_shotgrid_session()
 
     sg_version = sg.find_one(
@@ -250,13 +253,15 @@ def generate_delivery_media_version_id(
         sg_version,
         sg_version["project"]["name"],
         delivery_data,
+        report_items
     )
 
 
 def generate_delivery_media_version(
     sg_version,
     project_name,
-    delivery_data
+    delivery_data,
+    report_items,
 ):
     """
     Generate the corresponding delivery version given SG version by creating a new
@@ -272,7 +277,6 @@ def generate_delivery_media_version(
         tuple: A tuple containing a dictionary of report items and a boolean indicating
             whether the republish was successful.
     """
-    report_items = collections.defaultdict(list)
     logger.debug("Delivery data: %s", delivery_data)
 
     # Grab the OP's id corresponding to the SG version
@@ -425,15 +429,16 @@ def generate_delivery_media_version(
             return_dest_path=True,
         )
         if repre_report_items:
-            return repre_report_items, False
+            report_items.update(repre_report_items)
+            continue
 
         # Add some validation to make sure we don't overwrite existing files
         if os.path.isfile(dest_path):
             logger.warning("Destination path '%s' already exists.", dest_path)
-            repre_report_items["Destination path already exists"].append(
+            report_items["Destination path already exists"].append(
                 dest_path
             )
-            return repre_report_items, False
+            return report_items, False
 
         out_filename = output_anatomy_data["filename"]
 

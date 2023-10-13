@@ -110,10 +110,10 @@ def payload_submit(
     )
 
     plugin = payload["JobInfo"]["Plugin"]
-    logger.info("using render plugin : {}".format(plugin))
+    logger.debug("using render plugin : {}".format(plugin))
 
-    logger.info("Submitting..")
-    logger.info(json.dumps(payload, indent=4, sort_keys=True))
+    logger.debug("Submitting..")
+    logger.debug(json.dumps(payload, indent=4, sort_keys=True))
 
     url = "{}/api/jobs".format(constants.DEADLINE_URL)
     response = requests.post(url, json=payload, timeout=10)
