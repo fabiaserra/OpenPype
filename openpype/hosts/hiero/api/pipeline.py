@@ -269,7 +269,7 @@ def publish(parent):
 
     # Ensure that selection includes at least one OP Tag
     # If No OP tag in selection that most likely Editor forgot to add tag
-    selected_track_items = lib.get_selected_track_items()
+    selected_track_items = [item for item in lib.get_selected_track_items() if item.mediaType() == hiero.core.TrackItem.kVideo]
 
     ignored_op_clips = []
     for track_item in selected_track_items:
