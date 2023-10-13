@@ -229,8 +229,6 @@ class DeliveryDialog(QtWidgets.QDialog):
         input_group = QtWidgets.QButtonGroup(sg_input_widget)
         input_group.setExclusive(True)
 
-        # TODO: show only the available playlists
-
         sg_playlist_id_input = QtWidgets.QComboBox()
         sg_playlist_id_input.setToolTip("Integer id of the SG Playlist (i.e., '3909')")
         playlist_radio_btn = QtWidgets.QRadioButton("SG Playlist Id")
@@ -315,14 +313,6 @@ class DeliveryDialog(QtWidgets.QDialog):
         if not self._initial_refresh:
             self._initial_refresh = True
             self.refresh()
-
-    def _playlist_id_edited(self, text):
-        # If there's a comma in the text, remove it and set the modified text
-        text = text.replace("\t", "")
-        text = text.replace(" ", "")
-        text = text.replace(",", "")
-        self._sg_playlist_id_input.setText(text)
-        self._sg_playlist_btn.setChecked(True)
 
     def _version_id_edited(self, text):
         # If there's a comma in the text, remove it and set the modified text
