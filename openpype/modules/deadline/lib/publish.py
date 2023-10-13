@@ -8,6 +8,8 @@ from openpype.client import get_asset_by_name, get_subset_by_name, get_version_b
 
 from openpype.modules.deadline import constants as dl_constants
 from openpype.modules.deadline.lib import submit
+from openpype.modules.shotgrid.lib import credentials
+from openpype.modules.shotgrid.scripts import populate_tasks
 from openpype.modules.delivery.scripts import utils
 
 
@@ -27,7 +29,7 @@ PUBLISH_TO_SG_FAMILIES = {
 
 
 def check_version_exists(project_name, asset_doc, subset_name, version):
-    """Check whether version document exits in database."""
+    """Check whether version document exists in database."""
 
     subset_doc = get_subset_by_name(
         project_name, subset_name, asset_doc["_id"]
@@ -44,6 +46,26 @@ def check_version_exists(project_name, asset_doc, subset_name, version):
     return False
 
 
+def check_task_exists(project_name, asset_doc, task_name, force_creation=False):
+    """Check whether version document exists in database."""
+
+    if force_creation:
+        logger.debug("Creating task '%s' in asset '%s'", task_name, asset_doc["name"])
+        sg = credentials.get_shotgrid_session()
+        sg_project = sg.find_one("Project", [["name", "is", project_name]])
+        sg_shot = sg.find_one("Shot", [["code", "is", asset_doc["name"]]])
+        populate_tasks.add_tasks_to_sg_entities(
+            sg_project,
+            [sg_shot],
+            "Shot",
+            tasks={task_name: task_name}
+        )
+    elif task_name not in asset_doc.get("data", {}).get("tasks", {}):
+        return False
+
+    return True
+
+
 def publish_version(
     project_name,
     asset_name,
@@ -53,10 +75,12 @@ def publish_version(
     expected_representations,
     publish_data,
     overwrite_version=False,
+    force_task_creation=False,
 ):
     # String representation of product being published
     item_str = f"Asset: {asset_name} - Task: {task_name} - Family: {family_name} - Subset: {subset_name}"
 
+    # Validate that all required fields exist
     if not all(
         [
             project_name,
@@ -73,9 +97,10 @@ def publish_version(
         logger.error(msg)
         return msg, False
 
-    asset_doc = get_asset_by_name(project_name, asset_name)
+    asset_doc = get_asset_by_name(project_name, asset_name, fields=["_id", "data"])
     context_data = asset_doc["data"]
 
+    # Validate that the version doesn't exist if we choose to not overwrite
     if not overwrite_version and publish_data.get("version"):
         if check_version_exists(
             project_name, asset_doc, subset_name, publish_data.get("version")
@@ -85,6 +110,14 @@ def publish_version(
             )
             logger.error(msg)
             return msg, False
+
+    # Validate that the task exists
+    if not check_task_exists(project_name, asset_doc, task_name, force_task_creation):
+        msg = (
+            f"{item_str} -> Task '{task_name}' doesn't exist."
+        )
+        logger.error(msg)
+        return msg, False
 
     # TODO: write some logic that finds the main path from the list of
     # representations

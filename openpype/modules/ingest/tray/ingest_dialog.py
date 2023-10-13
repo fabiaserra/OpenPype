@@ -102,8 +102,18 @@ class IngestDialog(QtWidgets.QDialog):
 
         overwrite_version_cb = QtWidgets.QCheckBox()
         overwrite_version_cb.setChecked(False)
+        overwrite_version_cb.setToolTip(
+            "Whether we want to overwrite the version if it has already been ingested"
+        )
 
         input_layout.addRow("Overwrite existing versions", overwrite_version_cb)
+
+        force_task_creation_cb = QtWidgets.QCheckBox()
+        force_task_creation_cb.setChecked(False)
+        force_task_creation_cb.setToolTip(
+            "Whether we want to automatically create the SG task if it doesn't exist at that asset"
+        )
+        input_layout.addRow("Force SG task creation", force_task_creation_cb)
 
         # Table with all the products we find in the given folder
         table_view = QtWidgets.QTableView()
@@ -174,6 +184,7 @@ class IngestDialog(QtWidgets.QDialog):
         # Assign widgets we want to reuse to class instance
         self._projects_combobox = projects_combobox
         self._overwrite_version_cb = overwrite_version_cb
+        self._force_task_creation_cb = force_task_creation_cb
         self._file_browser = file_browser
         self._table_view = table_view
         self._model = model
@@ -304,6 +315,7 @@ class IngestDialog(QtWidgets.QDialog):
                 self._current_proj_name,
                 products_data,
                 self._overwrite_version_cb.isChecked(),
+                self._force_task_creation_cb.isChecked(),
             )
 
         except Exception:

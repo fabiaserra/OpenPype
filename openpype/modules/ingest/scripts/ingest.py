@@ -1,14 +1,11 @@
 import os
 import re
-import click
 import clique
 from collections import defaultdict
 
 from openpype.lib import Logger
 from openpype.pipeline import legacy_io
-from openpype.modules.shotgrid.lib import credentials
 
-# from openpype.modules.shotgrid.scripts import populate_tasks
 from openpype.modules.deadline.lib import publish
 from openpype.client import get_assets, get_asset_by_name
 
@@ -133,7 +130,9 @@ VENDOR_PACKAGE_RE = r"From_(\w+)"
 logger = Logger.get_logger(__name__)
 
 
-def publish_products(project_name, products_data, overwrite_version=False):
+def publish_products(
+    project_name, products_data, overwrite_version=False, force_task_creation=False
+):
     """Given a list of ProductRepresentation objects, publish them to OP and SG
 
     Args:
@@ -206,7 +205,8 @@ def publish_products(project_name, products_data, overwrite_version=False):
             subset,
             product_data["expected_representations"],
             {"version": product_data.get("version")},
-            overwrite_version
+            overwrite_version,
+            force_task_creation,
         )
         if success:
             report_items["Successfully submitted products to publish"].append(msg)
@@ -298,39 +298,6 @@ def get_products_from_filepath(package_path, project_name, project_code):
             products[filepath] = publish_data
 
     return products
-
-
-# TODO: add some validation code that checks if the product will be fine to ingest
-# def validate_product(
-#     filepath,
-#     project_name,
-#     asset_docs,
-#     strict_regex,
-# ):
-#     publish_data = _get_product_from_filepath(
-#         project_name, filepath, strict_regex, asset_docs
-#     )
-#     # if asset_doc:
-#     #     task_name = publish_data["task_name"]
-#     #     asset_tasks = asset_doc.get("data", {}).get("tasks", {})
-#     #     # If task name found is one of the outsource tasks and it's not
-#     #     # in the SG shot tasks, we add it
-#     #     if task_name in OUTSOURCE_TASKS and task_name not in asset_tasks:
-#     #         logger.warning(
-#     #             "Task '%s' not found on asset '%s', adding it.",
-#     #             task_name, asset_doc["name"]
-#     #         )
-#     #         sg_shot = sg.find_one(
-#     #             "Shot", [["code", "is", asset_doc["name"]]]
-#     #         )
-#     #         populate_tasks.add_tasks_to_sg_entities(
-#     #             sg_project,
-#     #             [sg_shot],
-#     #             "Shot",
-#     #             tasks={task_name: task_name}
-#     #         )
-
-#     return asset_doc, publish_data, confidence_level
 
 
 def get_product_from_filepath(
