@@ -578,7 +578,7 @@ class SyncRepresentationSummaryWidget(_SyncRepresentationWidget):
         ("asset", 190),
         ("subset", 170),
         ("version", 60),
-        ("rep_name", 145),
+        ("representation", 145),
         ("local_site", 160),
         ("remote_site", 160),
         ("files_count", 50),
