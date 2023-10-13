@@ -352,7 +352,7 @@ class TranscodeFrames(publish.Extractor, publish.ColormanagedPyblishPluginMixin)
             os.getenv("SHOW"),
             "resources/ingest_template"
         )
-        ingest_templates = sorted(glob.glob(ingest_template_path + f"/{representation}*"), reverse=True)
+        ingest_templates = sorted(glob.glob(ingest_template_path + f"/{representation}*"))
         if ingest_templates:
             ingest_template = ingest_templates[-1]
 
