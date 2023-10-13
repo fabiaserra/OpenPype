@@ -97,7 +97,7 @@ def publish_version(
         logger.error(msg)
         return msg, False
 
-    asset_doc = get_asset_by_name(project_name, asset_name, fields=["_id", "data"])
+    asset_doc = get_asset_by_name(project_name, asset_name, fields=["_id", "data", "name"])
     context_data = asset_doc["data"]
 
     # Validate that the version doesn't exist if we choose to not overwrite
