@@ -331,10 +331,10 @@ class IngestMeta:
         return False
 
     def set_meta_main_grade(self, target_grade):
+        target_name = os.path.basename(target_grade)
         for filename in self.metadata:
-            # target_grade can be empty depending on if there was a main grade
-            # set or not
-            if not self.metadata[filename]["source_path"] == target_grade:
+            source_name = os.path.basename(self.metadata[filename]["source_path"])
+            if not source_name == target_name:
                 self.metadata[filename]["main_grade"] = False
             else:
                 self.metadata[filename]["main_grade"] = True
@@ -350,96 +350,6 @@ class IngestMeta:
     def remove_grade(self, filename):
         if filename in self.metadata:
             del self.metadata[filename]
-
-    def get_main_grade(self):
-        """
-        If main grade is out of line as in someone manually changed it then set
-        all grades to False
-        Under that case the target_filename will be empty ""
-        """
-
-        # Don't need to store when grade was modified. if grade was modified it
-        # would be recored by this same logic previously
-        if os.path.isfile(self.main_grade_file):
-            main_grade_mtime = os.path.getmtime(self.main_grade_file)
-            main_grade_exists = True
-        else:
-            main_grade_exists = False
-
-        if os.path.isfile(self.meta_path):
-            ingest_meta_mtime = os.path.getmtime(self.meta_path)
-            ingest_meta_exists = True
-        else:
-            ingest_meta_exists = False
-
-        # Historic main grade is useful when there is ingest_meta.
-        # If there is no ingest_meta use grade.ccc as the key logic
-        set_grade = False
-        if main_grade_exists and ingest_meta_exists:
-            # If ingest_meta_mtime is greater AND historic main grade
-            # We know that since ingest_meta_exists that there will be valid
-            # historic_main_grade
-            if (
-                main_grade_mtime < ingest_meta_mtime
-                and self.historic_main_grade
-            ):
-                set_grade = True
-
-        elif main_grade_exists and not ingest_meta_exists:
-            # When grade is found and not ingest_meta we can assume
-            # there was custom link performed
-            # Test to see whether there is a valid color file linked
-            if not os.path.isfile(os.path.realpath(self.main_grade_file)):
-                set_grade = True
-
-        else:
-            # There are only two other conditions which will always be True
-            # If not ingest and not grade.
-            # AND
-            # If ingest and not grade.
-            set_grade = True
-
-            # If there are grades that are not in the ingest meta json still
-            # use those grades as potential main grades?
-
-        # Add conditional for if shot name from shot folder is in grade name
-        # and if not then push prio to end of list
-        if set_grade:
-            # Determine if Grade file is meant to be main grade or if it is an
-            # element grade
-            if self.metadata:
-                original_grades = [
-                    (f.rsplit(".", 1)[0], f) for f in self.metadata.keys()
-                ]
-
-                if len(original_grades) == 1:
-                    main_grade = original_grades[0][1]
-                    return main_grade
-
-                # Testing to see if there is a high chance that main grade is only
-                # shot name
-                possible_main = sorted(original_grades, key=lambda x: len(x[0]))[0]
-                for name, grade in original_grades:
-                    # If a grades name is in the other grades name it is for sure
-                    # the main grade
-                    if name == possible_main[0]:
-                        continue
-                    if not possible_main[0] in name:
-                        break
-                else:
-                    main_grade = possible_main[1]
-                    return possible_main[1]
-
-                # Use description sorting method
-                main_grade = sorted(original_grades, key=sort_by_descriptor)[0][1]
-
-            else:
-                # In the case that self.metadata is empty then main grade can't
-                # be determined through this method
-                main_grade = None
-
-            return main_grade
-
 
 class ExtractColorFile(pyblish.api.InstancePlugin):
     """Extract Color File for plate to grade directory location on disk"""
@@ -526,11 +436,9 @@ class ExtractColorFile(pyblish.api.InstancePlugin):
         # Create color ingest meta on disk
         ingest_meta = IngestMeta(ocio_directory)
 
-        main_grade = ingest_meta.get_main_grade()
-
-        # Regardless of ingest_meta.get_main_grade logic, if there are no grades
-        # in the ocio folder then color_path will be main grade
-        if not plate_grades:
+        main_grade = None
+        # Only set main plate grade as main
+        if instance.data["main_plate"]:
             main_grade = color_path
 
         # Make sure that backup grade is removed from ingest_meta before adding
@@ -538,19 +446,19 @@ class ExtractColorFile(pyblish.api.InstancePlugin):
         # Could rely on filename being the same and dict key overwrite but
         # same grade doesn't always have same name
         if backup_grade:
-            ingest_meta.remove_grade(os.path.dirname(main_grade))
+            ingest_meta.remove_grade(os.path.basename(main_grade))
 
         ingest_meta.add_grade(
             os.path.basename(color_path), color_path, plate_name
         )
 
-        ingest_meta.set_meta_main_grade(main_grade)
         # Create symlink for main grade
         if main_grade:
+            ingest_meta.set_meta_main_grade(main_grade)
             if os.path.islink(main_grade_path):
                 os.unlink(main_grade_path)
 
-            os.symlink(main_grade, main_grade_path)
+            os.symlink(os.path.basename(main_grade), main_grade_path)
             self.log.info(
                 "Creating Grade.ccc symlink to: {}".format(
                     os.path.basename(main_grade)

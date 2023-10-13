@@ -270,25 +270,17 @@ def publish(parent):
     # Ensure that selection includes at least one OP Tag
     # If No OP tag in selection that most likely Editor forgot to add tag
     selected_track_items = lib.get_selected_track_items()
-    op_in_selection = any(
-        lib.get_trackitem_openpype_tag(track_item) for track_item in
-        selected_track_items)
 
     ignored_op_clips = []
     for track_item in selected_track_items:
-        if lib.get_trackitem_openpype_tag(track_item) and (
-                track_item.parent().isLocked() or not
-                track_item.parent().isEnabled() or not
-                track_item.isEnabled() or not
-                track_item.isMediaPresent()
-                ):
-            ignored_op_clips.append(track_item.name())
+        if (
+            track_item.parent().isLocked() or not
+            track_item.parent().isEnabled() or not
+            track_item.isEnabled() or not
+            track_item.isMediaPresent()
+            ):
+            ignored_op_clips.append(track_item)
 
-
-    if not op_in_selection:
-        QtWidgets.QMessageBox.critical(hiero.ui.mainWindow(), "Info",
-                                       'No OpenPype tags in selection       ')
-        return
 
     if ignored_op_clips:
         answer = QtWidgets.QMessageBox.question(
@@ -301,10 +293,32 @@ def publish(parent):
             "    Clip is offline\n\n" \
             "Skipped clips:\n{}\n\n" \
             "Would you like to continue?".format(
-                "\n".join(ignored_op_clips))
+                "\n".join([item.name() for item in ignored_op_clips]))
             )
         if answer == QtWidgets.QMessageBox.StandardButton.No:
             return
+
+    missing_tags = []
+    for track_item in selected_track_items:
+        if track_item in ignored_op_clips:
+            continue
+
+        tag = lib.create_op_instance(track_item)
+        if not tag is True:
+            missing_tags.append(f"{track_item.parent().name()}.{track_item.name()} - {tag}")
+
+    if missing_tags:
+        QtWidgets.QMessageBox.critical(
+            hiero.ui.mainWindow(), "Invalid track items",
+            ("Listed track items have the following issue\n\n"
+             "{}".format('\n'.join(missing_tags))
+             )
+
+        )
+        return
+
+    selected_track_items[0].sequence().editFinished()
+
     ### Ends Alkemy-X Override ###
     return host_tools.show_publish(parent)
 
