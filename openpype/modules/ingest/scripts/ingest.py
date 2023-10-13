@@ -71,7 +71,7 @@ MUST_HAVE_FIELDS = {
     "task_name",
     "family_name",
     "subset_name",
-    "expected_representations",
+    "rep_name",
 }
 
 # Regular expression that matches file names following precisely our naming convention
@@ -133,113 +133,20 @@ VENDOR_PACKAGE_RE = r"From_(\w+)"
 logger = Logger.get_logger(__name__)
 
 
-def ingest_folder_path(folder_path):
-    """Ingest all the products found in a given path.
+def publish_products(project_name, products_data, overwrite_version=False):
+    """Given a list of ProductRepresentation objects, publish them to OP and SG
 
     Args:
-        folder_path (str): Path to vendor package
+        project_name (str): Name of the project to publish to
+        products_data (list): List of ProductRepresentation objects
 
     Returns:
-        str: Path to the package to ingest its files
+        tuple: Tuple containing:
+            report_items (dict): Dictionary with the messages to show in the
+                report.
+            success (bool): Whether the publish was successful or not
+
     """
-    match = SHOW_MATCH_RE.search(folder_path)
-    if not match:
-        logger.error("No $SHOW found in path '%s'", folder_path)
-        return False
-
-    project_code = match.group("show")
-
-    sg = credentials.get_shotgrid_session()
-    sg_project = sg.find_one("Project", [["sg_code", "is", project_code]], ["name"])
-    project_name = sg_project["name"]
-
-    products, unassigned = get_products_from_filepath(
-        folder_path, project_name, project_code
-    )
-
-    # If products, print all the products that we will publish
-    if products:
-        click.echo(click.style("Found the following products to publish:", fg="green"))
-
-        for asset_name, tasks in products.items():
-            click.echo(
-                click.style("- Shot: ", fg="green") +
-                click.style(f"{asset_name}", fg="green", bold=True)
-            )
-            for task_name, families in tasks.items():
-                click.echo(
-                    click.style("  - Task: ", fg="green") +
-                    click.style(f"{task_name}", fg="green", bold=True)
-                )
-                for family_name, subsets in families.items():
-                    click.echo(
-                        click.style("    - Family: ", fg="green") +
-                        click.style(f"{family_name}", fg="green", bold=True)
-
-                    )
-                    for subset_name, publish_data in subsets.items():
-                        click.echo(
-                            click.style("\t- Subset: ", fg="green") +
-                            click.style(f"{subset_name}", fg="green", bold=True)
-                        )
-                        for rep_name, path in publish_data["expected_representations"].items():
-                            click.echo(
-                                click.style(
-                                    f"\t    * {rep_name}",
-                                    fg="white", bold=True
-                                ) +
-                                click.style(
-                                    f" - {path}",
-                                    fg="white",
-                                )
-                            )
-
-    # Print unassigned products too
-    if unassigned:
-        click.echo(
-            click.style(
-                "\n\nWe were unable to find enough information to publish the "
-                "following files:",
-                fg="bright_red",
-            )
-        )
-        click.echo(
-            click.style("\n".join(f"\t- {file}" for file in unassigned), fg="bright_red")
-        )
-        click.echo(
-            click.style(
-                "\n\nIf there's some of these that you'd expect the tool "
-                "to automatically ingest, please send the path to @pipe "
-                "so we can add more logic to identify them.",
-                fg="bright_red", bold=True
-            )
-        )
-
-    if products:
-        if input("Publish? [Y/n]: ") != "n":
-            for asset_name, tasks in products.items():
-                for task_name, families in tasks.items():
-                    for family_name, subsets in families.items():
-                        for subset_name, publish_data in subsets.items():
-                            click.echo(
-                                click.style(
-                                    f" - Publishing {asset_name} - {task_name} - {family_name} - {subset_name}",
-                                    fg="white", bold=True
-                                )
-                            )
-                            publish.publish_version(
-                                project_name,
-                                asset_name,
-                                task_name,
-                                family_name,
-                                subset_name,
-                                publish_data["expected_representations"],
-                                publish_data,
-                            )
-
-
-def publish_products(project_name, products_data):
-
     report_items = defaultdict(list)
     success = True
 
@@ -266,7 +173,9 @@ def publish_products(project_name, products_data):
             product_item.subset
         )
         if not all(key):
-            logger.debug("Skipping product as it doesn't have all required fields to publish")
+            logger.debug(
+                "Skipping product as it doesn't have all required fields to publish"
+            )
             continue
         elif key not in products:
             products[key] = {
@@ -289,11 +198,7 @@ def publish_products(project_name, products_data):
 
     for product_fields, product_data in products.items():
         asset, task, family, subset = product_fields
-        item_str = f"{asset} - {task} - {family} - {subset}"
-        logger.debug("Publishing")
-        logger.debug(item_str)
-
-        report = publish.publish_version(
+        msg, success = publish.publish_version(
             project_name,
             asset,
             task,
@@ -301,38 +206,28 @@ def publish_products(project_name, products_data):
             subset,
             product_data["expected_representations"],
             {"version": product_data.get("version")},
+            overwrite_version
         )
-        if report:
-            report_items["Successfully submitted products to publish"].append(
-                item_str + f" - {report.get('_id')}"
-            )
+        if success:
+            report_items["Successfully submitted products to publish"].append(msg)
         else:
-            success = False
-            report_items["Failed submission for products"].append(item_str)
+            report_items["Failed submission for products"].append(msg)
 
     return report_items, success
 
 
 def get_products_from_filepath(package_path, project_name, project_code):
-
+    """Given a path to a folder, find all the products that we can ingest from it"""
     def _split_camel_case(name):
+        """Split camel case name into words separated by underscores"""
         result = ""
         for i, c in enumerate(name):
-            if i > 0 and c.isupper():
+            # If letter is capital and it's not after a "_"
+            # we add a lowercase
+            if i > 0 and c.isupper() and name[i-1] != "_":
                 result += "_"
             result += c.lower()
         return result
-
-    # Created nested dictionaries for storing all the products we find
-    # categorized by asset -> task -> family -> subset
-    products = defaultdict(
-        lambda: defaultdict(
-            lambda: defaultdict(
-                lambda: defaultdict(dict)
-            )
-        )
-    )
-    unassigned = []
 
     asset_names = [
         asset_doc["name"] for asset_doc in get_assets(project_name, fields=["name"])
@@ -349,6 +244,7 @@ def get_products_from_filepath(package_path, project_name, project_code):
     asset_names = [asset_name for asset_name in asset_names if "_" in asset_name]
 
     # Recursively find all paths on folder and check if it's a product we can ingest
+    products = {}
     for root, _, files in os.walk(package_path):
         # Create a list of all the collections of files and single files that
         # we find that could potentially be an ingestable product
@@ -365,7 +261,7 @@ def get_products_from_filepath(package_path, project_name, project_code):
             (
                 os.path.join(root, remainder),
                 None,
-                 None
+                None
             )
             for remainder in remainders
         )
@@ -390,56 +286,22 @@ def get_products_from_filepath(package_path, project_name, project_code):
                 publish_data["frame_end"] = frame_end
 
             # Validate that we have all the required fields to publish
-            if not all([publish_data[field_name] for field_name in MUST_HAVE_FIELDS]):
-                unassigned.append(filepath)
-                continue
+            if not all([publish_data.get(field_name) for field_name in MUST_HAVE_FIELDS]):
+                logger.warning("Missing fields in publish data: %s", publish_data)
 
-            asset_name = publish_data["asset_name"]
-            task_name = publish_data["task_name"]
-            family_name = publish_data["family_name"]
             subset_name = publish_data["subset_name"]
 
             # Make sure subset name is always lower case and split by underscores
             subset_name = _split_camel_case(subset_name)
+            publish_data["subset_name"] = subset_name
 
-            # Check if we already had added a product in the same destination
-            # so we just append it as another representation if that's the case
-            existing_data = (
-                products.get(asset_name, {})
-                .get(task_name, {})
-                .get(family_name, {})
-                .get(subset_name, {})
-            )
+            products[filepath] = publish_data
 
-            # Update expected representations if subset is the same
-            if existing_data:
-                logger.debug("Found existing data: %s", existing_data)
-                existing_rep_names = set(
-                    existing_data["expected_representations"].keys()
-                )
-                new_rep_name = next(iter(publish_data["expected_representations"].keys()))
-                if new_rep_name in existing_rep_names:
-                    orig_rep_name = new_rep_name
-                    index = 1
-                    while new_rep_name in existing_rep_names:
-                        new_rep_name = f"{orig_rep_name}_{index}"
-                        index += 1
-                    publish_data["expected_representations"][
-                        new_rep_name
-                    ] = publish_data["expected_representations"][orig_rep_name]
-                    publish_data["expected_representations"].pop(orig_rep_name)
-                else:
-                    existing_data["expected_representations"].update(
-                        publish_data["expected_representations"]
-                    )
-            else:
-                logger.debug("Adding product: %s", publish_data)
-                products[asset_name][task_name][family_name][subset_name] = publish_data
-
-    return products, unassigned
+    return products
 
 
-# def get_product_from_filepath(
+# TODO: add some validation code that checks if the product will be fine to ingest
+# def validate_product(
 #     filepath,
 #     project_name,
 #     asset_docs,
@@ -474,6 +336,7 @@ def get_products_from_filepath(package_path, project_name, project_code):
 def get_product_from_filepath(
     project_name, project_code, filepath, strict_regex, asset_names
 ):
+    """Given a filepath, try to extract the publish data from it"""
     filename = os.path.basename(filepath)
     extension = os.path.splitext(filename)[-1]
 
@@ -568,16 +431,14 @@ def get_product_from_filepath(
             family_name = "camera"
 
     if not family_name:
-        logger.warning("Couldn't find a family for the file extension '%s'", extension)
+        logger.warning(
+            "Couldn't find a family for the file extension '%s'", extension
+        )
 
     # Create representation name from extension
     rep_name = EXT_TO_REP_NAME.get(extension)
     if not rep_name:
         rep_name = extension.rsplit(".", 1)[-1]
-
-    # Create dictionary of representations to create for
-    # the found product
-    expected_representations = {rep_name: filepath}
 
     # Override task name if we find any of the names of the supported tasks in the
     # filepath
@@ -606,8 +467,7 @@ def get_product_from_filepath(
         "subset_name": subset_name,
         "variant_name": variant_name,
         "version": delivery_version,
-        "expected_representations": expected_representations,
-        "source": filepath,
+        "rep_name": rep_name
     }
 
     # Go through the fuzzy name overrides and apply them if we find
@@ -651,7 +511,7 @@ def get_product_from_filepath(
 
 
 def get_asset_by_name_case_not_sensitive(project_name, asset_name):
-    """Handle more cases in file names"""
+    """Get asset by name ignoring case"""
     asset_name = re.compile(asset_name, re.IGNORECASE)
 
     assets = list(
@@ -667,7 +527,7 @@ def get_asset_by_name_case_not_sensitive(project_name, asset_name):
 
 
 def parse_containing(project_name, project_code, filepath, asset_names):
-    """Look if file name contains any existing asset name"""
+    """Parse filepath to find asset name"""
     for asset_name in asset_names:
         if asset_name.lower() in filepath.lower():
             return get_asset_by_name(

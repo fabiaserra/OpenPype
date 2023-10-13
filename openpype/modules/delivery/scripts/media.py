@@ -524,6 +524,11 @@ def generate_delivery_media_version(
         package_path, package_name, "{}.csv".format(package_name)
     )
 
+    # Make sure output directory folder exists
+    output_dir = os.path.dirname(csv_path)
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+
     # Check if the file exists and has content (i.e., is not empty)
     csv_file_exists = os.path.isfile(csv_path) and os.path.getsize(csv_path) > 0
 
