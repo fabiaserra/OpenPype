@@ -401,6 +401,8 @@ def generate_delivery_media_version(
     # to store them in a CSV file
     csv_data = []
 
+    success = True
+
     # For each output selected, submit a job to the farm
     for index, output_name_ext in enumerate(delivery_data["output_names_ext"]):
 
@@ -429,11 +431,16 @@ def generate_delivery_media_version(
             return_dest_path=True,
         )
         if repre_report_items:
+            success = False
             report_items.update(repre_report_items)
             continue
 
+        # Ensure output directory exists
+        parent_dir = os.path.dirname(dest_path)
+        if not os.path.exists(parent_dir):
+            os.makedirs(parent_dir)
         # Add some validation to make sure we don't overwrite existing files
-        if os.path.isfile(dest_path):
+        elif os.path.isfile(dest_path):
             logger.warning("Destination path '%s' already exists.", dest_path)
             report_items["Destination path already exists"].append(
                 dest_path
@@ -546,4 +553,4 @@ def generate_delivery_media_version(
     logger.debug("Added CSV data at '%s'", csv_path)
 
     click.echo(report_items)
-    return report_items, True
+    return report_items, success
