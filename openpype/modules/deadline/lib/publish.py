@@ -48,27 +48,20 @@ def check_version_exists(project_name, asset_doc, subset_name, version):
 
 def check_task_exists(project_name, asset_doc, task_name, force_creation=False):
     """Check whether version document exists in database."""
-    asset_tasks = asset_doc.get("data", {}).get("tasks", {})
-    if task_name not in asset_tasks:
-        return False
 
     if force_creation:
+        logger.debug("Creating task '%s' in asset '%s'", task_name, asset_doc["name"])
         sg = credentials.get_shotgrid_session()
         sg_project = sg.find_one("Project", [["name", "is", project_name]])
-
-        logger.warning(
-            "Task '%s' not found on asset '%s', adding it.",
-            task_name, asset_doc["name"]
-        )
-        sg_shot = sg.find_one(
-            "Shot", [["code", "is", asset_doc["name"]]]
-        )
+        sg_shot = sg.find_one("Shot", [["code", "is", asset_doc["name"]]])
         populate_tasks.add_tasks_to_sg_entities(
             sg_project,
             [sg_shot],
             "Shot",
             tasks={task_name: task_name}
         )
+    elif task_name not in asset_doc.get("data", {}).get("tasks", {}):
+        return False
 
     return True
 
