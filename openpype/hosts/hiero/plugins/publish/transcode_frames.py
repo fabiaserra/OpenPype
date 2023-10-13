@@ -114,11 +114,7 @@ class TranscodeFrames(publish.Extractor, publish.ColormanagedPyblishPluginMixin)
         # By default, we only ingest a single resolution (WR) unless
         # we have an ingest_resolution on the data stating a different
         # resolution
-        ingest_resolutions = ["wr"]
-
-        ingest_resolution = instance.data.get("ingest_resolution")
-        if ingest_resolution:
-            ingest_resolutions = ["fr", "wr"]
+        ingest_resolutions = ["fr", "wr"]
 
         # Name to use for batch grouping Deadline tasks
         batch_name = "Transcode frames - {}".format(
