@@ -173,7 +173,7 @@ class ProcessSubmittedJobOnFarm(pyblish.api.InstancePlugin,
         "review": ["lutPath"],
         "render2d": ["bakingNukeScripts", "version"],
         "renderlayer": ["convertToScanline"],
-        "plate.farm": ["cut_info_data", "sg_tags_data", "asset_working_format", "edit_note_data"],
+        "plate.farm": ["main_plate", "cut_info_data", "sg_tags_data", "asset_working_format", "edit_note_data"],
     }
 
     # list of family names to transfer to new family if present
