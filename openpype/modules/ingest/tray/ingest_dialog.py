@@ -100,6 +100,12 @@ class IngestDialog(QtWidgets.QDialog):
 
         main_layout.addWidget(input_widget)
 
+        overwrite_version_cb = QtWidgets.QCheckBox()
+        overwrite_version_cb.setChecked(False)
+
+        input_layout.addRow("Overwrite existing versions", overwrite_version_cb)
+
+        # Table with all the products we find in the given folder
         table_view = QtWidgets.QTableView()
         headers = [item[0] for item in self.DEFAULT_WIDTHS]
 
@@ -167,9 +173,10 @@ class IngestDialog(QtWidgets.QDialog):
 
         # Assign widgets we want to reuse to class instance
         self._projects_combobox = projects_combobox
+        self._overwrite_version_cb = overwrite_version_cb
+        self._file_browser = file_browser
         self._table_view = table_view
         self._model = model
-        self._file_browser = file_browser
         self._message_label = message_label
         self._text_area = text_area
 
@@ -296,6 +303,7 @@ class IngestDialog(QtWidgets.QDialog):
             report_items, success = ingest.publish_products(
                 self._current_proj_name,
                 products_data,
+                self._overwrite_version_cb.isChecked(),
             )
 
         except Exception:
@@ -451,26 +459,26 @@ class ProductsTableModel(QtCore.QAbstractTableModel):
             return default_flags | QtCore.Qt.ItemIsEditable
         return default_flags
 
+    def set_value_in_data(self, column_index, row_index, value):
+        if column_index == 1:
+            self._data[row_index].asset = value
+        elif column_index == 2:
+            self._data[row_index].task = value
+        elif column_index == 3:
+            self._data[row_index].family = value
+        elif column_index == 4:
+            self._data[row_index].subset = value
+        elif column_index == 5:
+            self._data[row_index].rep_name = value
+        elif column_index == 6:
+            self._data[row_index].version = value
+
     def setData(self, index, value, role=QtCore.Qt.EditRole):
         if not index.isValid():
             return False
 
         if role == QtCore.Qt.EditRole:
-            if index.column() == 1:
-                self._data[index.row()].asset = value
-            elif index.column() == 2:
-                self._data[index.row()].task = value
-            elif index.column() == 3:
-                self._data[index.row()].family = value
-            elif index.column() == 4:
-                self._data[index.row()].subset = value
-            elif index.column() == 5:
-                self._data[index.row()].rep_name = value
-            elif index.column() == 6:
-                self._data[index.row()].version = value
-            else:
-                return False
-
+            self.set_value_in_data(index.column(), index.row(), value)
             self.dataChanged.emit(index, index)  # Emit data changed signal
 
             return True
@@ -568,7 +576,7 @@ class ProductsTableModel(QtCore.QAbstractTableModel):
 
         self.layoutChanged.emit()
 
-    def set_products(self, products, unassigned):
+    def set_products(self, products):
 
         self.beginResetModel()
 

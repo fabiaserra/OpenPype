@@ -71,7 +71,7 @@ MUST_HAVE_FIELDS = {
     "task_name",
     "family_name",
     "subset_name",
-    "expected_representations",
+    "rep_name",
 }
 
 # Regular expression that matches file names following precisely our naming convention
@@ -133,7 +133,7 @@ VENDOR_PACKAGE_RE = r"From_(\w+)"
 logger = Logger.get_logger(__name__)
 
 
-def publish_products(project_name, products_data):
+def publish_products(project_name, products_data, overwrite_version=False):
     """Given a list of ProductRepresentation objects, publish them to OP and SG
 
     Args:
@@ -198,11 +198,7 @@ def publish_products(project_name, products_data):
 
     for product_fields, product_data in products.items():
         asset, task, family, subset = product_fields
-        item_str = f"{asset} - {task} - {family} - {subset}"
-        logger.debug("Publishing")
-        logger.debug(item_str)
-
-        report = publish.publish_version(
+        msg, success = publish.publish_version(
             project_name,
             asset,
             task,
@@ -210,14 +206,12 @@ def publish_products(project_name, products_data):
             subset,
             product_data["expected_representations"],
             {"version": product_data.get("version")},
+            overwrite_version
         )
-        if report:
-            report_items["Successfully submitted products to publish"].append(
-                item_str + f" - {report.get('_id')}"
-            )
+        if success:
+            report_items["Successfully submitted products to publish"].append(msg)
         else:
-            success = False
-            report_items["Failed submission for products"].append(item_str)
+            report_items["Failed submission for products"].append(msg)
 
     return report_items, success
 
@@ -225,9 +219,12 @@ def publish_products(project_name, products_data):
 def get_products_from_filepath(package_path, project_name, project_code):
     """Given a path to a folder, find all the products that we can ingest from it"""
     def _split_camel_case(name):
+        """Split camel case name into words separated by underscores"""
         result = ""
         for i, c in enumerate(name):
-            if i > 0 and c.isupper():
+            # If letter is capital and it's not after a "_"
+            # we add a lowercase
+            if i > 0 and c.isupper() and name[i-1] != "_":
                 result += "_"
             result += c.lower()
         return result
@@ -289,7 +286,7 @@ def get_products_from_filepath(package_path, project_name, project_code):
                 publish_data["frame_end"] = frame_end
 
             # Validate that we have all the required fields to publish
-            if not all([publish_data[field_name] for field_name in MUST_HAVE_FIELDS]):
+            if not all([publish_data.get(field_name) for field_name in MUST_HAVE_FIELDS]):
                 logger.warning("Missing fields in publish data: %s", publish_data)
 
             subset_name = publish_data["subset_name"]

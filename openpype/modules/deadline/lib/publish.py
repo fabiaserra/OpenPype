@@ -4,7 +4,7 @@ import json
 
 from openpype.lib import Logger
 from openpype.pipeline import legacy_io
-from openpype.client import get_asset_by_name
+from openpype.client import get_asset_by_name, get_subset_by_name, get_version_by_name
 
 from openpype.modules.deadline import constants as dl_constants
 from openpype.modules.deadline.lib import submit
@@ -26,6 +26,24 @@ PUBLISH_TO_SG_FAMILIES = {
 }
 
 
+def check_version_exists(project_name, asset_doc, subset_name, version):
+    """Check whether version document exits in database."""
+
+    subset_doc = get_subset_by_name(
+        project_name, subset_name, asset_doc["_id"]
+    )
+
+    existing_version_doc = get_version_by_name(
+        project_name, version, subset_doc["_id"]
+    )
+
+    # Check if version already exists
+    if existing_version_doc:
+        return True
+
+    return False
+
+
 def publish_version(
     project_name,
     asset_name,
@@ -34,7 +52,11 @@ def publish_version(
     subset_name,
     expected_representations,
     publish_data,
+    overwrite_version=False,
 ):
+    # String representation of product being published
+    item_str = f"Asset: {asset_name} - Task: {task_name} - Family: {family_name} - Subset: {subset_name}"
+
     if not all(
         [
             project_name,
@@ -45,31 +67,24 @@ def publish_version(
             expected_representations
         ]
     ):
-        logger.error(
-            "Can't publish version. You need to pass a value for each of these: "
-            "\nProject name: %s\nAsset name: %s\nTask name: %s\nFamily name: %s\n"
-            "Subset name: %s\nExpected representations: %s",
-            project_name, asset_name, task_name, family_name, subset_name,
-            expected_representations
+        msg = (
+            f"{item_str} -> Can't publish version without all arguments."
         )
-        return False
+        logger.error(msg)
+        return msg, False
 
-    # asset_entity = get_asset_by_name(project_name, asset_name)
-    # context_data = asset_entity["data"]
-    # context_data = {}
+    asset_doc = get_asset_by_name(project_name, asset_name)
+    context_data = asset_doc["data"]
 
-    # # Make sure input path frames are replaced with hashes
-    # source_path = re.sub(
-    #     r"\d+(?=\.\w+$)", lambda m: "#" * len(m.group()) if m.group() else "#",
-    #     source_path
-    # )
-
-    # out_frame_start = int(
-    #     publish_data["frameStart"] - publish_data.get("handleStart", 0)
-    # )
-    # out_frame_end = int(
-    #     publish_data["frameEnd"] + publish_data.get("handleEnd", 0)
-    # )
+    if not overwrite_version and publish_data.get("version"):
+        if check_version_exists(
+            project_name, asset_doc, subset_name, publish_data.get("version")
+        ):
+            msg = (
+                f"{item_str} -> Version already exists."
+            )
+            logger.error(msg)
+            return msg, False
 
     # TODO: write some logic that finds the main path from the list of
     # representations
@@ -82,6 +97,7 @@ def publish_version(
         "families": publish_data.get("families", []),
         "asset": asset_name,
         "task": task_name,
+        "fps": publish_data.get("fps", context_data.get("fps")),
         "comment": publish_data.get("comment", ""),
         "source": source_path,
         "overrideExistingFrame": False,
@@ -100,11 +116,9 @@ def publish_version(
         publish_to_sg=family_name in PUBLISH_TO_SG_FAMILIES,
     )
     if not representations:
-        logger.error(
-            "No representations could be found on expected dictionary: %s",
-            expected_representations
-        )
-        return False
+        msg = f"{item_str} -> No representations could be found on expected dictionary: {expected_representations}"
+        logger.error(msg)
+        return msg, False
 
     if family_name in REVIEW_FAMILIES:
         # inject colorspace data if we are generating a review
@@ -117,6 +131,8 @@ def publish_version(
                 rep, project_name, colorspace=source_colorspace
             )
 
+    instance_data["frameStart"] = representations[0]["frameStart"]
+    instance_data["frameEnd"] = representations[0]["frameEnd"]
     instance_data["frameStartHandle"] = representations[0]["frameStart"]
     instance_data["frameEndHandle"] = representations[0]["frameEnd"]
 
@@ -191,6 +207,7 @@ def publish_version(
         "asset": instance_data["asset"],
         "frameStart": instance_data["frameStartHandle"],
         "frameEnd": instance_data["frameEndHandle"],
+        "fps": instance_data["fps"],
         "source": instance_data["source"],
         "user": getpass.getuser(),
         "version": None,  # this is workfile version
@@ -205,4 +222,6 @@ def publish_version(
     with open(metadata_path, "w") as f:
         json.dump(publish_job, f, indent=4, sort_keys=True)
 
-    return response
+    msg = f"{item_str} -> Deadline Job {response.get('_id')}"
+
+    return msg, True

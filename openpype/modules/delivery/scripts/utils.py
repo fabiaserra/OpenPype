@@ -23,7 +23,7 @@ logger = Logger.get_logger(__name__)
 # Regular expression that allows us to replace the frame numbers of a file path
 # with any string token
 RE_FRAME_NUMBER = re.compile(
-    r"(?P<prefix>^(.*)+)\.(?P<frame>(\*|%0?\d*d)+)?\.(?P<extension>\w+\.?(sc|gz)?$)"
+    r"(?P<prefix>\w+)\.(?P<frame>(\*|%0?\d*d)+)\.(?P<extension>\w+\.?(sc|gz)?$)"
 )
 
 
@@ -50,13 +50,11 @@ def create_metadata_path(instance_data):
 
 
 def replace_frame_number_with_token(path, token):
-    re_match = RE_FRAME_NUMBER.match(path)
-    if re_match:
-        return RE_FRAME_NUMBER.sub(
-            r"\g<prefix>.{}.\g<extension>".format(token), path
-        )
-
-    return path
+    root, filename = os.path.split(path)
+    filename = RE_FRAME_NUMBER.sub(
+        r"\g<prefix>.{}.\g<extension>".format(token), path
+    )
+    return os.path.join(root, filename)
 
 
 def get_representations(
@@ -104,7 +102,8 @@ def get_representations(
         # If file path is in remainder it means it was a single file
         if file_path in remainder:
             collections = [remainder]
-            frame_match = RE_FRAME_NUMBER.match(file_path)
+            filename = os.path.basename(file_path)
+            frame_match = RE_FRAME_NUMBER.match(filename)
             if frame_match:
                 ext = frame_match.group("extension")
                 frame = frame_match.group("frame")
