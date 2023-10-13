@@ -1,6 +1,8 @@
 import getpass
+import re
 
 from openpype.client.operations import OperationsSession
+from openpype.lib import run_subprocess
 from openpype.pipeline.context_tools import get_current_project_name
 import pyblish.api
 
@@ -148,40 +150,60 @@ class IntegrateShotgridShotData(pyblish.api.InstancePlugin):
         self.sg_batch.append(sg_tag_batch)
 
     def update_working_resolution(self, instance, sg_shot):
-        working_resolution = instance.data.get("asset_working_format")
-        if working_resolution:
-            self.log.info(
-                "Integrating working resolution: %s", working_resolution
-            )
-        else:
-            self.log.info("No working resolution to integrate")
+        self.log.info("Integrating Working Resolution")
+        if not instance.data["main_plate"]:
+            self.log.info("Skipping working resolution integration. Not main plate")
             return
+
+        representations = instance.data["representations"]
+        if not "exr" in representations:
+            self.log.info("No exr representation found")
+            return
+
+        representation = representations["exr"]
+        transcoded_frame = representation["files"][-1]
+
+        # Grab width, height, and pixel aspect from last frame with exrheader
+        command_args = ["/sw/bin/exrheader", transcoded_frame]
+        result = run_subprocess(command_args)
+
+        oiio_xyrt = r"displayWindow.+?: \((?P<x>\d+) (?P<y>\d+)\) - \((?P<r>\d+) (?P<t>\d+)+\)"
+        xyrt_match = re.search(oiio_xyrt, result)
+        if not xyrt_match:
+            self.log.info("Could not parse width/height from ingest exr: %s", transcoded_frame)
+            return
+
+        x, y, r, t = map(int, xyrt_match.groups())
+        width = r - x + 1
+        height = t - y + 1
+        pixel_aspect = int(result.split("pixelAspectRatio")[-1].split("\n")[0].split(": ")[-1]) or 1
 
         # Update shot/asset doc with proper working res.
         asset_doc = instance.data["assetEntity"]
-        asset_doc["data"].update(working_resolution)
+        asset_doc["data"].update(
+            {
+                "resolutionWidth": width,
+                "resolutionHeight": height,
+                "pixelAspect": pixel_aspect,
+            }
+        )
 
         project_name = get_current_project_name()
-
         op_session = OperationsSession()
         op_session.update_entity(
             project_name, asset_doc["type"], asset_doc["_id"], asset_doc
         )
         op_session.commit()
 
-        # Also update shotgrid shot fields
+        # Also update Shotgrid shot fields
         working_res_batch = {
             "request_type": "update",
             "entity_type": "Shot",
             "entity_id": sg_shot["id"],
             "data": {
-                "sg_resolution_width": int(
-                    working_resolution["resolutionWidth"]
-                ),
-                "sg_resolution_height": int(
-                    working_resolution["resolutionHeight"]
-                ),
-                "sg_pixel_aspect": float(working_resolution["pixelAspect"]),
+                "sg_resolution_width": width,
+                "sg_resolution_height": height,
+                "sg_pixel_aspect": float(pixel_aspect),
             },
         }
         self.sg_batch.append(working_res_batch)
