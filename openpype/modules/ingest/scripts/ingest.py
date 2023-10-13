@@ -5,6 +5,7 @@ import clique
 from collections import defaultdict
 
 from openpype.lib import Logger
+from openpype.pipeline import legacy_io
 from openpype.modules.shotgrid.lib import credentials
 
 # from openpype.modules.shotgrid.scripts import populate_tasks
@@ -43,6 +44,7 @@ FAMILY_EXTS_MAP = {
     "camera": {".abc", ".fbx"},
     "reference": {".mov", ".mp4", ".mxf", ".avi", ".wmv"},
     "workfile": {".nk", ".ma", ".mb", ".hip", ".sfx", ".mocha", ".psd"},
+    "distortion": {".nk", ".exr"},
     "color_grade": {".ccc", ".cc"},
 }
 
@@ -57,6 +59,9 @@ FUZZY_NAME_OVERRIDES = {
     },
     ("_mm", "_trk", "matchmove", "tracking"): {
         "task_name": TRACK_TASK
+    },
+    ("distortion", "distortion_node"): {
+        "family_name": "distortion"
     }
 }
 
@@ -82,7 +87,7 @@ STRICT_FILENAME_RE_STR = (
     r"(?P<task>({}))_"
     r"(?P<variant>[a-zA-Z0-9_\-]*_)?"
     r"(?P<delivery_version>v\d+)"
-    r"(?P<frame>\.\d+)?"
+    r"(?P<frame>\.(\*|%0?\d*d)+)?"
     r"(?P<extension>\.[a-zA-Z]+)$"
 ).format(TASKS_RE)
 
@@ -222,26 +227,37 @@ def ingest_folder_path(folder_path):
                                     fg="white", bold=True
                                 )
                             )
-                            # publish.publish_version(
-                            #     project_name,
-                            #     asset_name,
-                            #     task_name,
-                            #     family_name,
-                            #     subset_name,
-                            #     publish_data["expected_representations"],
-                            #     publish_data,
-                            # )
+                            publish.publish_version(
+                                project_name,
+                                asset_name,
+                                task_name,
+                                family_name,
+                                subset_name,
+                                publish_data["expected_representations"],
+                                publish_data,
+                            )
 
 
 def publish_products(project_name, products_data):
 
     report_items = defaultdict(list)
+    success = True
+
+    if not project_name:
+        return report_items["Project not selected"].append(
+            "Select project before publishing!"
+        ), False
+
+    # Hack required for environment to pick up in the farm
+    legacy_io.Session["AVALON_PROJECT"] = project_name
+    legacy_io.Session["AVALON_APP"] = "traypublisher"
 
     # Go through list of products data from ingest dialog table and combine the
     # representations dictionary for the products that target the same subset
     products = {}
     for product_item in products_data:
         item_str = f"{product_item.asset} - {product_item.task} - {product_item.family} - {product_item.subset}"
+        logger.debug(item_str)
 
         key = (
             product_item.asset,
@@ -249,35 +265,53 @@ def publish_products(project_name, products_data):
             product_item.family,
             product_item.subset
         )
-        if key not in products:
+        if not all(key):
+            logger.debug("Skipping product as it doesn't have all required fields to publish")
+            continue
+        elif key not in products:
             products[key] = {
-               product_item.rep_name: product_item.path,
+                "expected_representations": {
+                    product_item.rep_name: product_item.path,
+                },
+                "version": product_item.version,
             }
         else:
-            if product_item.rep_name in products[key]:
+            if product_item.rep_name in products[key]["expected_representations"]:
+                logger.debug("Duplicated representation")
                 report_items["Duplicated representation in product"].append(
                     item_str
                 )
                 continue
 
-            products[key][product_item.rep_name] = product_item.path
+            products[key]["expected_representations"][product_item.rep_name] = product_item.path
 
-    for product_fields, expected_representations in products.items():
+    logger.debug("Flattened products: %s", products)
+
+    for product_fields, product_data in products.items():
         asset, task, family, subset = product_fields
         item_str = f"{asset} - {task} - {family} - {subset}"
+        logger.debug("Publishing")
+        logger.debug(item_str)
 
-        publish.publish_version(
+        report = publish.publish_version(
             project_name,
             asset,
             task,
             family,
             subset,
-            expected_representations,
-            {},
+            product_data["expected_representations"],
+            {"version": product_data.get("version")},
         )
-        report_items["Successfully submitted products to publish in Deadline"].append(item_str)
+        if report:
+            report_items["Successfully submitted products to publish"].append(
+                item_str + f" - {report.get('_id')}"
+            )
+        else:
+            success = False
+            report_items["Failed submission for products"].append(item_str)
 
-    return report_items
+    return report_items, success
+
 
 def get_products_from_filepath(package_path, project_name, project_code):
 
@@ -319,13 +353,27 @@ def get_products_from_filepath(package_path, project_name, project_code):
         # Create a list of all the collections of files and single files that
         # we find that could potentially be an ingestable product
         collections, remainders = clique.assemble(files)
-        filepaths = [
-            os.path.join(root, collection.format("{head}{padding}{tail}"))
+        filepaths_frame_range = [
+            (
+                os.path.join(root, collection.format("{head}{padding}{tail}")),
+                min(collection.indexes),
+                max(collection.indexes)
+            )
             for collection in collections
         ]
-        filepaths.extend(os.path.join(root, remainder) for remainder in remainders)
+        filepaths_frame_range.extend(
+            (
+                os.path.join(root, remainder),
+                None,
+                 None
+            )
+            for remainder in remainders
+        )
 
-        for filepath in filepaths:
+        for filepath_frame_range in filepaths_frame_range:
+
+            filepath, frame_start, frame_end = filepath_frame_range
+
             publish_data = get_product_from_filepath(
                 project_name,
                 project_code,
@@ -333,6 +381,13 @@ def get_products_from_filepath(package_path, project_name, project_code):
                 strict_regex,
                 asset_names,
             )
+
+            # Add frame range to publish data
+            if frame_start:
+                publish_data["frame_start"] = frame_start
+
+            if frame_end:
+                publish_data["frame_end"] = frame_end
 
             # Validate that we have all the required fields to publish
             if not all([publish_data[field_name] for field_name in MUST_HAVE_FIELDS]):
@@ -445,6 +500,9 @@ def get_product_from_filepath(
         delivery_version = re_match.group("delivery_version")
         extension = re_match.group("extension") or extension
 
+        if delivery_version:
+            delivery_version = int(delivery_version.strip("v"))
+
         logger.debug("Shot code: '%s'", shot_code)
         logger.debug("Subset name: '%s'", subset_name)
         logger.debug("Task name: '%s'", task_name)
@@ -547,7 +605,7 @@ def get_product_from_filepath(
         "family_name": family_name,
         "subset_name": subset_name,
         "variant_name": variant_name,
-        "delivery_version": delivery_version,
+        "version": delivery_version,
         "expected_representations": expected_representations,
         "source": filepath,
     }
@@ -583,6 +641,9 @@ def get_product_from_filepath(
         # Remove the last underscore from captured variant name
         variant_name = variant_name.rsplit("_", 1)[0]
         publish_data["subset_name"] = f"{subset_name}_{variant_name}"
+
+    # Append task name to subset name by default
+    publish_data["subset_name"] = f"{publish_data['task_name']}_{publish_data['subset_name']}"
 
     logger.debug("Publish data for filepath %s: %s", filepath, publish_data)
 

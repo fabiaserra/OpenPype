@@ -1,7 +1,6 @@
 import os
 import attr
 import platform
-import collections
 import traceback
 
 from qtpy import QtCore, QtWidgets, QtGui
@@ -14,7 +13,7 @@ from openpype.client import get_projects
 from openpype.pipeline import AvalonMongoDB
 from openpype.tools.utils import lib as tools_lib
 from openpype.modules.shotgrid.lib import credentials
-from openpype.modules.ingest.scripts import outsource
+from openpype.modules.ingest.scripts import ingest
 from openpype.tools.utils.constants import (
     HEADER_NAME_ROLE,
     EDIT_ICON_ROLE,
@@ -29,16 +28,17 @@ class IngestDialog(QtWidgets.QDialog):
     tool_title = "Ingest Products"
     tool_name = "batch_ingester"
 
-    SIZE_W = 1500
+    SIZE_W = 1800
     SIZE_H = 800
 
     DEFAULT_WIDTHS = (
-        ("path", 800),
-        ("asset", 150),
-        ("task", 100),
-        ("family", 100),
-        ("subset", 200),
-        ("rep_name", 100),
+        ("path", 1000),
+        ("asset", 120),
+        ("task", 120),
+        ("family", 120),
+        ("subset", 120),
+        ("rep_name", 120),
+        ("version", 120)
     )
 
     def __init__(self, module, parent=None):
@@ -54,6 +54,7 @@ class IngestDialog(QtWidgets.QDialog):
         self.setWindowFlags(
             QtCore.Qt.WindowStaysOnTopHint
             | QtCore.Qt.WindowCloseButtonHint
+            | QtCore.Qt.WindowMaximizeButtonHint
             | QtCore.Qt.WindowMinimizeButtonHint
         )
 
@@ -65,7 +66,7 @@ class IngestDialog(QtWidgets.QDialog):
         self._initial_refresh = False
         self._ignore_project_change = False
 
-        # Short code name for currently selected project
+        self._current_proj_name = None
         self._current_proj_code = None
 
         dbcon = AvalonMongoDB()
@@ -128,12 +129,12 @@ class IngestDialog(QtWidgets.QDialog):
         header.setStretchLastSection(True)
 
         # Add delegates to automatically fill possible options on columns
-        task_delegate = ComboBoxDelegate(outsource.OUTSOURCE_TASKS, parent=self)
+        task_delegate = ComboBoxDelegate(ingest.OUTSOURCE_TASKS, parent=self)
         column = model.get_header_index("task")
         table_view.setItemDelegateForColumn(column, task_delegate)
 
         family_delegate = ComboBoxDelegate(
-            outsource.FAMILY_EXTS_MAP.keys(), parent=self
+            ingest.FAMILY_EXTS_MAP.keys(), parent=self
         )
         column = model.get_header_index("family")
         table_view.setItemDelegateForColumn(column, family_delegate)
@@ -254,7 +255,8 @@ class IngestDialog(QtWidgets.QDialog):
         title = "{} - {}".format(self.tool_title, project_name)
         self.setWindowTitle(title)
 
-        # Store project code as class variable so we can reuse it throughout
+        # Store project name and code as class variable so we can reuse it throughout
+        self._current_proj_name = project_name
         proj_code = sg_project.get("sg_code")
         self._current_proj_code = proj_code
 
@@ -280,7 +282,7 @@ class IngestDialog(QtWidgets.QDialog):
             self.set_message(msg)
             return
 
-        products, unassigned = outsource.get_products_from_filepath(
+        products, unassigned = ingest.get_products_from_filepath(
             filepath,
             project_name,
             self._current_proj_code
@@ -288,9 +290,11 @@ class IngestDialog(QtWidgets.QDialog):
         self._model.set_products(products, unassigned)
 
     def _on_publish_clicked(self):
+        logger.debug("Publishing products")
         try:
             products_data = self._model.get_products()
-            report_items, success = outsource.publish_products(
+            report_items, success = ingest.publish_products(
+                self._current_proj_name,
                 products_data,
             )
 
@@ -373,10 +377,24 @@ class ProductsTableModel(QtCore.QAbstractTableModel):
         ("task", "Task"),
         ("family", "Family"),
         ("subset", "Subset"),
-        ("rep_name", "Representation")
+        ("rep_name", "Representation"),
+        ("version", "Version"),
     ]
 
-    EDITABLE_COLUMNS = ["asset", "task", "family", "subset", "rep_name"]
+
+    EDITABLE_COLUMNS = ["asset", "task", "family", "subset", "rep_name", "version"]
+
+    UNNECESSARY_COLUMNS = ["version", "frame_start", "frame_end"]
+
+    _tooltips = [
+        "Source path of the product",
+        "Name of the asset to publish product to (i.e., Shot, Sequence, Episode)",
+        "Name of the task to publish product as.",
+        "Name of the family to publish product as.",
+        "Name of the subset/product.",
+        "Name of the representation to store under the subset/product. There can be multiple rows targeting the same subset/product and this is what creates the different representations.",
+        "Version number to use for publising. If left empty it will simply publish as the next version available."
+    ]
 
     @attr.s
     class ProductRepresentation:
@@ -386,6 +404,9 @@ class ProductsTableModel(QtCore.QAbstractTableModel):
         family = attr.ib()
         subset = attr.ib()
         rep_name = attr.ib()
+        version = attr.ib(type=int)
+        frame_start = attr.ib(type=int)
+        frame_end = attr.ib(type=int)
 
     def __init__(self, header, parent=None):
         super().__init__(parent=parent)
@@ -446,6 +467,8 @@ class ProductsTableModel(QtCore.QAbstractTableModel):
                 self._data[index.row()].subset = value
             elif index.column() == 5:
                 self._data[index.row()].rep_name = value
+            elif index.column() == 6:
+                self._data[index.row()].version = value
             else:
                 return False
 
@@ -469,22 +492,34 @@ class ProductsTableModel(QtCore.QAbstractTableModel):
         if not index.isValid():
             return
 
-        product_item = self._data[index.row()]
+        if index.column() >= len(self.COLUMN_LABELS):
+            return
+
+        prod_item = self._data[index.row()]
         header_value = self._header[index.column()]
 
         if role in (QtCore.Qt.DisplayRole, QtCore.Qt.EditRole):
-            return attr.asdict(product_item)[self._header[index.column()]]
+            if header_value == "path" and prod_item.frame_start and prod_item.frame_end:
+                return f"{prod_item.path} ({prod_item.frame_start}-{prod_item.frame_end})"
+            else:
+                return attr.asdict(prod_item)[self._header[index.column()]]
 
         if role == EDIT_ICON_ROLE:
             if self.can_edit and header_value in self.EDITABLE_COLUMNS:
                 return self.edit_icon
 
-        # Change the color if the row has missing data
+        # Change the color if the row has missing data that's required to publish
         if role == QtCore.Qt.ForegroundRole:
-            product_dict = attr.asdict(product_item)
-            if any(value is None or value == "" for value in product_dict.values()):
+            product_dict = attr.asdict(prod_item)
+            publishable = all(
+                value
+                for key, value in product_dict.items()
+                if key not in self.UNNECESSARY_COLUMNS
+            )
+            if not publishable:
                 return QtGui.QColor(QtCore.Qt.yellow)
-
+            # if any(value is None or value == "" for value in product_dict.values()):
+                # return QtGui.QColor(QtCore.Qt.yellow)
         return None
 
     def headerData(self, section, orientation, role=QtCore.Qt.DisplayRole):
@@ -495,9 +530,13 @@ class ProductsTableModel(QtCore.QAbstractTableModel):
             if orientation == QtCore.Qt.Horizontal:
                 return self.COLUMN_LABELS[section][1]
 
-        if role == HEADER_NAME_ROLE:
+        elif role == HEADER_NAME_ROLE:
             if orientation == QtCore.Qt.Horizontal:
                 return self.COLUMN_LABELS[section][0]  # return name
+
+        elif role == QtCore.Qt.ToolTipRole:
+            if orientation == QtCore.Qt.Horizontal:
+                return self._tooltips[section]
 
     def sort(self, column, order):
         self.layoutAboutToBeChanged.emit()
@@ -522,6 +561,9 @@ class ProductsTableModel(QtCore.QAbstractTableModel):
         if column == 5:
             self._data.sort(key=lambda x: (x.rep_name is not None, x.rep_name))
 
+        if column == 6:
+            self._data.sort(key=lambda x: (x.version is not None, x.version))
+
         if order == QtCore.Qt.DescendingOrder:
             self._data.reverse()
 
@@ -545,6 +587,9 @@ class ProductsTableModel(QtCore.QAbstractTableModel):
                                 family_name,
                                 subset_name,
                                 rep_name,
+                                publish_data["version"],
+                                publish_data.get("frame_start"),
+                                publish_data.get("frame_end")
                             )
                             self._data.append(item)
 
@@ -556,6 +601,9 @@ class ProductsTableModel(QtCore.QAbstractTableModel):
                 None,
                 None,
                 None,
+                None,
+                None,
+                None
             )
             self._data.append(item)
 

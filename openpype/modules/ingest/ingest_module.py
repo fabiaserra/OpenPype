@@ -4,7 +4,7 @@ from openpype.modules import (
     OpenPypeModule,
     ITrayModule
 )
-from openpype.modules.ingest.scripts import outsource
+from openpype.modules.ingest.scripts import ingest
 
 
 class IngestModule(OpenPypeModule, ITrayModule):
@@ -33,18 +33,18 @@ class IngestModule(OpenPypeModule, ITrayModule):
         return self.tray_wrapper.tray_menu(tray_menu)
 
 
-@click.command("ingest_vendor_package")
+@click.command("ingest_folder_path")
 @click.argument("folder_path", type=click.Path(exists=True))
-def ingest_vendor_package(
+def ingest_folder_path(
     folder_path,
 ):
-    """Given an outsource vendor package folder, try ingest all its contents.
+    """Given a folder, try ingest all its contents.
 
     Args:
-        path (str): Path to the outsource package received.
+        path (str): Path to the folder we want to ingest.
 
     """
-    return outsource.ingest_vendor_package(
+    return ingest.ingest_folder_path(
         folder_path
     )
 
@@ -54,7 +54,7 @@ def cli_main():
     pass
 
 
-cli_main.add_command(ingest_vendor_package)
+cli_main.add_command(ingest_folder_path)
 
 
 if __name__ == "__main__":
