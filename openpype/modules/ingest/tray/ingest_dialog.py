@@ -282,12 +282,12 @@ class IngestDialog(QtWidgets.QDialog):
             self.set_message(msg)
             return
 
-        products, unassigned = ingest.get_products_from_filepath(
+        products = ingest.get_products_from_filepath(
             filepath,
             project_name,
             self._current_proj_code
         )
-        self._model.set_products(products, unassigned)
+        self._model.set_products(products)
 
     def _on_publish_clicked(self):
         logger.debug("Publishing products")
@@ -380,7 +380,6 @@ class ProductsTableModel(QtCore.QAbstractTableModel):
         ("rep_name", "Representation"),
         ("version", "Version"),
     ]
-
 
     EDITABLE_COLUMNS = ["asset", "task", "family", "subset", "rep_name", "version"]
 
@@ -575,35 +574,17 @@ class ProductsTableModel(QtCore.QAbstractTableModel):
 
         self._data = []
 
-        for asset_name, tasks in products.items():
-            for task_name, families in tasks.items():
-                for family_name, subsets in families.items():
-                    for subset_name, publish_data in subsets.items():
-                        for rep_name, rep_path in publish_data["expected_representations"].items():
-                            item = self.ProductRepresentation(
-                                rep_path,
-                                asset_name,
-                                task_name,
-                                family_name,
-                                subset_name,
-                                rep_name,
-                                publish_data["version"],
-                                publish_data.get("frame_start"),
-                                publish_data.get("frame_end")
-                            )
-                            self._data.append(item)
-
-        for path in unassigned:
+        for filepath, publish_data in products.items():
             item = self.ProductRepresentation(
-                path,
-                None,
-                None,
-                None,
-                None,
-                None,
-                None,
-                None,
-                None
+                filepath,
+                publish_data.get("asset_name", ""),
+                publish_data.get("task_name", ""),
+                publish_data.get("family_name", ""),
+                publish_data.get("subset_name", ""),
+                publish_data.get("rep_name", ""),
+                publish_data["version"],
+                publish_data.get("frame_start"),
+                publish_data.get("frame_end")
             )
             self._data.append(item)
 
