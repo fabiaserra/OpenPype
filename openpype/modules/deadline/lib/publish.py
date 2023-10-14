@@ -53,7 +53,7 @@ def check_task_exists(project_name, asset_doc, task_name, force_creation=False):
         logger.debug("Creating task '%s' in asset '%s'", task_name, asset_doc["name"])
         sg = credentials.get_shotgrid_session()
         sg_project = sg.find_one("Project", [["name", "is", project_name]])
-        sg_shot = sg.find_one("Shot", [["code", "is", asset_doc["name"]]])
+        sg_shot = sg.find_one("Shot", [["code", "is", asset_doc["name"]], ["code"]])
         populate_tasks.add_tasks_to_sg_entities(
             sg_project,
             [sg_shot],
