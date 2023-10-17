@@ -1851,7 +1851,8 @@ def get_hierarchy_parents(hierarchy_data):
 def set_framing_info(cut_info, track_item):
     # Only reference will update cut info to SG
     cut_info["cut_in"] = int(cut_info["cut_in"])
-    if cut_info["cut_range"] == "False":
+    # cut info will almost always exist except for old style tags
+    if cut_info.get("cut_range", "True") == "False":
         cut_info["head_handles"] = int(track_item.handleInLength())
         cut_info["tail_handles"] = int(track_item.handleOutLength())
     else:
