@@ -121,6 +121,7 @@ class IntegrateAsset(pyblish.api.InstancePlugin):
         "nukenodes",
         "online",
         "plate",
+        "reference",
         "pointcache",
         "pointcloud",
         "prerender",
