@@ -278,7 +278,7 @@ def publish(parent):
             track_item.parent().isEnabled() or not
             track_item.isEnabled() or not
             track_item.isMediaPresent()
-            ):
+        ):
             ignored_op_clips.append(track_item)
 
 
