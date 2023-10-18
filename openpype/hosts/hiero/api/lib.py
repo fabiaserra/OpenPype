@@ -1675,6 +1675,20 @@ def parse_cdl(path):
     return cdl
 
 
+def get_main_ref_track(track_item=None):
+    if track_item:
+        sequence = track_item.sequence()
+    else:
+        sequence = hiero.ui.activeSequence()
+
+    video_tracks = sequence.videoTracks()
+    for track in video_tracks:
+        if track.name() == "edit_ref":
+            return track
+
+    return None
+
+
 class MainPlate():
     def sequence(function):
         """Decorator class funtion that ensures that the conditions needed to
@@ -1978,6 +1992,7 @@ def create_op_instance(track_item):
     handle_end = cut_info["tail_handles"]
 
     main_plate = "True" if track_item.get_main_plate() else "False"
+    main_ref = "True" if get_main_ref_track(track_item) == track_item.parent() else "False"
 
     instance_data["hierarchyData"] = hierarchy_data
     instance_data["hierarchy"] = hierarchy_path
@@ -1990,6 +2005,7 @@ def create_op_instance(track_item):
     instance_data["handleStart"] = handle_start
     instance_data["handleEnd"] = handle_end
     instance_data["main_plate"] = main_plate
+    instance_data["main_ref"] = main_ref
     instance_data["use_nuke"] = use_nuke
 
     # Constants
