@@ -711,18 +711,16 @@ def set_favorites():
     project_dir = os.path.join(projects_root, project_code).replace("\\", "/")
     # No need to add project to hiero favorites as that is a default favorite
 
-    # Add incoming favorite
+    # incoming
     incoming_dir = os.path.join(project_dir, "io/incoming")
-    favorite_items.update({"Incoming dir": incoming_dir + "/"})
-    # Add outgoing favorite
+    favorite_items.update({"Incoming dir": incoming_dir})
+
+    # outgoing
     outgoing_dir = os.path.join(project_dir, "io/outgoing")
-    favorite_items.update({"Outgoing dir": outgoing_dir + "/"})
+    favorite_items.update({"Outgoing dir": outgoing_dir})
 
     # asset
-    asset_root = os.path.normpath(work_dir.split(
-        asset)[0])
-    # add asset name
-    asset_dir = os.path.join(asset_root, asset) + "/"
+    asset_dir = os.path.normpath(work_dir.split(work_dir.split(asset)[-1])[0])
     # add to favorites
     favorite_items.update({"Shot dir": asset_dir.replace("\\", "/")})
 
