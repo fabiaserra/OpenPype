@@ -711,16 +711,18 @@ def set_favorites():
     project_dir = os.path.join(projects_root, project_code).replace("\\", "/")
     # No need to add project to hiero favorites as that is a default favorite
 
-    # incoming
+    # Add incoming favorite
     incoming_dir = os.path.join(project_dir, "io/incoming")
-    favorite_items.update({"Incoming dir": incoming_dir})
-
-    # outgoing
+    favorite_items.update({"Incoming dir": incoming_dir + "/"})
+    # Add outgoing favorite
     outgoing_dir = os.path.join(project_dir, "io/outgoing")
-    favorite_items.update({"Outgoing dir": outgoing_dir})
+    favorite_items.update({"Outgoing dir": outgoing_dir + "/"})
 
     # asset
-    asset_dir = os.path.normpath(work_dir.split(work_dir.split(asset)[-1])[0])
+    asset_root = os.path.normpath(work_dir.split(
+        asset)[0])
+    # add asset name
+    asset_dir = os.path.join(asset_root, asset) + "/"
     # add to favorites
     favorite_items.update({"Shot dir": asset_dir.replace("\\", "/")})
 
@@ -2019,69 +2021,3 @@ def create_op_instance(track_item):
     tag = set_trackitem_openpype_tag(track_item, instance_data)
     return True if tag else "OP tag couldn't be added"
 ### Ends Alkemy-X Override ###
-
-
-
-# Openpype Context Menu -> put this into a separate module!!!
-from PySide2.QtGui import *
-from PySide2.QtCore import *
-from PySide2.QtWidgets import *
-class OpenpypeMenu(QMenu):
-    def __init__(self):
-        QMenu.__init__(self, "Openpype B", None)
-
-        hiero.core.events.registerInterest(
-            "kShowContextMenu/kBin", self.eventHandler)
-
-    def add_actions(self):
-        # Actions need to be stored as part of the class else they won't be constructed
-        self.op_actions = []
-        if self.selection.get("bins"):
-            populate_default_bins_action = QAction("Populate Default Bins")
-            populate_default_bins_action.triggered.connect(self.populate_default_bins)
-            self.op_actions.append(populate_default_bins_action)
-
-        for action in self.op_actions:
-            self.addAction(action)
-
-    def populate_default_bins(self):
-        bins = self.selection["bins"]
-        template_bins = ["Camera_Originals", "EDL", "Outgoing", "QC", "Reference", "Sequence", "Confrom"]
-        template_bins_lower = list(map(lambda string: string.lower(), template_bins))
-        project_bin = bins[0].project().clipsBin()
-        for bin_item in project_bin.bins():
-            if isinstance(bin_item, hiero.core.Bin):
-                if not bin_item.name().lower() in template_bins_lower:
-                    continue
-                template_bins.remove(bin_item.name())
-        for bin in template_bins:
-            bin_item = hiero.core.Bin(bin)
-            project_bin.addItem(bin_item)
-
-        # Let the user know what happened
-        if template_bins:
-            QMessageBox.information(hiero.ui.mainWindow(), "Info", "The following bins have been added to the project bin:        \n\n{0}".format("\n".join(template_bins)))
-        else:
-            QMessageBox.information(hiero.ui.mainWindow(), "Info", "Default project bins already exist!       ")
-
-    def eventHandler(self, event):
-        self.set_selection(event.sender.selection())
-        self.add_actions()
-        event.menu.addMenu(self)
-
-    def set_selection(self, selection):
-        bins = [item for item in selection if isinstance(item, hiero.core.Bin)]
-        bin_items = [item for item in selection if isinstance(item, hiero.core.BinItem)]
-        video_track_items = [item for item in selection if isinstance(item, hiero.core.TrackItem) and isinstance(x.parent(), hiero.core.VideoTrack)]
-        audio_track_items = [item for item in selection if isinstance(item, hiero.core.TrackItem) and isinstance(x.parent(), hiero.core.AudioTrack)]
-        effect_track_items = [item for item in selection if isinstance(item, hiero.core.EffectTrackItem)]
-
-        self.selection = {
-            "bins": bins,
-            "bin_items": bin_items,
-            "video_track_items": video_track_items,
-            "audio_track_items": audio_track_items,
-            "effect_track_items": effect_track_items,
-        }
-
-OpenpypeMenu()
