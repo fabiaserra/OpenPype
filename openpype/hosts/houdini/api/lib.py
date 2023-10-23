@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import sys
 import os
+import errno
 import re
 import uuid
 import logging
@@ -9,13 +10,19 @@ import json
 
 import six
 
+from openpype.lib import StringTemplate
 from openpype.client import get_asset_by_name
+from openpype.settings import get_current_project_settings
 from openpype.pipeline import (
     get_current_project_name,
     get_current_asset_name,
     registered_host
 )
-from openpype.pipeline.context_tools import get_current_project_asset
+from openpype.pipeline.context_tools import (
+    get_current_context_template_data,
+    get_current_project_asset
+)
+from openpype.widgets import popup
 from openpype.tools.utils.host_tools import get_tool_by_name
 from openpype.pipeline.create import CreateContext
 
@@ -262,8 +269,6 @@ def validate_fps():
 
     if current_fps != fps:
 
-        from openpype.widgets import popup
-
         # Find main window
         parent = hou.ui.mainQtWindow()
         if parent is None:
@@ -284,100 +289,6 @@ def validate_fps():
             return False
 
     return True
-
-
-def set_scene_resolution(width, height, pix_aspect):
-    if width:
-        hou.hscript(f"set -g RESX={width}")
-        hou.hscript("varchange -V RESX")
-    if height:
-        hou.hscript(f"set -g RESY={height}")
-        hou.hscript("varchange -V RESY")
-    if pix_aspect:
-        hou.hscript(f"set -g PIX_AR={pix_aspect}")
-        hou.hscript("varchange -V PIX_AR")
-
-
-def get_outdated_asset_variables():
-    outdated_variables = {}
-
-    asset_doc = get_current_project_asset()
-
-    # Validate FPS
-    fps = get_asset_fps()
-    current_fps = hou.fps()  # returns float
-
-    if current_fps != fps:
-        outdated_variables["FPS"] = (current_fps, fps)
-
-    # Validate resolution
-    width, height, pix_aspect = get_resolution_from_doc(asset_doc)
-    cur_width = hou.getenv("RESX")
-    cur_height = hou.getenv("RESY")
-    cur_pix_aspect = hou.getenv("PIX_AR")
-
-    if width != cur_width:
-        outdated_variables["RESX"] = (cur_width, width)
-
-    if height != cur_height:
-        outdated_variables["RESY"] = (cur_height, height)
-
-    if pix_aspect != cur_pix_aspect:
-        outdated_variables["PIX_AR"] = (cur_pix_aspect, pix_aspect)
-
-    return outdated_variables
-
-
-def show_outdated_asset_variables_popup(outdated_variables):
-    # Get main window
-    parent = get_main_window()
-    if parent is None:
-        log.info("Skipping outdated content pop-up "
-                 "because Houdini window can't be found.")
-    else:
-        from openpype.widgets import popup
-        dialog = popup.PopupUpdateKeys(parent=parent)
-        dialog.setModal(True)
-        dialog.setWindowTitle("Houdini scene has outdated asset variables")
-        outaded_vars_list = []
-        for variable_name, outdated_value in outdated_variables.items():
-            cur_value, new_value = outdated_value
-            outaded_vars_list.append(
-                f"${variable_name}: {cur_value} -> {new_value}"
-            )
-
-        dialog.setMessage("\n".join(outaded_vars_list))
-        dialog.setButtonText("Fix")
-
-        new_width = None
-        outdated_width = outdated_variables.get("RESX")
-        if outdated_width:
-            new_width = outdated_width[1]
-
-        new_height = None
-        outdated_height = outdated_variables.get("RESY")
-        if outdated_height:
-            new_height = outdated_height[1]
-
-        new_pix_aspect = None
-        outdated_pix_aspect = outdated_variables.get("PIX_AR")
-        if outdated_pix_aspect:
-            new_pix_aspect = outdated_pix_aspect[1]
-
-        new_fps = None
-        outdated_fps = outdated_variables.get("FPS")
-        if outdated_fps:
-            new_fps = outdated_fps[1]
-
-        # on_show is the Fix button clicked callback
-        dialog.on_clicked_state.connect(
-            lambda: (
-                set_scene_resolution(new_width, new_height, new_pix_aspect),
-                set_scene_fps(new_fps)
-            )
-        )
-
-        dialog.show()
 
 
 def create_remote_publish_node(force=True):
@@ -517,52 +428,61 @@ def imprint(node, data, update=False):
         return
 
     current_parms = {p.name(): p for p in node.spareParms()}
-    update_parms = []
-    templates = []
+    update_parm_templates = []
+    new_parm_templates = []
 
     for key, value in data.items():
         if value is None:
             continue
 
-        parm = get_template_from_value(key, value)
+        parm_template = get_template_from_value(key, value)
 
         if key in current_parms:
-            if node.evalParm(key) == data[key]:
+            if node.evalParm(key) == value:
                 continue
             if not update:
                 log.debug(f"{key} already exists on {node}")
             else:
                 log.debug(f"replacing {key}")
-                update_parms.append(parm)
+                update_parm_templates.append(parm_template)
             continue
 
-        templates.append(parm)
+        new_parm_templates.append(parm_template)
 
-    parm_group = node.parmTemplateGroup()
-    parm_folder = parm_group.findFolder("Extra")
-
-    # if folder doesn't exist yet, create one and append to it,
-    # else append to existing one
-    if not parm_folder:
-        parm_folder = hou.FolderParmTemplate("folder", "Extra")
-        parm_folder.setParmTemplates(templates)
-        parm_group.append(parm_folder)
-    else:
-        for template in templates:
-            parm_group.appendToFolder(parm_folder, template)
-            # this is needed because the pointer to folder
-            # is for some reason lost every call to `appendToFolder()`
-            parm_folder = parm_group.findFolder("Extra")
-
-    node.setParmTemplateGroup(parm_group)
-
-    # TODO: Updating is done here, by calling probably deprecated functions.
-    #       This needs to be addressed in the future.
-    if not update_parms:
+    if not new_parm_templates and not update_parm_templates:
         return
 
-    for parm in update_parms:
-        node.replaceSpareParmTuple(parm.name(), parm)
+    parm_group = node.parmTemplateGroup()
+
+    # Add new parm templates
+    if new_parm_templates:
+        parm_folder = parm_group.findFolder("Extra")
+
+        # if folder doesn't exist yet, create one and append to it,
+        # else append to existing one
+        if not parm_folder:
+            parm_folder = hou.FolderParmTemplate("folder", "Extra")
+            parm_folder.setParmTemplates(new_parm_templates)
+            parm_group.append(parm_folder)
+        else:
+            # Add to parm template folder instance then replace with updated
+            # one in parm template group
+            for template in new_parm_templates:
+                parm_folder.addParmTemplate(template)
+            parm_group.replace(parm_folder.name(), parm_folder)
+
+    # Update existing parm templates
+    for parm_template in update_parm_templates:
+        parm_group.replace(parm_template.name(), parm_template)
+
+        # When replacing a parm with a parm of the same name it preserves its
+        # value if before the replacement the parm was not at the default,
+        # because it has a value override set. Since we're trying to update the
+        # parm by using the new value as `default` we enforce the parm is at
+        # default state
+        node.parm(parm_template.name()).revertToDefaults()
+
+    node.setParmTemplateGroup(parm_group)
 
 
 def lsattr(attr, value=None, root="/"):
@@ -703,29 +623,6 @@ def reset_framerange():
     hou.playbar.setFrameRange(frame_start, frame_end)
     hou.playbar.setPlaybackRange(frame_start, frame_end)
     hou.setFrame(frame_start)
-
-
-def reset_resolution():
-    """Set resolution and pixel aspect ratio variables to current asset"""
-
-    # Get asset data
-    project_name = get_current_project_name()
-    asset_name = get_current_asset_name()
-    # Get the asset ID from the database for the asset of current context
-    asset_doc = get_asset_by_name(project_name, asset_name)
-
-    width, height, pix_aspect = get_resolution_from_doc(asset_doc)
-
-    if width is None or height is None or pix_aspect is None:
-        msg = "Missing set shot attributes in DB." \
-            "\nContact your supervisor!." \
-            f"\n\nWidth: `{width}`\nHeight: `{height}`" \
-            f"\nPixel Aspect: `{pix_aspect}`"
-        log.error(msg)
-        return
-
-    # Update Houdini resolution variables
-    set_scene_resolution(width, height, pix_aspect)
 
 
 def get_main_window():
@@ -973,22 +870,115 @@ def get_camera_from_container(container):
     return cameras[0]
 
 
-def publisher_show_and_publish(comment=""):
-    """Open publisher window and trigger publishing action."""
+def get_context_var_changes():
+    """get context var changes."""
+
+    houdini_vars_to_update = {}
+
+    project_settings = get_current_project_settings()
+    houdini_vars_settings = \
+        project_settings["houdini"]["general"]["update_houdini_var_context"]
+
+    if not houdini_vars_settings["enabled"]:
+        return houdini_vars_to_update
+
+    houdini_vars = houdini_vars_settings["houdini_vars"]
+
+    # No vars specified - nothing to do
+    if not houdini_vars:
+        return houdini_vars_to_update
+
+    # Get Template data
+    template_data = get_current_context_template_data()
+
+    # Set Houdini Vars
+    for item in houdini_vars:
+        # For consistency reasons we always force all vars to be uppercase
+        # Also remove any leading, and trailing whitespaces.
+        var = item["var"].strip().upper()
+
+        # get and resolve template in value
+        item_value = StringTemplate.format_template(
+            item["value"],
+            template_data
+        )
+
+        if var == "JOB" and item_value == "":
+            # sync $JOB to $HIP if $JOB is empty
+            item_value = os.environ["HIP"]
+
+        if item["is_directory"]:
+            item_value = item_value.replace("\\", "/")
+
+        current_value = hou.hscript("echo -n `${}`".format(var))[0]
+
+        if current_value != item_value:
+            houdini_vars_to_update[var] = (
+                current_value, item_value, item["is_directory"]
+            )
+
+    return houdini_vars_to_update
+
+
+def update_houdini_vars_context():
+    """Update asset context variables"""
+
+    for var, (_old, new, is_directory) in get_context_var_changes().items():
+        if is_directory:
+            try:
+                os.makedirs(new)
+            except OSError as e:
+                if e.errno != errno.EEXIST:
+                    print(
+                        "Failed to create ${} dir. Maybe due to "
+                        "insufficient permissions.".format(var)
+                    )
+
+        hou.hscript("set {}={}".format(var, new))
+        os.environ[var] = new
+        print("Updated ${} to {}".format(var, new))
+
+
+def update_houdini_vars_context_dialog():
+    """Show pop-up to update asset context variables"""
+    update_vars = get_context_var_changes()
+    if not update_vars:
+        # Nothing to change
+        print("Nothing to change, Houdini vars are already up to date.")
+        return
+
+    message = "\n".join(
+        "${}: {} -> {}".format(var, old or "None", new or "None")
+        for var, (old, new, _is_directory) in update_vars.items()
+    )
+
+    # TODO: Use better UI!
+    parent = hou.ui.mainQtWindow()
+    dialog = popup.Popup(parent=parent)
+    dialog.setModal(True)
+    dialog.setWindowTitle("Houdini scene has outdated asset variables")
+    dialog.setMessage(message)
+    dialog.setButtonText("Fix")
+
+    # on_show is the Fix button clicked callback
+    dialog.on_clicked.connect(update_houdini_vars_context)
+
+    dialog.show()
+
+
+def publisher_show_and_publish(comment=None):
+    """Open publisher window and trigger publishing action.
+
+    Args:
+        comment (Optional[str]): Comment to set in publisher window.
+    """
 
     main_window = get_main_window()
     publisher_window = get_tool_by_name(
         tool_name="publisher",
         parent=main_window,
-        reset_on_show=False
     )
-
-    publisher_window.set_current_tab("publish")
-    publisher_window.make_sure_is_visible()
-    publisher_window.reset_on_show = False
-    publisher_window.set_comment_input_text(comment)
-    publisher_window.reset()
-    publisher_window.click_publish()
+    publisher_window.show_and_publish(comment)
 
 
 def find_rop_input_dependencies(input_tuple):
@@ -1044,12 +1034,7 @@ def self_publish():
 
     for instance in context.instances:
         node_path = instance.data.get("instance_node")
-        if not node_path:
-            continue
-
-        active = node_path in inputs_paths
-        instance["active"] = active
-        hou.node(node_path).parm("active").set(active)
+        instance["active"] = node_path and node_path in inputs_paths
 
     context.save_changes()
 

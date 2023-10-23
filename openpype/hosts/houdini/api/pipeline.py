@@ -300,6 +300,9 @@ def on_save():
 
     log.info("Running callback on save..")
 
+    # update houdini vars
+    lib.update_houdini_vars_context_dialog()
+
     nodes = lib.get_id_required_nodes()
     for node, new_id in lib.generate_ids(nodes):
         lib.set_id(node, new_id, overwrite=False)
@@ -335,24 +338,12 @@ def on_open():
 
     log.info("Running callback on open..")
 
-    # outdated_asset_variables = lib.get_outdated_asset_variables()
+    # update houdini vars
+    lib.update_houdini_vars_context_dialog()
 
-    # if outdated_asset_variables:
-    #     parent = lib.get_main_window()
-    #     if parent is None:
-    #         # When opening Houdini with last workfile on launch the UI hasn't
-    #         # initialized yet completely when the `on_open` callback triggers.
-    #         # We defer the dialog popup to wait for the UI to become available.
-    #         # We assume it will open because `hou.isUIAvailable()` returns True
-    #         import hdefereval
-    #         hdefereval.executeDeferred(
-    #             lib.show_outdated_asset_variables_popup,
-    #             outdated_asset_variables
-    #         )
-    #     else:
-    #         lib.show_outdated_asset_variables_popup(outdated_asset_variables)
-
-    #     log.warning("Scene has outdated context variables.")
+    # Validate FPS after update_task_from_path to
+    # ensure it is using correct FPS for the asset
+    lib.validate_fps()
 
     if any_outdated_containers():
         parent = lib.get_main_window()
@@ -412,8 +403,9 @@ def _set_context_settings():
     Returns:
         None
     """
-    lib.reset_resolution()
+
     lib.reset_framerange()
+    lib.update_houdini_vars_context()
 
 
 def on_pyblish_instance_toggled(instance, new_value, old_value):
