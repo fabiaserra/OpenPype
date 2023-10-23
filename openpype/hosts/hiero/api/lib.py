@@ -28,7 +28,7 @@ from openpype.pipeline import (
     Anatomy,
     get_current_project_name,
     get_current_asset_name
-    )
+)
 from openpype.pipeline.load import filter_containers
 from openpype.lib import Logger
 from . import tags
