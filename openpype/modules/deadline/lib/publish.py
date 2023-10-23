@@ -34,6 +34,8 @@ def check_version_exists(project_name, asset_doc, subset_name, version):
     subset_doc = get_subset_by_name(
         project_name, subset_name, asset_doc["_id"]
     )
+    if not subset_doc:
+        return False
 
     existing_version_doc = get_version_by_name(
         project_name, version, subset_doc["_id"]
