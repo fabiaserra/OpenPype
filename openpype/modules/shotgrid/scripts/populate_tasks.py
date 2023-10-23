@@ -1,5 +1,9 @@
+import copy
+
 from openpype.lib import Logger
 from openpype.modules.shotgrid.lib import credentials
+from openpype.client import get_asset_by_name
+from openpype.client.operations import OperationsSession
 
 
 logger = Logger.get_logger(__name__)
@@ -73,10 +77,30 @@ def populate_tasks(project_code):
     }
 
     # Find the project with the given code
-    project = sg.find_one("Project", [["sg_code", "is", project_code]])
+    project = sg.find_one("Project", [["sg_code", "is", project_code]], ["name"])
     if not project:
         logger.error("Project with 'sg_code' %s not found.", project_code)
         return
+
+    project_name = project["name"]
+
+    # Create 'edit' task at the shots level
+    shots_asset = get_asset_by_name(project_name, "shots", fields=["_id", "data"])
+    existing_tasks = shots_asset["data"].get("tasks")
+    if "edit" in existing_tasks:
+        logger.info("Task 'edit' already exists at 'shots'")
+    else:
+        session = OperationsSession()
+        update_data = copy.deepcopy(shots_asset["data"])
+        existing_tasks.update(
+            {"edit": {"type": "Edit"}}
+        )
+        update_data["tasks"] = existing_tasks
+        session.update_entity(
+            project_name, "task", shots_asset["_id"], {"data": update_data}
+        )
+        session.commit()
+        logger.info("Task 'edit' created at 'shots'")
 
     # Try add tasks to all Episodes
     episodes = sg.find("Episode", [["project", "is", project]], ["id", "code"])
