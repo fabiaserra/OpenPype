@@ -290,10 +290,10 @@ def get_products_from_filepath(package_path, project_name, project_code):
                 logger.warning("Missing fields in publish data: %s", publish_data)
 
             subset_name = publish_data["subset_name"]
-
-            # Make sure subset name is always lower case and split by underscores
-            subset_name = _split_camel_case(subset_name)
-            publish_data["subset_name"] = subset_name
+            if subset_name:
+                # Make sure subset name is always lower case and split by underscores
+                subset_name = _split_camel_case(subset_name)
+                publish_data["subset_name"] = subset_name
 
             products[filepath] = publish_data
 
@@ -329,9 +329,6 @@ def get_product_from_filepath(
         variant_name = re_match.group("variant")
         delivery_version = re_match.group("delivery_version")
         extension = re_match.group("extension") or extension
-
-        if delivery_version:
-            delivery_version = int(delivery_version.strip("v"))
 
         logger.debug("Shot code: '%s'", shot_code)
         logger.debug("Subset name: '%s'", subset_name)
@@ -426,6 +423,10 @@ def get_product_from_filepath(
                 task_name = possible_task_name
                 break
 
+    # Make sure delivery version is an integer
+    if delivery_version:
+        delivery_version = int(delivery_version.strip("v"))
+
     publish_data = {
         "project_name": project_name,
         "asset_name": asset_name,
@@ -461,16 +462,17 @@ def get_product_from_filepath(
             filepath,
             OUTSOURCE_TASKS
         )
-        task_name = None
+        publish_data["task_name"] = None
 
     # Add variant name to subset name if we have one
-    if variant_name:
+    if publish_data["variant_name"] and publish_data["subset_name"]:
         # Remove the last underscore from captured variant name
-        variant_name = variant_name.rsplit("_", 1)[0]
-        publish_data["subset_name"] = f"{subset_name}_{variant_name}"
+        variant_name = publish_data["variant_name"].rsplit("_", 1)[0]
+        publish_data["subset_name"] = f"{publish_data['subset_name']}_{variant_name}"
 
     # Append task name to subset name by default
-    publish_data["subset_name"] = f"{publish_data['task_name']}_{publish_data['subset_name']}"
+    if publish_data["task_name"] and publish_data["subset_name"]:
+        publish_data["subset_name"] = f"{publish_data['task_name']}_{publish_data['subset_name']}"
 
     logger.debug("Publish data for filepath %s: %s", filepath, publish_data)
 
