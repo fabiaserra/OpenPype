@@ -267,6 +267,17 @@ def publish(parent):
     # Add some logic to validate selection before showing publish dialog
     from qtpy import QtWidgets
 
+    # Warn user if there is no edit ref track
+    main_ref_track = lib.get_main_ref_track()
+    if not main_ref_track:
+        answer = QtWidgets.QMessageBox.question(
+            hiero.ui.mainWindow(),
+            "Info",
+            "No edit_ref track found          \n\Would you like to continue?"
+            )
+        if answer == QtWidgets.QMessageBox.StandardButton.No:
+            return
+
     # Ensure that selection includes at least one OP Tag
     # If No OP tag in selection that most likely Editor forgot to add tag
     selected_track_items = [item for item in lib.get_selected_track_items() if item.mediaType() == hiero.core.TrackItem.kVideo]
@@ -278,7 +289,7 @@ def publish(parent):
             track_item.parent().isEnabled() or not
             track_item.isEnabled() or not
             track_item.isMediaPresent()
-            ):
+        ):
             ignored_op_clips.append(track_item)
 
 
