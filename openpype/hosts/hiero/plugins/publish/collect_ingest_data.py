@@ -61,7 +61,7 @@ class CollectIngestData(pyblish.api.InstancePlugin):
         track_item_format = track_item.source().format()
 
         ingest_resolution = {}
-        if "ingest_res_data" in track_item.__dir__():
+        if hasattr(track_item, "ingest_res_data"):
             ingest_resolution_data = track_item.ingest_res_data()
             if ingest_resolution_data:
                 width, height = ingest_resolution_data["resolution"].split("x")
@@ -130,7 +130,7 @@ class CollectIngestData(pyblish.api.InstancePlugin):
     def collect_ingest_effect(self, instance, track_item):
         # Ingest effects has no plans to be controlled by a hierarchial search
         # Always comes from the ingest effects tag
-        if "ingest_effects_data" in track_item.__dir__():
+        if hasattr(track_item, "ingest_effects_data"):
             ingest_effects_data = track_item.ingest_effects_data()
             if ingest_effects_data:
                 instance.data["ingest_effects"] = ingest_effects_data

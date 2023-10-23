@@ -30,8 +30,16 @@ def add_tasks_to_sg_entities(project, sg_entities, entity_type, tasks):
     for task_name, step_name in tasks.items():
         step = sg.find_one(
             "Step",
-            [["code", "is", step_name], ["entity_type", "is", entity_type]]
+            [["code", "is", step_name], ["entity_type", "is", entity_type]],
+            ["code"]
         )
+        # There may not be a task step for this entity_type or task_name
+        if not step:
+            logger.info(
+                "No step found for entity type '%s' with step type '%s'", entity_type, step_name
+                )
+            continue
+
         # Create a task for this entity
         task_data = {
             "project": project,
@@ -44,7 +52,12 @@ def add_tasks_to_sg_entities(project, sg_entities, entity_type, tasks):
     for sg_entity in sg_entities:
         for task_data in tasks_data:
             task_data["entity"] = sg_entity
-            existing_task = sg.find("Task", [["entity", "is", sg_entity]])
+            # Need to compare against step code as steps don't always have the
+            # same code when applied through SG
+            existing_task = sg.find(
+                "Task",
+                [["entity", "is", sg_entity], ["step.Step.code", 'is', task_data["step"]["code"]]]
+            )
             if existing_task:
                 logger.info(
                     "Task '%s' already existed at '%s'.",

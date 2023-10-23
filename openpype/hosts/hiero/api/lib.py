@@ -2,6 +2,7 @@
 Host specific functions where host api is connected
 """
 
+from collections import OrderedDict
 from copy import deepcopy
 import os
 import re
@@ -23,7 +24,11 @@ except ImportError:
 
 from openpype.client import get_project, get_asset_by_name
 from openpype.settings import get_project_settings
-from openpype.pipeline import Anatomy, get_current_project_name
+from openpype.pipeline import (
+    Anatomy,
+    get_current_project_name,
+    get_current_asset_name
+)
 from openpype.pipeline.load import filter_containers
 from openpype.lib import Logger
 from . import tags
@@ -688,6 +693,44 @@ def launch_workfiles_app(event):
     launch_workfiles_app()
 
 
+### Starts Alkemy-x Override ###
+def set_favorites():
+    from openpype.hosts.nuke.api.utils import set_context_favorites
+
+    work_dir = os.getenv("AVALON_WORKDIR")
+    asset = get_current_asset_name()
+    favorite_items = OrderedDict()
+
+    project_code = os.getenv("SHOW")
+
+    # project
+    # get project's root and split to parts
+    projects_root = os.path.normpath(work_dir.split(
+        project_code)[0])
+    # add project name
+    project_dir = os.path.join(projects_root, project_code).replace("\\", "/")
+    # No need to add project to hiero favorites as that is a default favorite
+
+    # incoming
+    incoming_dir = os.path.join(project_dir, "io/incoming")
+    favorite_items.update({"Incoming dir": incoming_dir})
+
+    # outgoing
+    outgoing_dir = os.path.join(project_dir, "io/outgoing")
+    favorite_items.update({"Outgoing dir": outgoing_dir})
+
+    # asset
+    asset_dir = os.path.normpath(work_dir.split(work_dir.split(asset)[-1])[0])
+    # add to favorites
+    favorite_items.update({"Shot dir": asset_dir.replace("\\", "/")})
+
+    # workdir
+    favorite_items.update({"Work dir": work_dir.replace("\\", "/")})
+
+    set_context_favorites(favorite_items)
+### Ends Alkemy-x Override ###
+
+
 def setup(console=False, port=None, menu=True):
     """Setup integration
 
@@ -700,6 +743,11 @@ def setup(console=False, port=None, menu=True):
             provided by Pyblish Integration.
         menu (bool, optional): Display file menu in Hiero.
     """
+    ### Starts Alkemy-x Override ###
+    # Add Favorites
+    set_favorites()
+
+    ### Ends Alkemy-x Override ###
 
     if _CTX.has_been_setup:
         teardown()
@@ -1625,6 +1673,20 @@ def parse_cdl(path):
     return cdl
 
 
+def get_main_ref_track(track_item=None):
+    if track_item:
+        sequence = track_item.sequence()
+    else:
+        sequence = hiero.ui.activeSequence()
+
+    video_tracks = sequence.videoTracks()
+    for track in video_tracks:
+        if track.name() == "edit_ref":
+            return track
+
+    return None
+
+
 class MainPlate():
     def sequence(function):
         """Decorator class funtion that ensures that the conditions needed to
@@ -1851,7 +1913,8 @@ def get_hierarchy_parents(hierarchy_data):
 def set_framing_info(cut_info, track_item):
     # Only reference will update cut info to SG
     cut_info["cut_in"] = int(cut_info["cut_in"])
-    if cut_info["cut_range"] == "False":
+    # cut info will almost always exist except for old style tags
+    if cut_info.get("cut_range", "True") == "False":
         cut_info["head_handles"] = int(track_item.handleInLength())
         cut_info["tail_handles"] = int(track_item.handleOutLength())
     else:
@@ -1876,9 +1939,18 @@ def create_op_instance(track_item):
     ingest_instance_data = track_item.ingest_instance_data()
     cut_info_data = track_item.cut_info_data()
     if not cut_info_data:
+        log.info(
+            f"{track_item.parent().name()}.{track_item.name()}: "
+            "No cut info tag!"
+        )
         return "No cut info tag"
 
-    if not  ingest_instance_data:
+    if not ingest_instance_data:
+        log.info(
+            f"{track_item.parent().name()}.{track_item.name()}: "
+            "No ingest data tag!"
+        )
+
         return "No ingest data tag"
 
     # Check if asset has valid name
@@ -1888,7 +1960,7 @@ def create_op_instance(track_item):
             "Track item name not found in DB!"
         )
 
-        return "Shot found in DB"
+        return "Shot not found in DB"
 
     else:
         project_name = get_current_project_name()
@@ -1918,6 +1990,7 @@ def create_op_instance(track_item):
     handle_end = cut_info["tail_handles"]
 
     main_plate = "True" if track_item.get_main_plate() else "False"
+    main_ref = "True" if get_main_ref_track(track_item) == track_item.parent() else "False"
 
     instance_data["hierarchyData"] = hierarchy_data
     instance_data["hierarchy"] = hierarchy_path
@@ -1930,6 +2003,7 @@ def create_op_instance(track_item):
     instance_data["handleStart"] = handle_start
     instance_data["handleEnd"] = handle_end
     instance_data["main_plate"] = main_plate
+    instance_data["main_ref"] = main_ref
     instance_data["use_nuke"] = use_nuke
 
     # Constants

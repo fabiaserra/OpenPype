@@ -107,10 +107,10 @@ class IntegrateShotgridVersion(pyblish.api.InstancePlugin):
             data_to_update["sg_status_list"] = intent["value"]
 
         ### Starts Alkemy-X Override ###
-        frame_start = instance.data.get("frameStart") or context.data.get("frameStart")
-        frame_end = instance.data.get("frameEnd") or context.data.get("frameEnd")
-        handle_start = instance.data.get("handleStart") or context.data.get("handleStart")
-        handle_end = instance.data.get("handleEnd") or context.data.get("handleEnd")
+        frame_start = instance.data.get("frameStart", context.data.get("frameStart"))
+        frame_end = instance.data.get("frameEnd", context.data.get("frameEnd"))
+        handle_start = instance.data.get("handleStart", context.data.get("handleStart"))
+        handle_end = instance.data.get("handleEnd", context.data.get("handleEnd"))
         if frame_start != None and handle_start != None:
             frame_start = int(frame_start)
             handle_start = int(handle_start)

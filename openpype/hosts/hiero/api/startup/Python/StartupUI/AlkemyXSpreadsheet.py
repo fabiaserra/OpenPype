@@ -814,15 +814,7 @@ class CustomSpreadsheetColumns(QObject):
                 return "--"
 
             tag_key = current_column_name
-
             cut_info_data = item.cut_info_data()
-            # Old tags won't have cut range key
-            if cut_info_data and "cut_range" not in cut_info_data.keys():
-                # Set key and update metadata
-                item.set_cut_info("cut_range", "False", False)
-
-                return "False"
-
             current_tag_text = cut_info_data.get("cut_range", "--")
 
             return current_tag_text
@@ -1615,19 +1607,15 @@ def _set_cut_info(self, key, value, operate):
         cut_data["tail_handles"] = handle_end
         cut_data["cut_range"] = cut_range
 
-        if value:
-            cut_data.update({key: value})
-
-        for key, value in cut_data.items():
-            if not isinstance(value, str):
-                value = str(value)
-            cut_tag.metadata().setValue(f"tag.{key}", value)
+        for cut_key, cut_value in cut_data.items():
+            if not isinstance(cut_value, str):
+                cut_value = str(cut_value)
+            cut_tag.metadata().setValue(f"tag.{cut_key}", cut_value)
 
         self.sequence().editFinished()
         self.addTag(cut_tag)
 
-        _set_cut_info
-        return
+        _set_cut_info(self, key, value, False)
 
     # Cut range might not exist
     if "tag.cut_range" in cut_tag.metadata():
@@ -1659,12 +1647,11 @@ def _set_cut_info(self, key, value, operate):
                 )
                 return
 
-            if cut_range == "False":
-                handle_start = self.handleInLength()
-                handle_end = self.handleOutLength()
-                cut_tag.metadata().setValue("head_handles", handle_start)
-                cut_tag.metadata().setValue("tail_handles", handle_end)
-
+        if cut_range == "False":
+            handle_start = str(self.handleInLength())
+            handle_end = str(self.handleOutLength())
+            cut_tag.metadata().setValue("tag.head_handles", handle_start)
+            cut_tag.metadata().setValue("tag.tail_handles", handle_end)
         cut_tag.metadata().setValue(f"tag.{key}", value)
 
     self.sequence().editFinished()
@@ -2011,7 +1998,7 @@ def _add_default_tags(event):
 
             # Check for cut info tag
             if not track_item.get_cut_info():
-                track_item.set_cut_info("", "", False)
+                _set_cut_info(track_item, "", "", False)
 
 
 # Attach tag setters, getters and tag data get into hiero.core.TrackItem
