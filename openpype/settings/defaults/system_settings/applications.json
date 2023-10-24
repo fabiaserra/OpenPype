@@ -1553,6 +1553,33 @@
             }
         }
     },
+    "mrv2": {
+        "enabled": true,
+        "label": "MRV2",
+        "icon": "{}/app_icons/mrv2.png",
+        "host_name": "mrv2",
+        "environment": {},
+        "variants": {
+            "0-7-9": {
+                "executables": {
+                    "windows": [
+                        "C:\\Program Files\\mrv2 0.7.9\\bin\\mrv2.exe"
+                    ],
+                    "darwin": [],
+                    "linux": []
+                },
+                "arguments": {
+                    "windows": [],
+                    "darwin": [],
+                    "linux": []
+                },
+                "environment": {}
+            },
+            "__dynamic_keys_labels__": {
+                "0-7-9": "0.7.9"
+            }
+        }
+    },
     "djvview": {
         "enabled": true,
         "label": "DJV View",
