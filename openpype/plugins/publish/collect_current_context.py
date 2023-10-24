@@ -15,7 +15,7 @@ class CollectCurrentContext(pyblish.api.ContextPlugin):
     Plugin does not override any value if is already set.
     """
 
-    order = pyblish.api.CollectorOrder - 0.5
+    order = pyblish.api.CollectorOrder - 0.48
     label = "Collect Current context"
 
     def process(self, context):
