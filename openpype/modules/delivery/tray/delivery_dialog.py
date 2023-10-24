@@ -509,6 +509,8 @@ class DeliveryDialog(QtWidgets.QDialog):
         self._submit_for_input.setText("")
         self._submission_notes_input.setText("")
         self._sg_version_id_input.setText("")
+        self._text_area.setText("")
+        self._text_area.setVisible(False)
 
     def _format_report(self, report_items, success):
         """Format final result and error details as html."""
