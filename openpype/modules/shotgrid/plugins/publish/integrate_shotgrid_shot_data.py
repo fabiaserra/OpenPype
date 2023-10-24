@@ -151,7 +151,7 @@ class IntegrateShotgridShotData(pyblish.api.InstancePlugin):
 
     def update_working_resolution(self, instance, sg_shot):
         self.log.info("Integrating Working Resolution")
-        if not instance.data["main_plate"]:
+        if not instance.data.get("main_plate"):
             self.log.info("Skipping working resolution integration. Not main plate")
             return
 
