@@ -56,7 +56,11 @@ def add_tasks_to_sg_entities(project, sg_entities, entity_type, tasks):
             # same code when applied through SG
             existing_task = sg.find(
                 "Task",
-                [["entity", "is", sg_entity], ["step.Step.code", 'is', task_data["step"]["code"]]]
+                [
+                    ["entity", "is", sg_entity],
+                    ["content", 'is', task_data["content"]],
+                    ["step.Step.code", 'is', task_data["step"]["code"]],
+                ]
             )
             if existing_task:
                 logger.info(
