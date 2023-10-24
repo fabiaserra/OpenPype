@@ -30,6 +30,12 @@ class DeliveryDialog(QtWidgets.QDialog):
     # File path to json file that contains defaults for the Delivery dialog inputs
     PROJ_DELIVERY_CONFIG = "/proj/{proj_code}/config/delivery/defaults.json"
 
+    # Default string to use to identify ourselves to vendors
+    VENDOR_DEFAULT = "ALKX"
+
+    # Default string to use for package name override
+    PACKAGE_NAME_DEFAULT = "{yyyy}{mm}{dd}_{vendor}"
+
     TOKENS_HELP = """
         {project[name]}: Project's full name
         {project[code]}: Project's code
@@ -120,17 +126,13 @@ class DeliveryDialog(QtWidgets.QDialog):
             "Force regeneration of media", force_delivery_media_cb
         )
 
-        vendor_input = QtWidgets.QLineEdit(
-            "ALKX"
-        )
+        vendor_input = QtWidgets.QLineEdit(self.VENDOR_DEFAULT)
         vendor_input.setToolTip(
             "Template string used as a replacement of {vendor} on the path template."
         )
         input_layout.addRow("Vendor {vendor}", vendor_input)
 
-        package_name_input = QtWidgets.QLineEdit(
-            "{yyyy}{mm}{dd}_{vendor}"
-        )
+        package_name_input = QtWidgets.QLineEdit(self.PACKAGE_NAME_DEFAULT)
         package_name_input.setToolTip(
             "Template string used as a replacement of {package_name} on the path template."
         )
@@ -402,7 +404,7 @@ class DeliveryDialog(QtWidgets.QDialog):
         outputs_name_ext = []
         for delivery_type in delivery_types:
             out_data_types = project_overrides.get(
-                f"sg_{delivery_type}_output_type", []
+                f"sg_{delivery_type}_output_type", {}
             )
             for data_type_name, data_type_args in out_data_types.items():
                 out_name = f"{data_type_name.lower().replace(' ', '')}_{delivery_type}"
@@ -462,39 +464,51 @@ class DeliveryDialog(QtWidgets.QDialog):
         delivery_data = {}
         config_path = self.PROJ_DELIVERY_CONFIG.format(proj_code=proj_code)
 
-        if not os.path.exists(config_path):
+        if os.path.exists(config_path):
+            with open(config_path, "r") as f:
+                delivery_data = json.load(f)
+        else:
             logger.info(
                 "Delivery config file for project doesn't exist at '%s'",
                 config_path
             )
-            return
-
-        with open(config_path, "r") as f:
-            delivery_data = json.load(f)
 
         # TODO: abstract this away so it's simpler to add more widgets
         # that need to get preserved across sessions
         vendor_override = delivery_data.get("vendor_override")
         if vendor_override:
             self._vendor_input.setText(vendor_override)
+        else:
+            self._vendor_input.setText(self.VENDOR_DEFAULT)
 
         package_name_override = delivery_data.get("package_name_override")
         if package_name_override:
             self._package_name_input.setText(package_name_override)
+        else:
+            self._package_name_input.setText(self.PACKAGE_NAME_DEFAULT)
+
+        custom_token_pairs = delivery_data.get("custom_tokens")
+        self._custom_tokens.clear_pairs()
+        if custom_token_pairs:
+            for key, value in custom_token_pairs.items():
+                self._custom_tokens.add_pair(key, value)
 
         filename_override = delivery_data.get("filename_override")
         if filename_override:
             self._filename_input.setText(filename_override)
-
-        custom_token_pairs = delivery_data.get("custom_tokens")
-        if custom_token_pairs:
-            self._custom_tokens.clear_pairs()
-            for key, value in custom_token_pairs.items():
-                self._custom_tokens.add_pair(key, value)
+        else:
+            self._filename_input.setText(media.FILENAME_TEMPLATE_DEFAULT)
 
         template_override = delivery_data.get("template_path")
         if template_override:
             self._template_input.setText(template_override)
+        else:
+            self._template_input.setText(media.DELIVERY_TEMPLATE_DEFAULT)
+
+        # Clear other widgets that aren't being loaded from the config
+        self._submit_for_input.setText("")
+        self._submission_notes_input.setText("")
+        self._sg_version_id_input.setText("")
 
     def _format_report(self, report_items, success):
         """Format final result and error details as html."""
