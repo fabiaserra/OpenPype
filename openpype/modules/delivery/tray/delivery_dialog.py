@@ -1,5 +1,6 @@
 import os
 import re
+import sys
 import platform
 import json
 import traceback
@@ -251,7 +252,6 @@ class DeliveryDialog(QtWidgets.QDialog):
         save_project_config_btn = QtWidgets.QPushButton(
             "Save settings to project as default"
         )
-        save_project_config_btn.setDefault(True)
         save_project_config_btn.setToolTip(
             "Saves the current settings on the dialog as default on the project so next"
             " time the delivery dialog is launched with this project the defaults are "
@@ -267,7 +267,6 @@ class DeliveryDialog(QtWidgets.QDialog):
         generate_delivery_media_btn = QtWidgets.QPushButton(
             "Generate delivery media"
         )
-        generate_delivery_media_btn.setDefault(True)
         generate_delivery_media_btn.setToolTip(
             "Run the delivery media pipeline and ensure delivery media exists for all " \
             "outputs (Final Output, Review Output in ShotGrid)"
@@ -304,6 +303,13 @@ class DeliveryDialog(QtWidgets.QDialog):
         self._sg_version_id_input = sg_version_id_input
         self._sg_version_btn = version_radio_btn
         self._text_area = text_area
+
+    def keyPressEvent(self, event: QtGui.QKeyEvent):
+        # Ignore enter key
+        if event.key() == QtCore.Qt.Key_Enter or event.key() == QtCore.Qt.Key_Return:
+            event.ignore()
+        else:
+            super().keyPressEvent(event)
 
     def showEvent(self, event):
         super(DeliveryDialog, self).showEvent(event)
@@ -635,7 +641,7 @@ class DeliveryOutputsWidget(QtWidgets.QWidget):
             name, ext = name_ext
             label = QtWidgets.QLabel(f"{name}")
             label.setTextInteractionFlags(QtCore.Qt.TextSelectableByMouse)
-            checkbox = QtWidgets.QCheckBox()
+            checkbox = QtWidgets.QCheckBox(self)
             checkbox.setChecked(True)
             self.delivery_widgets[name] = checkbox
             self.delivery_extensions[name] = ext
@@ -747,4 +753,4 @@ def main():
     # Trigger on project change every time the tool loads
     window.on_project_change()
 
-    app_instance.exec_()
+    sys.exit(app_instance.exec_())
