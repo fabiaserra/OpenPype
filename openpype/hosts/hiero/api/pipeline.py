@@ -273,7 +273,7 @@ def publish(parent):
         answer = QtWidgets.QMessageBox.question(
             hiero.ui.mainWindow(),
             "Info",
-            "No edit_ref track found          \n\Would you like to continue?"
+            "No edit_ref track found          \n\nWould you like to continue?"
             )
         if answer == QtWidgets.QMessageBox.StandardButton.No:
             return
@@ -281,6 +281,8 @@ def publish(parent):
     # Ensure that selection includes at least one OP Tag
     # If No OP tag in selection that most likely Editor forgot to add tag
     selected_track_items = [item for item in lib.get_selected_track_items() if item.mediaType() == hiero.core.TrackItem.kVideo]
+    if not selected_track_items:
+        return
 
     ignored_op_clips = []
     for track_item in selected_track_items:
