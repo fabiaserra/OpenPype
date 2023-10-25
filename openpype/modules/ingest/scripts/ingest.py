@@ -130,6 +130,85 @@ VENDOR_PACKAGE_RE = r"From_(\w+)"
 logger = Logger.get_logger(__name__)
 
 
+def validate_products(
+    project_name, products_data, overwrite_version=False, force_task_creation=False
+):
+    """Given a list of ProductRepresentation objects, validate if there's any potential errors
+
+    Args:
+        project_name (str): Name of the project to validate to
+        products_data (list): List of ProductRepresentation objects
+
+    Returns:
+        tuple: Tuple containing:
+            report_items (dict): Dictionary with the messages to show in the
+                report.
+            success (bool): Whether the validate was successful or not
+
+    """
+    report_items = defaultdict(list)
+    success = True
+
+    if not project_name:
+        return report_items["Project not selected"].append(
+            "Select project before validating!"
+        ), False
+
+    # Go through list of products data from ingest dialog table and combine the
+    # representations dictionary for the products that target the same subset
+    products = {}
+    for product_item in products_data:
+        item_str = f"{product_item.asset} - {product_item.task} - {product_item.family} - {product_item.subset}"
+        logger.debug(item_str)
+
+        key = (
+            product_item.asset,
+            product_item.task,
+            product_item.family,
+            product_item.subset
+        )
+        if not all(key):
+            logger.debug(
+                "Skipping product as it doesn't have all required fields to publish"
+            )
+            continue
+        elif key not in products:
+            products[key] = {
+                "expected_representations": {
+                    product_item.rep_name: product_item.path,
+                },
+                "version": product_item.version,
+            }
+        else:
+            if product_item.rep_name in products[key]["expected_representations"]:
+                report_items["Duplicated representations in products"].append(
+                    item_str + f" : {product_item.rep_name}"
+                )
+                continue
+
+            products[key]["expected_representations"][product_item.rep_name] = product_item.path
+
+    for product_fields, product_data in products.items():
+        asset, task, family, subset = product_fields
+        msg, success = publish.validate_version(
+            project_name,
+            asset,
+            task,
+            family,
+            subset,
+            product_data["expected_representations"],
+            {"version": product_data.get("version")},
+            overwrite_version,
+            force_task_creation,
+        )
+        if success:
+            report_items["Products are valid to submit"].append(msg)
+        else:
+            report_items["Failed validation for products"].append(msg)
+
+    return report_items, success
+
+
 def publish_products(
     project_name, products_data, overwrite_version=False, force_task_creation=False
 ):

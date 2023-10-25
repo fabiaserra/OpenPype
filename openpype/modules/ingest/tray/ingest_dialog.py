@@ -158,6 +158,17 @@ class IngestDialog(QtWidgets.QDialog):
         main_layout.addWidget(table_view)
 
         # Add button to generate delivery media
+        validate_btn = QtWidgets.QPushButton(
+            "Validate Products"
+        )
+        validate_btn.setToolTip(
+            "Do a dry-run validation that products won't error out on submission"
+        )
+        validate_btn.clicked.connect(self._on_validate_clicked)
+
+        main_layout.addWidget(validate_btn)
+
+        # Add button to generate delivery media
         publish_btn = QtWidgets.QPushButton(
             "Publish Products"
         )
@@ -313,6 +324,30 @@ class IngestDialog(QtWidgets.QDialog):
         )
         self._model.set_products(products)
 
+    def _on_validate_clicked(self):
+        self._text_area.setText("Validate in progress...")
+        self._text_area.setVisible(True)
+
+        QtWidgets.QApplication.processEvents()
+
+        try:
+            products_data = self._model.get_products()
+            report_items, success = ingest.validate_products(
+                self._current_proj_name,
+                products_data,
+                self._overwrite_version_cb.isChecked(),
+                self._force_task_creation_cb.isChecked(),
+            )
+
+        except Exception:
+            logger.error(traceback.format_exc())
+            report_items = {
+                "Error": [traceback.format_exc()]
+            }
+            success = False
+
+        self._text_area.setText(self._format_report(report_items, success, label="Validation"))
+
     def _on_publish_clicked(self):
         logger.debug("Publishing products")
         try:
@@ -332,11 +367,10 @@ class IngestDialog(QtWidgets.QDialog):
             success = False
 
         self._text_area.setText(self._format_report(report_items, success))
-        self._text_area.setVisible(True)
 
-    def _format_report(self, report_items, success):
+    def _format_report(self, report_items, success, label="Ingest"):
         """Format final result and error details as html."""
-        msg = "Delivery finished"
+        msg = "{} finished".format(label)
         if success:
             msg += " successfully"
         else:
