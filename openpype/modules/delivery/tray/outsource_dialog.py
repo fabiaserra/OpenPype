@@ -265,6 +265,11 @@ class OutsourceDialog(QtWidgets.QDialog):
 
     def _on_outsource_delivery_clicked(self):
 
+        self._text_area.setText("Deliver in progress...")
+        self._text_area.setVisible(True)
+
+        QtWidgets.QApplication.processEvents()
+
         try:
             if self._sg_playlist_btn.isChecked():
                 playlist_id_str = self._sg_playlist_id_input.currentText()
@@ -284,8 +289,6 @@ class OutsourceDialog(QtWidgets.QDialog):
             success = False
 
         self._text_area.setText(self._format_report(report_items, success))
-        self._text_area.setVisible(True)
-
 
     # -------------------------------
     # Delay calling blocking methods

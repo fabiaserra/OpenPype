@@ -349,7 +349,11 @@ class IngestDialog(QtWidgets.QDialog):
         self._text_area.setText(self._format_report(report_items, success, label="Validation"))
 
     def _on_publish_clicked(self):
-        logger.debug("Publishing products")
+        self._text_area.setText("Ingest in progress...")
+        self._text_area.setVisible(True)
+
+        QtWidgets.QApplication.processEvents()
+
         try:
             products_data = self._model.get_products()
             report_items, success = ingest.publish_products(

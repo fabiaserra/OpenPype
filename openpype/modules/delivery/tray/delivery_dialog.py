@@ -567,9 +567,14 @@ class DeliveryDialog(QtWidgets.QDialog):
         return delivery_data
 
     def _on_generate_delivery_media_clicked(self):
-        delivery_data = self._get_delivery_data()
+
+        self._text_area.setText("Deliver in progress...")
+        self._text_area.setVisible(True)
+
+        QtWidgets.QApplication.processEvents()
 
         try:
+            delivery_data = self._get_delivery_data()
             if self._sg_playlist_btn.isChecked():
                 playlist_id_str = self._sg_playlist_id_input.currentText()
                 playlist_id = re.search(r"\((\d+)\)$", playlist_id_str).group(1)
@@ -601,8 +606,6 @@ class DeliveryDialog(QtWidgets.QDialog):
 
     def refresh(self):
         tools_lib.schedule(self._refresh, 50, channel="mongo")
-
-
 
 
 class DeliveryOutputsWidget(QtWidgets.QWidget):
