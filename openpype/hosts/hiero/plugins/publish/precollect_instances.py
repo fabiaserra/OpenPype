@@ -11,7 +11,7 @@ from pprint import pformat
 class PrecollectInstances(pyblish.api.ContextPlugin):
     """Collect all Track items selection."""
 
-    order = pyblish.api.CollectorOrder - 0.49
+    order = pyblish.api.CollectorOrder - 0.4789
     label = "Precollect Instances"
     hosts = ["hiero"]
 
