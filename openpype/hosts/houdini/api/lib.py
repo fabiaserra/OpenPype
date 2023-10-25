@@ -849,8 +849,8 @@ def set_camera_resolution(camera, asset_doc=None):
     resolution = get_resolution_from_doc(asset_doc)
 
     if resolution:
-        print("Setting camera resolution: {} -> {}x{}x{}".format(
-            camera.name(), resolution[0], resolution[1], resolution[2]
+        print("Setting camera resolution: {} -> {}x{}".format(
+            camera.name(), resolution[0], resolution[1]
         ))
         camera.parm("resx").set(resolution[0])
         camera.parm("resy").set(resolution[1])
@@ -1047,7 +1047,7 @@ def add_self_publish_button(node):
     label = os.environ.get("AVALON_LABEL") or "OpenPype"
 
     button_parm = hou.ButtonParmTemplate(
-        "{}_publish".format(label.lower()),
+        "ayon_self_publish",
         "{} Publish".format(label),
         script_callback="from openpype.hosts.houdini.api.lib import "
                         "self_publish; self_publish()",
