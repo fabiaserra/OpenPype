@@ -9,6 +9,14 @@ from openpype.client.operations import OperationsSession
 logger = Logger.get_logger(__name__)
 
 
+# Dictionary that maps task names that we use with the SG step code
+# corresponding to that task
+TASK_NAME_TO_STEP_MAP = {
+    "2dtrack": "2dTrk",
+    "3dtrack": "3dTrk"
+}
+
+
 def add_tasks_to_sg_entities(project, sg_entities, entity_type, tasks):
     """Add given tasks to the SG entities of the specified entity type.
 
@@ -28,6 +36,11 @@ def add_tasks_to_sg_entities(project, sg_entities, entity_type, tasks):
     # the pipeline step for each single entity
     tasks_data = []
     for task_name, step_name in tasks.items():
+
+        # Override step name if it's on the name -> step dictionary
+        if task_name in TASK_NAME_TO_STEP_MAP:
+            step_name = TASK_NAME_TO_STEP_MAP[task_name]
+
         step = sg.find_one(
             "Step",
             [["code", "is", step_name], ["entity_type", "is", entity_type]],

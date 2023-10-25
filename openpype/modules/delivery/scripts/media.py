@@ -440,7 +440,7 @@ def generate_delivery_media_version(
         if not os.path.exists(parent_dir):
             os.makedirs(parent_dir)
         # Add some validation to make sure we don't overwrite existing files
-        elif os.path.isfile(dest_path):
+        elif not delivery_data.get("force_override_files") and os.path.isfile(dest_path):
             logger.warning("Destination path '%s' already exists.", dest_path)
             report_items["Destination path already exists"].append(
                 dest_path

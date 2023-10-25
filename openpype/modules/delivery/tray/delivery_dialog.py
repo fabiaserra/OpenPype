@@ -1,5 +1,6 @@
 import os
 import re
+import sys
 import platform
 import json
 import traceback
@@ -69,8 +70,8 @@ class DeliveryDialog(QtWidgets.QDialog):
         self.setWindowIcon(icon)
 
         self.setWindowFlags(
-            QtCore.Qt.WindowStaysOnTopHint
-            | QtCore.Qt.WindowCloseButtonHint
+            QtCore.Qt.WindowCloseButtonHint
+            | QtCore.Qt.WindowMaximizeButtonHint
             | QtCore.Qt.WindowMinimizeButtonHint
         )
 
@@ -112,7 +113,6 @@ class DeliveryDialog(QtWidgets.QDialog):
         delivery_outputs = DeliveryOutputsWidget()
         input_layout.addRow("Outputs {output}", delivery_outputs)
 
-        # TODO: validate whether version has already been generated or not
         # Add checkbox to choose whether we want to force the media to be
         # regenerated or not
         force_delivery_media_cb = QtWidgets.QCheckBox()
@@ -124,6 +124,16 @@ class DeliveryDialog(QtWidgets.QDialog):
         )
         input_layout.addRow(
             "Force regeneration of media", force_delivery_media_cb
+        )
+
+        force_override_files_cb = QtWidgets.QCheckBox()
+        force_override_files_cb.setChecked(False)
+        force_override_files_cb.setToolTip(
+            "Whether we want to force the generation of the media and override"\
+            " the existing files if the destination path is the same."
+        )
+        input_layout.addRow(
+            "Force override of files", force_override_files_cb
         )
 
         vendor_input = QtWidgets.QLineEdit(self.VENDOR_DEFAULT)
@@ -251,7 +261,6 @@ class DeliveryDialog(QtWidgets.QDialog):
         save_project_config_btn = QtWidgets.QPushButton(
             "Save settings to project as default"
         )
-        save_project_config_btn.setDefault(True)
         save_project_config_btn.setToolTip(
             "Saves the current settings on the dialog as default on the project so next"
             " time the delivery dialog is launched with this project the defaults are "
@@ -267,7 +276,6 @@ class DeliveryDialog(QtWidgets.QDialog):
         generate_delivery_media_btn = QtWidgets.QPushButton(
             "Generate delivery media"
         )
-        generate_delivery_media_btn.setDefault(True)
         generate_delivery_media_btn.setToolTip(
             "Run the delivery media pipeline and ensure delivery media exists for all " \
             "outputs (Final Output, Review Output in ShotGrid)"
@@ -290,6 +298,7 @@ class DeliveryDialog(QtWidgets.QDialog):
         self._projects_combobox = projects_combobox
         self._delivery_outputs = delivery_outputs
         self._force_delivery_media_cb = force_delivery_media_cb
+        self._force_override_files_cb = force_override_files_cb
         self._vendor_input = vendor_input
         self._package_name_input = package_name_input
         self._filename_input = filename_input
@@ -304,6 +313,13 @@ class DeliveryDialog(QtWidgets.QDialog):
         self._sg_version_id_input = sg_version_id_input
         self._sg_version_btn = version_radio_btn
         self._text_area = text_area
+
+    def keyPressEvent(self, event: QtGui.QKeyEvent):
+        # Ignore enter key
+        if event.key() == QtCore.Qt.Key_Enter or event.key() == QtCore.Qt.Key_Return:
+            event.ignore()
+        else:
+            super().keyPressEvent(event)
 
     def showEvent(self, event):
         super(DeliveryDialog, self).showEvent(event)
@@ -532,6 +548,7 @@ class DeliveryDialog(QtWidgets.QDialog):
         delivery_data = {}
         delivery_data["output_names_ext"] = self._delivery_outputs.get_selected_outputs()
         delivery_data["force_delivery_media"] = self._force_delivery_media_cb.isChecked()
+        delivery_data["force_override_files"] = self._force_override_files_cb.isChecked()
         delivery_data["vendor_override"] = self._vendor_input.text()
         delivery_data["package_name_override"] = self._package_name_input.text()
         delivery_data["version_override"] = self._version_input.text()
@@ -561,9 +578,14 @@ class DeliveryDialog(QtWidgets.QDialog):
         return delivery_data
 
     def _on_generate_delivery_media_clicked(self):
-        delivery_data = self._get_delivery_data()
+
+        self._text_area.setText("Deliver in progress...")
+        self._text_area.setVisible(True)
+
+        QtWidgets.QApplication.processEvents()
 
         try:
+            delivery_data = self._get_delivery_data()
             if self._sg_playlist_btn.isChecked():
                 playlist_id_str = self._sg_playlist_id_input.currentText()
                 playlist_id = re.search(r"\((\d+)\)$", playlist_id_str).group(1)
@@ -595,8 +617,6 @@ class DeliveryDialog(QtWidgets.QDialog):
 
     def refresh(self):
         tools_lib.schedule(self._refresh, 50, channel="mongo")
-
-
 
 
 class DeliveryOutputsWidget(QtWidgets.QWidget):
@@ -635,7 +655,7 @@ class DeliveryOutputsWidget(QtWidgets.QWidget):
             name, ext = name_ext
             label = QtWidgets.QLabel(f"{name}")
             label.setTextInteractionFlags(QtCore.Qt.TextSelectableByMouse)
-            checkbox = QtWidgets.QCheckBox()
+            checkbox = QtWidgets.QCheckBox(self)
             checkbox.setChecked(True)
             self.delivery_widgets[name] = checkbox
             self.delivery_extensions[name] = ext
@@ -747,4 +767,4 @@ def main():
     # Trigger on project change every time the tool loads
     window.on_project_change()
 
-    app_instance.exec_()
+    sys.exit(app_instance.exec_())
