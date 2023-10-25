@@ -68,6 +68,98 @@ def check_task_exists(project_name, asset_doc, task_name, force_creation=False):
     return True
 
 
+def validate_version(
+    project_name,
+    asset_name,
+    task_name,
+    family_name,
+    subset_name,
+    expected_representations,
+    publish_data,
+    overwrite_version=False,
+    force_task_creation=False,
+):
+    # String representation of product being published
+    item_str = f"Asset: {asset_name} - Task: {task_name} - Family: {family_name} - Subset: {subset_name}"
+
+    # Validate that all required fields exist
+    if not all(
+        [
+            project_name,
+            asset_name,
+            task_name,
+            family_name,
+            subset_name,
+            expected_representations
+        ]
+    ):
+        msg = (
+            f"{item_str} -> Can't publish version without all arguments."
+        )
+        logger.error(msg)
+        return msg, False
+
+    asset_doc = get_asset_by_name(project_name, asset_name, fields=["_id", "data", "name"])
+    context_data = asset_doc["data"]
+
+    # Validate that the version doesn't exist if we choose to not overwrite
+    if not overwrite_version and publish_data.get("version"):
+        if check_version_exists(
+            project_name, asset_doc, subset_name, publish_data.get("version")
+        ):
+            msg = (
+                f"{item_str} -> Version already exists."
+            )
+            logger.error(msg)
+            return msg, False
+
+    # Validate that the task exists
+    if not check_task_exists(project_name, asset_doc, task_name, force_task_creation):
+        msg = (
+            f"{item_str} -> Task '{task_name}' doesn't exist."
+        )
+        logger.error(msg)
+        return msg, False
+
+    # TODO: write some logic that finds the main path from the list of
+    # representations
+    source_path = list(expected_representations.values())[0]
+
+    instance_data = {
+        "project": project_name,
+        "family": family_name,
+        "subset": subset_name,
+        "families": publish_data.get("families", []),
+        "asset": asset_name,
+        "task": task_name,
+        "fps": publish_data.get("fps", context_data.get("fps")),
+        "comment": publish_data.get("comment", ""),
+        "source": source_path,
+        "overrideExistingFrame": False,
+        "useSequenceForReview": True,
+        "colorspace": publish_data.get("colorspace"),
+        "version": publish_data.get("version"),
+        "outputDir": os.path.dirname(source_path),
+    }
+
+    logger.debug("Getting representations...")
+
+    representations = utils.get_representations(
+        instance_data,
+        expected_representations,
+        add_review=family_name in REVIEW_FAMILIES,
+        publish_to_sg=family_name in PUBLISH_TO_SG_FAMILIES,
+    )
+    if not representations:
+        msg = f"{item_str} -> No representations could be found on expected dictionary: {expected_representations}"
+        logger.error(msg)
+        return msg, False
+
+    msg = f"{item_str} -> Valid"
+
+    return msg, True
+
+
 def publish_version(
     project_name,
     asset_name,

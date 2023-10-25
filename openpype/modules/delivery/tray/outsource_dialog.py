@@ -1,4 +1,5 @@
 import re
+import sys
 import platform
 import traceback
 from qtpy import QtCore, QtWidgets, QtGui
@@ -103,7 +104,6 @@ class OutsourceDialog(QtWidgets.QDialog):
         outsource_delivery_btn = QtWidgets.QPushButton(
             "Deliver for outsource"
         )
-        outsource_delivery_btn.setDefault(True)
         outsource_delivery_btn.setToolTip(
             "Run the outsource delivery pipeline so it copies the SG entities into"
             " a package in the '/proj/<proj_code>/io/outsource/ready_to_deliver' folder."
@@ -129,6 +129,13 @@ class OutsourceDialog(QtWidgets.QDialog):
         self._sg_version_id_input = sg_version_id_input
         self._sg_version_btn = version_radio_btn
         self._text_area = text_area
+
+    def keyPressEvent(self, event: QtGui.QKeyEvent):
+        # Ignore enter key
+        if event.key() == QtCore.Qt.Key_Enter or event.key() == QtCore.Qt.Key_Return:
+            event.ignore()
+        else:
+            super().keyPressEvent(event)
 
     def showEvent(self, event):
         super(OutsourceDialog, self).showEvent(event)
@@ -258,6 +265,11 @@ class OutsourceDialog(QtWidgets.QDialog):
 
     def _on_outsource_delivery_clicked(self):
 
+        self._text_area.setText("Deliver in progress...")
+        self._text_area.setVisible(True)
+
+        QtWidgets.QApplication.processEvents()
+
         try:
             if self._sg_playlist_btn.isChecked():
                 playlist_id_str = self._sg_playlist_id_input.currentText()
@@ -277,8 +289,6 @@ class OutsourceDialog(QtWidgets.QDialog):
             success = False
 
         self._text_area.setText(self._format_report(report_items, success))
-        self._text_area.setVisible(True)
-
 
     # -------------------------------
     # Delay calling blocking methods
@@ -304,4 +314,4 @@ def main():
     # Trigger on project change every time the tool loads
     window.on_project_change()
 
-    app_instance.exec_()
+    sys.exit(app_instance.exec_())

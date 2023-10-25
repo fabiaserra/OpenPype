@@ -15,7 +15,7 @@ class CollectCurrentContext(pyblish.api.ContextPlugin):
     Plugin does not override any value if is already set.
     """
 
-    order = pyblish.api.CollectorOrder - 0.48
+    order = pyblish.api.CollectorOrder - 0.5
     label = "Collect Current context"
 
     def process(self, context):
@@ -26,16 +26,13 @@ class CollectCurrentContext(pyblish.api.ContextPlugin):
 
         current_context = get_current_context()
         if not project_name:
-            project_name = current_context["project_name"]
-            context.data["projectName"] = project_name
+            context.data["projectName"] = current_context["project_name"]
 
         if not asset_name:
-            asset_name = current_context["asset_name"]
-            context.data["asset"] = asset_name
+            context.data["asset"] = current_context["asset_name"]
 
         if not task_name:
-            task_name = current_context["task_name"]
-            context.data["task"] = task_name
+            context.data["task"] = current_context["task_name"]
 
         # QUESTION should we be explicit with keys? (the same on instances)
         #   - 'asset' -> 'assetName'
