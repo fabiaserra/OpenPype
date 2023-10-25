@@ -27,7 +27,7 @@ class LoadClip(plugin.TimelineItemLoader):
     during conforming to project
     """
 
-    families = ["render2d", "source", "plate", "reference" ,"render", "review"]
+    families = ["render2d", "source", "plate", "reference", "render", "review"]
 
     representations = ["*"]
     extensions = set(

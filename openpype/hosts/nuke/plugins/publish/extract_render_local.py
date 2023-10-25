@@ -27,7 +27,7 @@ class NukeRenderLocal(publish.Extractor,
 
     def process(self, instance):
         ### Starts Alkemy-X Override ###
-        write_node = instance.data["writeNode"]
+        write_node = instance.data["transientData"]["writeNode"]
         ### Ends Alkemy-X Override ###
 
         self.log.debug("instance collected: {}".format(instance.data))

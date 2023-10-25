@@ -3,15 +3,12 @@
     margin: 0;
 }
 body {
-    background-image: linear-gradient(
-        rgb(27, 27, 27) 0%,
-        rgb(14, 14, 14) 100%
-    );
+    background-color: rgb(65, 65, 65);
     font-family: Arial, sans-serif;
     font-size: 3vh;
     line-height: 3vh;
     overflow: hidden;
-    color: rgb(200, 200, 200)
+    color: rgb(255, 255, 255)
 }
 .logo_footer {
     position: absolute;
@@ -48,10 +45,14 @@ body {
 .info-entry {
     display: table-row;
 }
+.blank-cell {
+    height: 3vh;  /* or whatever height you want */
+    background-color: transparent;  /* you can set this to any color you want or leave it transparent */
+}
 .info-desc {
     display: table-cell;
     padding-right: 1.5vh;
-    color: rgb(100, 100, 100);
+    color: rgb(255, 255, 255);
 }
 .info-text {
     display: table-cell;

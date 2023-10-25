@@ -4,7 +4,10 @@ import logging
 import tempfile
 
 import pyblish.api
-from html2image import Html2Image
+try:
+    from html2image import Html2Image
+except ImportError:
+    Html2Image = None
 
 from openpype.lib import (
     get_oiio_tool_args,
@@ -205,8 +208,7 @@ class SlateCreator:
                     self.data["{}_optional".format(match)] = hidden_string
 
         try:
-            template_string_computed = self._template_string.format(
-                **self.data)
+            template_string_computed = self._template_string.format(**self.data)
             self.log.debug("Computed Template string: '%s'",
                            template_string_computed)
             self.log.debug("Data: %s", self.data)
@@ -292,11 +294,7 @@ class SlateCreator:
         """Call oiiotool to convert one image to another."""
         name = os.path.basename(input)
 
-        cmd = get_oiio_tool_args(
-            "oiiotool",
-            # Don't add any additional attributes
-            "--nosoftwareattrib",
-        )
+        cmd = get_oiio_tool_args("oiiotool")
         if ocio_config_path:
             cmd.extend(["--colorconfig", ocio_config_path])
 
@@ -408,7 +406,14 @@ class ExtractSlateGlobal(publish.Extractor):
     _slate_data_name = "slateGlobal"
 
     def process(self, instance):
-
+        
+        if not Html2Image:
+            self.log.warning(
+                "Html2Image couldn't be loaded in environment, skipping slate "
+                "extraction..."
+            )
+            return
+        
         if self._slate_data_name not in instance.data:
             self.log.warning(
                 "Slate Global workflow is not active, skipping slate "
@@ -593,7 +598,7 @@ class ExtractSlateGlobal(publish.Extractor):
             )
 
             # Extract colorspace config path from representation
-            colorspace_data = repre.get("colorspaceData")
+            colorspace_data = repre.get("colorspaceData", {})
             config_path = colorspace_data.get("config", {}).get("path")
 
             slate_creator.render_image_oiio(
@@ -613,7 +618,7 @@ class ExtractSlateGlobal(publish.Extractor):
                     )
                 )
                 repre["frameStart"] = slate_creator.data["real_frameStart"]
-                self.log.debug("Updated 'frameStart' to '%s'.",  repre["frameStart"])
+                self.log.debug("Updated 'frameStart' to '%s'.", repre["frameStart"])
             else:
                 if not instance.data.get("slateFrames"):
                     instance.data["slateFrames"] = {"*": slate_final_path}

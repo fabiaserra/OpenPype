@@ -17,6 +17,10 @@ class CollectSlateGlobal(pyblish.api.InstancePlugin):
 
     def process(self, instance):
 
+        # Disabling Slate Global plugin completely for now as slates
+        # are only now being generated in the delivery pipeline
+        return
+
         context = instance.context
         slate_settings = context.data["project_settings"]["global"]\
             ["publish"].get("ExtractSlateGlobal")
@@ -53,6 +57,7 @@ class CollectSlateGlobal(pyblish.api.InstancePlugin):
             "intent": {"label": "", "value": ""},
             "comment": "",
             "scope": "",
+            "lens": "",  # TODO: grab it from somewhere
             "fps": context.data["projectEntity"]["data"].get("fps"),
         }
         slate_common_data.update(instance.data["anatomyData"])

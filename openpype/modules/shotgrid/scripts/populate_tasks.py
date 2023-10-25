@@ -1,8 +1,20 @@
+import copy
+
 from openpype.lib import Logger
 from openpype.modules.shotgrid.lib import credentials
+from openpype.client import get_asset_by_name
+from openpype.client.operations import OperationsSession
 
 
 logger = Logger.get_logger(__name__)
+
+
+# Dictionary that maps task names that we use with the SG step code
+# corresponding to that task
+TASK_NAME_TO_STEP_MAP = {
+    "2dtrack": "2dTrk",
+    "3dtrack": "3dTrk"
+}
 
 
 def add_tasks_to_sg_entities(project, sg_entities, entity_type, tasks):
@@ -24,10 +36,23 @@ def add_tasks_to_sg_entities(project, sg_entities, entity_type, tasks):
     # the pipeline step for each single entity
     tasks_data = []
     for task_name, step_name in tasks.items():
+
+        # Override step name if it's on the name -> step dictionary
+        if task_name in TASK_NAME_TO_STEP_MAP:
+            step_name = TASK_NAME_TO_STEP_MAP[task_name]
+
         step = sg.find_one(
             "Step",
-            [["code", "is", step_name], ["entity_type", "is", entity_type]]
+            [["code", "is", step_name], ["entity_type", "is", entity_type]],
+            ["code"]
         )
+        # There may not be a task step for this entity_type or task_name
+        if not step:
+            logger.info(
+                "No step found for entity type '%s' with step type '%s'", entity_type, step_name
+                )
+            continue
+
         # Create a task for this entity
         task_data = {
             "project": project,
@@ -40,6 +65,22 @@ def add_tasks_to_sg_entities(project, sg_entities, entity_type, tasks):
     for sg_entity in sg_entities:
         for task_data in tasks_data:
             task_data["entity"] = sg_entity
+            # Need to compare against step code as steps don't always have the
+            # same code when applied through SG
+            existing_task = sg.find(
+                "Task",
+                [
+                    ["entity", "is", sg_entity],
+                    ["content", 'is', task_data["content"]],
+                    ["step.Step.code", 'is', task_data["step"]["code"]],
+                ]
+            )
+            if existing_task:
+                logger.info(
+                    "Task '%s' already existed at '%s'.",
+                    task_data["content"], sg_entity["code"]
+                )
+                continue
             sg.create("Task", task_data)
             logger.info(
                 "Task '%s' created at '%s'", task_data["content"], sg_entity["code"]
@@ -66,10 +107,30 @@ def populate_tasks(project_code):
     }
 
     # Find the project with the given code
-    project = sg.find_one("Project", [["sg_code", "is", project_code]])
+    project = sg.find_one("Project", [["sg_code", "is", project_code]], ["name"])
     if not project:
         logger.error("Project with 'sg_code' %s not found.", project_code)
         return
+
+    project_name = project["name"]
+
+    # Create 'edit' task at the shots level
+    shots_asset = get_asset_by_name(project_name, "shots", fields=["_id", "data"])
+    existing_tasks = shots_asset["data"].get("tasks")
+    if "edit" in existing_tasks:
+        logger.info("Task 'edit' already exists at 'shots'")
+    else:
+        session = OperationsSession()
+        update_data = copy.deepcopy(shots_asset["data"])
+        existing_tasks.update(
+            {"edit": {"type": "Edit"}}
+        )
+        update_data["tasks"] = existing_tasks
+        session.update_entity(
+            project_name, "task", shots_asset["_id"], {"data": update_data}
+        )
+        session.commit()
+        logger.info("Task 'edit' created at 'shots'")
 
     # Try add tasks to all Episodes
     episodes = sg.find("Episode", [["project", "is", project]], ["id", "code"])

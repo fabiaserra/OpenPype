@@ -359,7 +359,7 @@ def get_imageio_config(
     if not anatomy_data:
         from openpype.pipeline.context_tools import (
             get_template_data_from_session)
-        anatomy_data = get_template_data_from_session()
+        anatomy_data = get_template_data_from_session(project_name=project_name)
 
     formatting_data = deepcopy(anatomy_data)
 

@@ -20,52 +20,17 @@ class CollectNukeWrites(pyblish.api.InstancePlugin,
 
     def process(self, instance):
 
-        ### Starts Alkemy-X Override ###
-        publish_node = instance.data["transientData"]["node"]
-        ### Ends Alkemy-X Override ###
-
+        group_node = instance.data["transientData"]["node"]
         render_target = instance.data["render_target"]
         family = instance.data["family"]
         families = instance.data["families"]
 
-        # add targeted family to families
-        instance.data["families"].append(
-            "{}.{}".format(family, render_target)
-        )
-        self.log.debug("Appending render target to families: {}.{}".format(
-            family, render_target)
-        )
-        if instance.data.get("review"):
-            instance.data["families"].append("review")
-
-        ### Starts Alkemy-X Override ###
-        # only append 'client_review' family if client_review checkbox is enabled
-        if instance.data.get("client_review"):
-            instance.data["families"].append("client_review")
-
-        # only append 'client_final' family if client_final checkbox is enabled
-        if instance.data.get("client_final"):
-            instance.data["families"].append("client_final")
-
-        if publish_node.Class() == "Group":
-            child_nodes = napi.get_instance_group_node_childs(instance)
-            instance.data["transientData"]["childNodes"] = child_nodes
-
-            write_node = None
-            for x in child_nodes:
-                if x.Class() == "Write":
-                    write_node = x
-
-        elif publish_node.Class() == "Write":
-            write_node = publish_node
-        ### Ends Alkemy-X Override ###
+        write_node = self._write_node_helper(instance)
 
         if write_node is None:
             self.log.warning(
                 "Created node '{}' is missing write node!".format(
-                    ### Starts Alkemy-X Override ###
-                    publish_node.name()
-                    ### Ends Alkemy-X Override ###
+                    group_node.name()
                 )
             )
             return
@@ -261,10 +226,13 @@ class CollectNukeWrites(pyblish.api.InstancePlugin,
         # set child nodes to instance transient data
         instance.data["transientData"]["childNodes"] = child_nodes
 
-        write_node = None
-        for node_ in child_nodes:
-            if node_.Class() == "Write":
-                write_node = node_
+        if child_nodes:
+            write_node = None
+            for node_ in child_nodes:
+                if node_.Class() == "Write":
+                    write_node = node_
+        else:
+            write_node = instance.data["transientData"]["node"]
 
         if write_node:
             # for slate frame extraction

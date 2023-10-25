@@ -1,6 +1,7 @@
 import ast
 import bisect
 import glob
+import nuke
 import os
 import pathlib
 import PyOpenColorIO
@@ -17,7 +18,7 @@ from openpype.client import (
     get_last_version_by_subset_name,
 )
 from openpype.hosts.hiero.api.constants import OPENPYPE_TAG_NAME
-from openpype.hosts.hiero.api.lib import set_trackitem_openpype_tag
+from openpype.hosts.hiero.api.lib import MainPlate
 from openpype.lib import Logger
 from openpype.modules.shotgrid.lib import credentials
 from openpype.pipeline.context_tools import (
@@ -25,6 +26,8 @@ from openpype.pipeline.context_tools import (
     get_hierarchy_env,
 )
 
+def tile_to_qrgb(tile):
+    return qRgb(0xFF & tile >> 24, 0xFF & tile >> 16, 0xFF & tile >> 8)
 
 SHOTGRID = credentials.get_shotgrid_session()
 
@@ -55,8 +58,24 @@ SG_TAG_ICONS = {
 
 INGEST_EFFECTS = ["flip", "flop"]
 SG_TAGS = ["retime", "repo", "insert", "split"]
+
+HIERO_PREFERENCES = nuke.toNode("preferences")
+HIGHLIGHT_COLOR = QColor(
+    tile_to_qrgb(HIERO_PREFERENCES["UIHighlightColor"].value())
+)
+MEDIA_OFFLINE_COLOR = QColor(
+    tile_to_qrgb(HIERO_PREFERENCES["projectItemOfflineColor"].value())
+)
+TEXT_HIGHLIGHTED_COLOR = QColor(
+    tile_to_qrgb(HIERO_PREFERENCES["UIHighlightedTextColor"].value())
+)
+TEXT_COLOR = QColor(
+    tile_to_qrgb(HIERO_PREFERENCES["UILabelColor"].value())
+)
+
 EVEN_COLUMN_COLOR = QColor(61, 61, 66)
 ODD_COLUMN_COLOR = QColor(53, 53, 57)
+
 NO_OP_TRANSLATE = {43: None, 45: None, 42: None, 47: None}
 
 log = Logger.get_logger(__name__)
@@ -317,7 +336,12 @@ class ColorspaceWidget(QMainWindow):
 class IngestResWidget(QComboBox):
     def __init__(self, item, current_format):
         super().__init__()
-        if "x" in current_format:
+
+        default_working_resolution = self.get_default_working_resolution(item.name())
+        if default_working_resolution:
+            default_format_width, default_format_height = \
+                default_working_resolution
+        elif "x" in current_format:
             default_format_width, default_format_height = current_format.split(
                 "x"
             )
@@ -359,6 +383,7 @@ class IngestResWidget(QComboBox):
             default_format_string = (
                 f"{default_format_width}x{default_format_height}"
             )
+
         self.insertItem(0, default_format_string)
 
         # Will need to add current format if found as tag on clip
@@ -369,6 +394,45 @@ class IngestResWidget(QComboBox):
 
         # Select all for easy editing
         self.lineEdit().selectAll()
+
+
+    def get_default_working_resolution(self, asset_name):
+        """Set resolution to project resolution."""
+        # If Asset has working resolution pull from asset
+        # If not pull from Project default working res
+        project_name = get_current_project_name()
+        asset_doc = get_asset_by_name(project_name, asset_name)
+
+        if asset_doc:
+            asset_data = asset_doc["data"]
+            width = asset_data.get('resolutionWidth', "")
+            height = asset_data.get('resolutionHeight', "")
+            if width and height:
+
+                return (width, height)
+
+        else:
+            filters = [
+                [
+                    "name",
+                    "is",
+                    project_name,
+                ],
+            ]
+            fields = [
+                "sg_project_resolution",
+            ]
+            sg_project = SHOTGRID.find_one("Project", filters, fields)
+            if not sg_project:
+                return None
+
+            show_resolution = sg_project["sg_project_resolution"]
+            if "x" in show_resolution:
+                width, height = show_resolution.split("x")
+
+                return (width, height)
+
+        return None
 
 
 class IngestEffectsWidget(QMainWindow):
@@ -487,27 +551,6 @@ class SGTagsWidget(QMainWindow):
             self.tag_data[key] = widget.isChecked()
 
 
-def is_valid_asset(track_item):
-    """Check if the given asset name is valid for the current project.
-
-    Args:
-        asset_name (str): The name of the asset to validate.
-
-    Returns:
-        dict: The asset document if found, otherwise an empty dictionary.
-    """
-    # Track item may not have ran through callback to is valid attr
-    if "hierarchy_env" in track_item.__dir__():
-        return track_item.hierarchy_env
-
-    project_name = get_current_project_name()
-    asset_doc = get_asset_by_name(project_name, track_item.name())
-    if asset_doc:
-        return True
-    else:
-        return False
-
-
 def get_track_item_env(track_item):
     """
     Get the asset environment from an asset stored in the Avalon database.
@@ -569,32 +612,29 @@ class CustomSpreadsheetColumns(QObject):
         {"name": "FileType", "cellType": "readonly"},
         {"name": "Tags", "cellType": "readonly"},
         {"name": "Colorspace", "cellType": "custom"},
-        {"name": "Episode", "cellType": "readonly"},
-        {"name": "Sequence", "cellType": "readonly"},
-        {"name": "Shot", "cellType": "readonly"},
         {"name": "WidthxHeight", "cellType": "readonly"},
         {"name": "Pixel Aspect", "cellType": "readonly"},
         {"name": "ingest_res", "cellType": "custom", "size": QSize(100, 25)},
-        {"name": "resize_type", "cellType": "checkbox"},
+        {"name": "resize_type", "cellType": "custom"},
         {"name": "ingest_effects", "cellType": "custom"},
         {"name": "cur_version", "cellType": "readonly"},
         {"name": "cur_grade", "cellType": "custom"},
         {"name": "sg_tags", "cellType": "custom"},
-        {"name": "edit_note", "cellType": "checkbox"},
+        {"name": "edit_note", "cellType": "custom"},
         {"name": "head_handles", "cellType": "text"},
         {"name": "cut_in", "cellType": "text"},
-        {"name": "cut_out", "cellType": "text"},
+        {"name": "cut_out", "cellType": "readonly"},
         {"name": "tail_handles", "cellType": "text"},
+        {"name": "cut_range", "cellType": "text"},
         {
             "name": "valid_entity",
             "cellType": "readonly",
         },
-        {"name": "op_frame_start", "cellType": "text", "size": QSize(40, 25)},
-        {"name": "op_family", "cellType": "dropdown", "size": QSize(10, 25)},
-        {"name": "op_handle_start", "cellType": "text", "size": QSize(10, 25)},
-        {"name": "op_handle_end", "cellType": "text", "size": QSize(10, 25)},
-        {"name": "op_subset", "cellType": "readonly"},
-        {"name": "op_use_nuke", "cellType": "checkbox"},
+        {"name": "main_plate", "cellType": "custom"},
+        {"name": "family", "cellType": "dropdown", "size": QSize(10, 25)},
+        {"name": "use_nuke", "cellType": "custom"}, # -> use_nuke
+        # If use nuke is True then turn ingest template from read only
+        # {"name": "ingest_template", "cellType": "custom"}, -> ingest_template
     ]
 
     def numColumns(self):
@@ -637,16 +677,23 @@ class CustomSpreadsheetColumns(QObject):
     def getData(self, row, column, item):
         """Return the data in a cell"""
         current_column = self.column_list[column]
-        if current_column["name"] == "Tags":
+        current_column_name = current_column["name"]
+        if current_column_name == "Tags":
             return self.get_tags_string(item)
 
-        elif current_column["name"] == "Colorspace":
-            return item.sourceMediaColourTransform()
+        elif current_column_name == "Colorspace":
+            # RuntimeError: Clip must be added to a project before accessing color transforms
+            try:
+                colorspace = item.sourceMediaColourTransform()
+            except RuntimeError:
+                colorspace = ""
 
-        elif current_column["name"] == "Notes":
+            return colorspace
+
+        elif current_column_name == "Notes":
             return self.get_notes(item)
 
-        elif current_column["name"] == "FileType":
+        elif current_column_name == "FileType":
             fileType = "--"
             item_metadata = item.source().mediaSource().metadata()
             if item_metadata.hasKey("foundry.source.type"):
@@ -655,51 +702,38 @@ class CustomSpreadsheetColumns(QObject):
                 fileType = item_metadata.value("media.input.filereader")
             return fileType
 
-        elif current_column["name"] == "WidthxHeight":
+        elif current_column_name == "WidthxHeight":
             width = str(item.source().format().width())
             height = str(item.source().format().height())
             return f"{width}x{height}"
 
-        elif current_column["name"] == "Episode":
-            track_item_episode = get_track_item_env(item).get("EPISODE")
-
-            return track_item_episode or "--"
-
-        elif current_column["name"] == "Sequence":
-            track_item_sequence = get_track_item_env(item).get("SEQ")
-
-            return track_item_sequence or "--"
-
-        elif current_column["name"] == "Shot":
-            track_item_shot = get_track_item_env(item).get("SHOT")
-
-            return track_item_shot or "--"
-
-        elif current_column["name"] == "Pixel Aspect":
+        elif current_column_name == "Pixel Aspect":
             return str(item.source().format().pixelAspect())
 
-        elif current_column["name"] == "Artist":
+        elif current_column_name == "Artist":
             if item.artist():
                 name = item.artist()["artistName"]
                 return name
             else:
                 return "--"
 
-        elif current_column["name"] == "Department":
+        elif current_column_name == "Department":
             if item.artist():
                 dep = item.artist()["artistDepartment"]
                 return dep
             else:
                 return "--"
 
-        elif current_column["name"] == "cur_version":
-            instance_data = item.openpype_instance_data()
+        elif current_column_name == "cur_version":
+            instance_data = item.ingest_instance_data()
             if not instance_data:
                 return "--"
 
             project_name = os.getenv("AVALON_PROJECT")
-            asset = instance_data.get("asset")
-            subset = instance_data.get("subset")
+            # Asset is track item name
+            asset = item.name()
+            # Subset is track name
+            subset = item.parentTrack().name()
             last_version_doc = get_last_version_by_subset_name(
                 project_name, subset, asset_name=asset
             )
@@ -710,16 +744,16 @@ class CustomSpreadsheetColumns(QObject):
             else:
                 return "--"
 
-        elif current_column["name"] == "ingest_res":
+        elif current_column_name == "ingest_res":
             return item.ingest_res_data().get("resolution", "--")
 
-        elif current_column["name"] == "resize_type":
+        elif current_column_name == "resize_type":
             return item.ingest_res_data().get("resize", "--")
 
-        elif current_column["name"] == "edit_note":
+        elif current_column_name == "edit_note":
             return item.edit_note_data().get("note", "--")
 
-        elif current_column["name"] == "ingest_effects":
+        elif current_column_name == "ingest_effects":
             effects_data = item.ingest_effects_data()
 
             effects = []
@@ -732,27 +766,77 @@ class CustomSpreadsheetColumns(QObject):
             else:
                 return "--"
 
-        elif current_column["name"] in [
+        elif current_column_name in [
             "cut_in",
-            "cut_out",
-            "head_handles",
-            "tail_handles",
         ]:
             if not isinstance(item.parent(), hiero.core.VideoTrack):
                 return "--"
 
-            tag_key = current_column["name"]
+            tag_key = current_column_name
             current_tag_text = item.cut_info_data().get(tag_key, "--")
 
             return current_tag_text
 
-        elif "op_" in current_column["name"]:
-            instance_key = current_column["name"]
-            current_tag_text = item.openpype_instance_data().get(
-                f"{instance_key.split('op_')[-1]}", "--"
-            )
+
+        elif current_column_name == "head_handles":
+            cut_info_data = item.cut_info_data()
+            if not cut_info_data:
+                return "--"
+
+            cut_range = cut_info_data.get("cut_range")
+            if cut_range == "False":
+                return str(item.handleInLength())
+            else:
+                return cut_info_data.get("head_handles", "--")
+
+        elif current_column_name == "tail_handles":
+            cut_info_data = item.cut_info_data()
+            if not cut_info_data:
+                return "--"
+
+            cut_range = cut_info_data.get("cut_range")
+            if cut_range == "False":
+                return str(item.handleOutLength())
+            else:
+                return cut_info_data.get("tail_handles", "--")
+
+        elif current_column_name == "cut_out":
+            cut_in = item.cut_info_data().get("cut_in")
+            if str(cut_in) == "None":
+                return "--"
+            else:
+                cut_out = str(int(cut_in) + item.duration() - 1)
+
+                return cut_out
+
+        elif current_column_name == "cut_range":
             if not isinstance(item.parent(), hiero.core.VideoTrack):
                 return "--"
+
+            tag_key = current_column_name
+            cut_info_data = item.cut_info_data()
+            current_tag_text = cut_info_data.get("cut_range", "--")
+
+            return current_tag_text
+
+        elif current_column_name == "main_plate":
+            if not isinstance(item.parent(), hiero.core.VideoTrack):
+                return "--"
+
+            return "True" if item.get_main_plate() else "False"
+
+        elif current_column_name in [
+                "family",
+                "use_nuke",
+                # "template"
+            ]:
+            if not isinstance(item.parent(), hiero.core.VideoTrack):
+                return "--"
+
+            instance_key = current_column_name
+            current_tag_text = item.ingest_instance_data().get(
+                f"{instance_key}", "--"
+            )
 
             return current_tag_text
 
@@ -769,15 +853,6 @@ class CustomSpreadsheetColumns(QObject):
 
         if current_column["name"] == "Tags":
             return str([item.name() for item in item.tags()])
-
-        elif current_column["name"] == "Episode":
-            return "Episode name of current track item if valid otherwise --"
-
-        elif current_column["name"] == "Sequence":
-            return "Sequence name of current track item if valid otherwise --"
-
-        elif current_column["name"] == "Shot":
-            return "Shot name of current track item if valid otherwise --"
 
         elif current_column["name"] == "ingest_res":
             return (
@@ -827,12 +902,7 @@ class CustomSpreadsheetColumns(QObject):
 
         elif current_column["name"] == "cut_out":
             return (
-                "Shot 'cut out' frame. This is meant to be ground truth and can"
-                " be used to sync to SG.\n\n Operators are supported "
-                "i.e:\n'+20' -> 1001+20=1021\n'-10' -> 1010-10=1000\n'*2' -> "
-                "8*2=16\n'/2' -> 16/2=8\n\nWhen written in 1001-10 form the "
-                "expression will evaluate first. For multi-select updates that"
-                " may yield unintended results"
+                "Shot 'cut out' frame. A calculated field: Cut In + Duration - 1"
             )
 
         elif current_column["name"] == "head_handles":
@@ -861,25 +931,10 @@ class CustomSpreadsheetColumns(QObject):
                 " entity in Avalon DB."
             )
 
-        elif current_column["name"] == "op_frame_start":
-            return "Ingest first frame."
-
-        elif current_column["name"] == "op_family":
+        elif current_column["name"] == "family":
             return "Ingest family."
 
-        elif current_column["name"] == "op_handle_start":
-            return "Ingest head handle duration."
-
-        elif current_column["name"] == "op_handle_end":
-            return "Ingest tail handle duration."
-
-        elif current_column["name"] == "op_subset":
-            return (
-                "Subset is the ingest descriptor\nExample: "
-                "{trackItemName}_{subset}_{version}"
-            )
-
-        elif current_column["name"] == "op_use_nuke":
+        elif current_column["name"] == "use_nuke":
             return (
                 "Ingest can use two different methods depending on media type "
                 "Nuke or OIIO. If you need to force a Nuke ingest toggle "
@@ -896,10 +951,14 @@ class CustomSpreadsheetColumns(QObject):
     def getBackground(self, row, column, item):
         """Return the background color for a cell"""
         if not item.source().mediaSource().isMediaPresent():
-            return QColor(80, 20, 20)
+            return MEDIA_OFFLINE_COLOR
 
-        column_name = self.column_list[column]["name"]
-        if column_name.startswith("op_") or column_name == "valid_entity":
+        if self.column_list[column]["name"] in [
+                "valid_entity",
+                "family",
+                "main_plate",
+                "use_nuke",
+            ]:
             if row % 2 == 0:
                 # For reference default even row is 61, 61, 61
                 return EVEN_COLUMN_COLOR
@@ -911,9 +970,6 @@ class CustomSpreadsheetColumns(QObject):
 
     def getForeground(self, row, column, item):
         """Return the text color for a cell"""
-        if self.column_list[column]["name"].startswith("op_"):
-            if not is_valid_asset(item):
-                return QColor(255, 60, 30)
 
         return None
 
@@ -924,7 +980,9 @@ class CustomSpreadsheetColumns(QObject):
             return QIcon("icons:LUT.png")
 
         elif current_column["name"] == "valid_entity":
-            if is_valid_asset(item):
+            project_name = get_current_project_name()
+            asset_doc = get_asset_by_name(project_name, item.name())
+            if asset_doc:
                 icon_name = "icons:status/TagFinal.png"
             else:
                 icon_name = "icons:status/TagOmitted.png"
@@ -938,6 +996,13 @@ class CustomSpreadsheetColumns(QObject):
 
         return self.column_list[column].get("size", None)
 
+    def make_readonly_widget(self):
+        readonly_widget = QLabel()
+        readonly_widget.setEnabled(False)
+        readonly_widget.setVisible(False)
+
+        return readonly_widget
+
     def paintCell(self, row, column, item, painter, option):
         """Paint a custom cell. Return True if the cell was painted, or False
         to continue with the default cell painting.
@@ -948,20 +1013,15 @@ class CustomSpreadsheetColumns(QObject):
         # Set highlight for selected items
         if option.state & QStyle.State_Selected:
             painter.fillRect(option.rect, option.palette.highlight())
-            if row % 2 == 0:
-                painter.setPen(EVEN_COLUMN_COLOR)
-            else:
-                painter.setPen(ODD_COLUMN_COLOR)
-
+            painter.setPen(TEXT_HIGHLIGHTED_COLOR)
+        elif not item.isMediaPresent():
+            painter.fillRect(option.rect, MEDIA_OFFLINE_COLOR)
+            painter.setPen(TEXT_COLOR)
         else:
-            painter.setPen(QColor(195, 195, 195))
+            painter.setPen(TEXT_COLOR)
 
         current_column = self.column_list[column]
         if current_column["name"] == "Tags":
-            # Set highlight for selected items
-            if option.state & QStyle.State_Selected:
-                painter.fillRect(option.rect, option.palette.highlight())
-
             iconSize = 20
             rectangle = QRect(
                 option.rect.x(),
@@ -980,17 +1040,6 @@ class CustomSpreadsheetColumns(QObject):
                 return True
 
         elif current_column["name"] == "cur_grade":
-            # Set highlight for selected items
-            if option.state & QStyle.State_Selected:
-                painter.fillRect(option.rect, option.palette.highlight())
-                if row % 2 == 0:
-                    painter.setPen(EVEN_COLUMN_COLOR)
-                else:
-                    painter.setPen(ODD_COLUMN_COLOR)
-
-            else:
-                painter.setPen(QColor(195, 195, 195))
-
             ingest_grade = item.openpype_instance_data().get("ingested_grade")
 
             painter.setClipRect(option.rect)
@@ -1047,26 +1096,23 @@ class CustomSpreadsheetColumns(QObject):
         """Create an editing widget for a custom cell"""
         self.currentView = view
         current_column = self.column_list[column]
+        current_column_name = current_column["name"]
 
         if current_column["cellType"] == "readonly" or not isinstance(
             item.parent(), hiero.core.VideoTrack
         ):
             # readonly is done by removing visibility and useability of the
             # returned widget to the widget viewer
-            edit_widget = QLabel()
-            edit_widget.setEnabled(False)
-            edit_widget.setVisible(False)
+            return self.make_readonly_widget()
 
-            return edit_widget
-
-        elif current_column["name"] == "Colorspace":
+        elif current_column_name == "Colorspace":
             ocio_config = get_active_ocio_config()
             edit_widget = ColorspaceWidget(ocio_config)
             edit_widget.root_menu.triggered.connect(self.colorspace_changed)
 
             return edit_widget
 
-        elif current_column["name"] == "ingest_res":
+        elif current_column_name == "ingest_res":
             current_format = item.ingest_res_data().get("resolution", "")
 
             resolution_combo = IngestResWidget(item, current_format)
@@ -1082,7 +1128,7 @@ class CustomSpreadsheetColumns(QObject):
 
             return resolution_combo
 
-        elif current_column["name"] == "resize_type":
+        elif current_column_name == "resize_type":
             # Let user know that ingest format must exist first
             current_resize_type = item.ingest_res_data().get("resize")
             if not current_resize_type:
@@ -1109,7 +1155,7 @@ class CustomSpreadsheetColumns(QObject):
 
             return resize_type
 
-        elif current_column["name"] == "ingest_effects":
+        elif current_column_name == "ingest_effects":
             ingest_effects_state = item.ingest_effects_data()
             ingest_effects_edit_widget = IngestEffectsWidget(
                 ingest_effects_state
@@ -1120,7 +1166,7 @@ class CustomSpreadsheetColumns(QObject):
 
             return ingest_effects_edit_widget
 
-        elif current_column["name"] == "cur_grade":
+        elif current_column_name == "cur_grade":
             # If user double clicks on current grade. Show the full path and
             # disable editing
             ingest_grade = item.openpype_instance_data().get("ingested_grade")
@@ -1135,7 +1181,7 @@ class CustomSpreadsheetColumns(QObject):
 
             return widget
 
-        elif current_column["name"] == "sg_tags":
+        elif current_column_name == "sg_tags":
             sg_tag_state = item.sg_tags_data()
             sg_tag_edit_widget = SGTagsWidget(sg_tag_state)
             sg_tag_edit_widget.root_menu.aboutToHide.connect(
@@ -1144,7 +1190,7 @@ class CustomSpreadsheetColumns(QObject):
 
             return sg_tag_edit_widget
 
-        elif current_column["name"] == "edit_note":
+        elif current_column_name == "edit_note":
             current_edit_note = item.edit_note_data().get("note", "")
 
             edit_widget = QLineEdit()
@@ -1156,44 +1202,61 @@ class CustomSpreadsheetColumns(QObject):
 
             return edit_widget
 
-        elif current_column["name"] in [
-            "cut_in",
-            "cut_out",
+        elif current_column_name in [
             "head_handles",
             "tail_handles",
         ]:
-            tag_key = current_column["name"]
-            current_text = item.cut_info_data().get(tag_key)
+            cut_info_data = item.cut_info_data()
+            if not cut_info_data:
+                return self.make_readonly_widget()
+
+            if cut_info_data.get("cut_range") == "False":
+                return self.make_readonly_widget()
+
+            current_text = cut_info_data.get(current_column_name)
             edit_widget = QLineEdit(current_text)
-            edit_widget.setObjectName(tag_key)
+            edit_widget.setObjectName(current_column_name)
             edit_widget.returnPressed.connect(
                 lambda: self.cut_info_changed(edit_widget)
             )
 
             return edit_widget
 
-        elif current_column["name"] == "op_family":
-            if not is_valid_asset(item):
-                QMessageBox.warning(
-                    hiero.ui.mainWindow(),
-                    "Critical",
-                    "Can't assign data to invalid entity",
-                )
+        elif current_column_name == "cut_in":
+            current_text = item.cut_info_data().get("cut_in")
+            edit_widget = QLineEdit(current_text)
+            edit_widget.setObjectName("cut_in")
+            edit_widget.returnPressed.connect(
+                lambda: self.cut_info_changed(edit_widget)
+            )
 
-                readonly_widget = QLabel()
-                readonly_widget.setEnabled(False)
-                readonly_widget.setVisible(False)
-                return readonly_widget
+            return edit_widget
 
-            instance_tag = item.get_openpype_instance()
+        elif current_column_name == "cut_range":
+            check_state = item.cut_info_data().get("cut_range")
+            combo_widget = QComboBox()
+            combo_widget.setObjectName("cut_range")
+            # Since trigger is on index change. Need to make sure valid options
+            # will also be a change of index
+            combo_widget.addItem("--")
+            combo_widget.addItem("True")
+            combo_widget.addItem("False")
+            combo_widget.setCurrentText(check_state)
+            combo_widget.currentIndexChanged.connect(
+                lambda: self.cut_info_changed(combo_widget)
+            )
+
+            return combo_widget
+
+        elif current_column_name == "family":
+            instance_tag = item.get_ingest_instance()
             if not instance_tag:
                 combo_text = "--"
             else:
                 combo_text = instance_tag.metadata().value("family")
 
-            instance_key = current_column["name"].split("op_")[-1]
             combo_widget = QComboBox()
-            combo_widget.setObjectName(instance_key)
+            combo_widget.setObjectName("family")
             # Since trigger is on index change. Need to make sure valid options
             # will also be a change of index
             combo_widget.addItem("--")
@@ -1201,54 +1264,29 @@ class CustomSpreadsheetColumns(QObject):
             combo_widget.addItem("reference")
             combo_widget.setCurrentText(combo_text)
             combo_widget.currentIndexChanged.connect(
-                lambda: self.openpype_instance_changed(combo_widget)
+                lambda: self.ingest_instance_changed(combo_widget)
             )
 
             return combo_widget
 
-        elif current_column["name"] in [
-            "op_frame_start",
-            "op_handle_end",
-            "op_handle_start",
-        ]:
-            if not is_valid_asset(item):
-                QMessageBox.warning(
-                    hiero.ui.mainWindow(),
-                    "Critical",
-                    "Can't assign data to invalid entity",
-                )
+        elif current_column_name == "main_plate":
+            instance_tag = item.get_main_plate()
+            check_state = "True"
+            if not instance_tag:
+                check_state = "False"
 
-                readonly_widget = QLabel()
-                readonly_widget.setEnabled(False)
-                readonly_widget.setVisible(False)
-
-                return readonly_widget
-
-            instance_key = current_column["name"].split("op_")[-1]
-            current_text = item.cut_info_data().get(f"tag.{instance_key}")
-            edit_widget = QLineEdit(current_text)
-            edit_widget.setObjectName(instance_key)
-            edit_widget.returnPressed.connect(
-                lambda: self.openpype_instance_changed(edit_widget)
+            combo_widget = QComboBox()
+            combo_widget.addItem("True")
+            combo_widget.addItem("False")
+            combo_widget.setCurrentText(check_state)
+            combo_widget.currentIndexChanged.connect(
+                lambda: self.main_plate_changed(combo_widget)
             )
 
-            return edit_widget
+            return combo_widget
 
-        elif current_column["name"] == "op_use_nuke":
-            if not is_valid_asset(item):
-                QMessageBox.warning(
-                    hiero.ui.mainWindow(),
-                    "Critical",
-                    "Can't assign data to invalid entity",
-                )
-
-                readonly_widget = QLabel()
-                readonly_widget.setEnabled(False)
-                readonly_widget.setVisible(False)
-
-                return readonly_widget
-
-            instance_tag = item.get_openpype_instance()
+        elif current_column_name == "use_nuke":
+            instance_tag = item.get_ingest_instance()
             if not instance_tag:
                 check_state = "--"
             else:
@@ -1259,7 +1297,7 @@ class CustomSpreadsheetColumns(QObject):
                 except RuntimeError:
                     check_state = "--"
 
-            instance_key = current_column["name"].split("op_")[-1]
+            instance_key = current_column_name
             combo_widget = QComboBox()
             combo_widget.setObjectName(instance_key)
             # Since trigger is on index change. Need to make sure valid options
@@ -1269,7 +1307,7 @@ class CustomSpreadsheetColumns(QObject):
             combo_widget.addItem("False")
             combo_widget.setCurrentText(check_state)
             combo_widget.currentIndexChanged.connect(
-                lambda: self.openpype_instance_changed(combo_widget)
+                lambda: self.ingest_instance_changed(combo_widget)
             )
 
             return combo_widget
@@ -1377,11 +1415,14 @@ class CustomSpreadsheetColumns(QObject):
     @column_widget_callback
     def cut_info_changed(self, selection, project, sender):
         key = sender.objectName()
-        value = sender.text().strip()
+        if isinstance(sender, QComboBox):
+            value = sender.currentText()
+        else:
+            value = sender.text().strip()
 
         value_no_operators = value.translate(NO_OP_TRANSLATE)
         # Only pass on edit if user unintentionally erased value from column
-        if value not in ["--", ""] and not value_no_operators.isdigit():
+        if value not in ["--", "", "False", "True"] and not value_no_operators.isdigit():
             return
         else:
             # Remove preceding zeros
@@ -1406,7 +1447,26 @@ class CustomSpreadsheetColumns(QObject):
                         track_item.removeTag(cut_info_tag)
 
     @column_widget_callback
-    def openpype_instance_changed(self, selection, project, sender):
+    def main_plate_changed(self, selection, project, sender):
+        text = sender.currentText()
+
+        with project.beginUndo("Set Main Plate"):
+            if text == "True":
+                for track_item in selection:
+                    track_item.set_main_plate()
+            else:
+                for track_item in selection:
+                    main_plate_tag = track_item.get_main_plate()
+                    if main_plate_tag:
+                        log.info(
+                            f"{track_item.parent().name()}."
+                            f"{track_item.name()}: "
+                            "Removing 'Main Plate' tag"
+                        )
+                        track_item.removeTag(main_plate_tag)
+
+    @column_widget_callback
+    def ingest_instance_changed(self, selection, project, sender):
         key = sender.objectName()
         if isinstance(sender, QComboBox):
             value = sender.currentText()
@@ -1417,87 +1477,17 @@ class CustomSpreadsheetColumns(QObject):
             # If value is -- this is used as an easy to remove openpype tag
             if value.strip() == "--":
                 for track_item in selection:
-                    openpype_instance = track_item.get_openpype_instance()
-                    if openpype_instance:
+                    ingest_instance = track_item.get_ingest_instance()
+                    if ingest_instance:
                         log.info(
                             f"{track_item.parent().name()}."
                             f"{track_item.name()}: "
                             "Removing 'Cut Info' tag"
                         )
-                        track_item.removeTag(openpype_instance)
+                        track_item.removeTag(ingest_instance)
             else:
                 for track_item in selection:
-                    track_item.set_openpype_instance(key, value)
-
-
-def _set_cut_info(self, key, value, operate):
-    """Empty value is allowed incase editor wants to create a cut tag with
-    default values
-    """
-    # Cut tag can be set from a variety of columns
-    # Need to logic for each case
-    cut_tag = self.get_cut_info()
-
-    # Can't do operations on an empty value
-    if not cut_tag and operate:
-        return
-
-    if not cut_tag:
-        # get default handles
-        cut_tag = hiero.core.Tag("Cut Info")
-        cut_tag.setIcon("icons:TagKeylight.png")
-        project_name = get_current_project_name()
-        frame_start, handle_start, handle_end = get_frame_defaults(
-            project_name
-        )
-
-        frame_offset = frame_start + handle_start
-        if value:
-            if key == "cut_in":
-                frame_offset = int(value)
-            elif key == "cut_out":
-                frame_offset = int(value) - self.duration() + 1
-
-        cut_data = {}
-        cut_data["cut_in"] = frame_offset
-        cut_data["cut_out"] = frame_offset + self.duration() - 1
-        cut_data["head_handles"] = handle_start
-        cut_data["tail_handles"] = handle_end
-
-        if value:
-            cut_data.update({key: value})
-
-        for key, value in cut_data.items():
-            if not isinstance(value, str):
-                value = str(value)
-            cut_tag.metadata().setValue(f"tag.{key}", value)
-
-        self.sequence().editFinished()
-        self.addTag(cut_tag)
-
-    if value:
-        if operate:
-            # Leave operation as is if value has valid expression
-            if value[0].isdigit():
-                operation = value
-            else:
-                current_value = cut_tag.metadata().value(f"tag.{key}")
-                operation = f"{current_value}{value}"
-
-            try:
-                # Frames must be integers
-                value = str(int(eval(operation)))
-            except SyntaxError:
-                log.info(
-                    f"{self.parent().name()}.{self.name()}: "
-                    f"{value} must be properly formatted. Read"
-                    "tooltip for more information"
-                )
-                return
-
-        cut_tag.metadata().setValue(f"tag.{key}", value)
-
-    self.sequence().editFinished()
+                    track_item.set_ingest_instance(key, value)
 
 
 def get_tag(self, name, contains=False):
@@ -1561,179 +1551,150 @@ def get_frame_defaults(project_name):
     return (frame_start_default, handle_start_default, handle_start_default)
 
 
-def get_entity_hierarchy(asset_doc, project_name):
-    """Retrieve entity links for the given asset.
-
-    This function creates a dictionary of linked entities for the specified
-    asset. The linked entities may include:
-    - episode
-    - sequence
-    - shot
-    - folder
-
-    Args:
-        asset_name (str): The name of the asset.
-
-    Returns:
-        dict: A dictionary containing linked entities, including episode,
-                sequence, shot, and folder information.
+def _set_cut_info(self, key, value, operate):
+    """Empty value is allowed incase editor wants to create a cut tag with
+    default values
     """
-    project_doc = get_project(project_name)
-    hierarchy_env = get_hierarchy_env(project_doc, asset_doc)
+    # Cut tag can be set from a variety of columns
+    # Need to logic for each case
+    cut_tag = self.get_cut_info()
 
-    asset_entities = {}
-    episode = hierarchy_env.get("EPISODE")
-    if episode:
-        asset_entities["episode"] = episode
+    # Can't do operations on an empty value
+    if not cut_tag and operate:
+        return
 
-    sequence = hierarchy_env.get("SEQ")
-    if sequence:
-        asset_entities["sequence"] = sequence
+    # Grab OP tag if found - this change into a new tag once OP tag is removed.
+    family = self.ingest_instance_data().get("family")
+    if not family:
+        track_name = self.parentTrack().name()
+        if "ref" in track_name:
+            family = "reference"
+        else:
+            family = "plate"
 
-    asset = hierarchy_env.get("SHOT")
-    if asset:
-        asset_entities["shot"] = asset
-
-    if hierarchy_env.get("ASSET_TYPE"):
-        folder = "asset"
+    if family == "plate":
+        cut_range = False
     else:
-        folder = "shots"
-    asset_entities["folder"] = folder
+        cut_range = True
 
-    return asset_entities
+    if not cut_tag:
+        # get default handles
+        cut_tag = hiero.core.Tag("Cut Info")
+        cut_tag.setIcon("icons:TagKeylight.png")
+        project_name = get_current_project_name()
+        frame_start, handle_start, handle_end = get_frame_defaults(
+            project_name
+        )
+
+        if not cut_range:
+            handle_start = self.handleInLength()
+            handle_end = self.handleOutLength()
+
+        if None not in [frame_start, handle_start]:
+            frame_offset = frame_start + handle_start
+            if value:
+                if key == "cut_in":
+                    frame_offset = int(value)
+
+            cut_in = frame_offset
+
+        else:
+            cut_in = None
+
+        cut_data = {}
+        cut_data["cut_in"] = cut_in
+        cut_data["head_handles"] = handle_start
+        cut_data["tail_handles"] = handle_end
+        cut_data["cut_range"] = cut_range
+
+        for cut_key, cut_value in cut_data.items():
+            if not isinstance(cut_value, str):
+                cut_value = str(cut_value)
+            cut_tag.metadata().setValue(f"tag.{cut_key}", cut_value)
+
+        self.sequence().editFinished()
+        self.addTag(cut_tag)
+
+        _set_cut_info(self, key, value, False)
+
+    # Cut range might not exist
+    if "tag.cut_range" in cut_tag.metadata():
+        current_cut_range = cut_tag.metadata().value("tag.cut_range")
+    else:
+        current_cut_range = cut_range
+    if key == "cut_range":
+        cut_range = value
+    else:
+        cut_range = current_cut_range
+
+    if value:
+        if operate:
+            # Leave operation as is if value has valid expression
+            if value[0].isdigit():
+                operation = value
+            else:
+                current_value = cut_tag.metadata().value(f"tag.{key}")
+                operation = f"{current_value}{value}"
+
+            try:
+                # Frames must be integers
+                value = str(int(eval(operation)))
+            except SyntaxError:
+                log.info(
+                    f"{self.parent().name()}.{self.name()}: "
+                    f"{value} must be properly formatted. Read"
+                    "tooltip for more information"
+                )
+                return
+
+        if cut_range == "False":
+            handle_start = str(self.handleInLength())
+            handle_end = str(self.handleOutLength())
+            cut_tag.metadata().setValue("tag.head_handles", handle_start)
+            cut_tag.metadata().setValue("tag.tail_handles", handle_end)
+        cut_tag.metadata().setValue(f"tag.{key}", value)
+
+    self.sequence().editFinished()
 
 
-def get_hierarchy_data(asset_doc, project_name, track_name):
-    hierarchy_data = get_entity_hierarchy(asset_doc, project_name)
-    hierarchy_data["track"] = track_name
-
-    return hierarchy_data
-
-
-def get_hierarchy_path(asset_doc):
-    """Asset path is always the joining of the asset parents"""
-    hierarchy_path = os.sep.join(asset_doc["data"]["parents"])
-
-    return hierarchy_path
-
-
-def get_hierarchy_parents(hierarchy_data):
-    parents = []
-    parents_types = ["folder", "episode", "sequence"]
-    for key, value in hierarchy_data.items():
-        if key in parents_types:
-            entity = {"entity_type": key, "entity_name": value}
-            parents.append(entity)
-
-    return parents
-
-
-def _set_openpype_instance(self, key, value):
+def _set_ingest_instance(self, key, value, update=True):
     """
     Only one key of the tag can be modified at a time for items that already
     have a tag.
     """
     value = value if value == "0" else value.strip().lstrip("0")
 
-    # Validate key value
-    # No need to validate family as it's a prefilled combobox
-    if key in ["frame_start", "handle_start", "handle_end"]:
-        # Skip validation if user simply wants to create default tag
-        if value:
-            if not value.isdigit():
-                log.info(
-                    f"{self.parent().name()}.{self.name()}: "
-                    f"{key} must be a valid number"
-                )
-                return
-
-    convert_keys = {
-        "frame_start": "workfileFrameStart",
-        "handle_start": "handleStart",
-        "handle_end": "handleEnd",
-    }
-    # Convert data from column names into OP instance names
-    key = convert_keys.get(key, key)
-
-    instance_tag = self.get_openpype_instance()
-    track_item_name = self.name()
+    ingest_tag = self.get_ingest_instance()
     track_name = self.parentTrack().name()
-    # Check if asset has valid name
-    # if not don't create instance
-    if not is_valid_asset(self):
-        if instance_tag:
-            log.info(
-                f"{self.parent().name()}.{self.name()}: "
-                "Track item name no longer valid. Removing Openpype tag"
-            )
-            self.removeTag(instance_tag)
-        else:
-            log.info(
-                f"{self.parent().name()}.{self.name()}: "
-                "Track item name not found in DB!"
-            )
 
-        return
-    else:
-        project_name = get_current_project_name()
-        asset_doc = get_asset_by_name(project_name, self.name())
-
-    instance_data = {}
-    if not instance_tag:
+    tag_data = {}
+    if not ingest_tag:
         # First fill default instance if no tag found and then update with
         # data parameter
-        families = ["clip"]
         if "ref" in track_name:
             family = "reference"
         else:
-            families.append("review")
             family = "plate"
 
-        hierarchy_data = get_hierarchy_data(
-            asset_doc, project_name, track_name
-        )
-        hierarchy_path = get_hierarchy_path(asset_doc)
-        hierarchy_parents = get_hierarchy_parents(hierarchy_data)
-        frame_start, handle_start, handle_end = get_frame_defaults(
-            project_name
-        )
+        tag_data["family"] = family
+        tag_data["use_nuke"] = "True"
 
-        instance_data["hierarchyData"] = hierarchy_data
-        instance_data["hierarchy"] = hierarchy_path
-        instance_data["parents"] = hierarchy_parents
-        instance_data["asset"] = track_item_name
-        instance_data["subset"] = track_name
-        instance_data["family"] = family
-        instance_data["families"] = str(families)
-        instance_data["workfileFrameStart"] = frame_start
-        instance_data["handleStart"] = (
-            handle_start if family == "plate" else "0"
-        )
-        instance_data["handleEnd"] = handle_end if family == "plate" else "0"
+        ingest_tag = hiero.core.Tag("Ingest Data")
+        ingest_tag.setIcon("icons:EffectsTiny.png")
 
-        # Constants
-        instance_data["audio"] = "True"
-        instance_data["heroTrack"] = "True"
-        instance_data["id"] = "pyblish.avalon.instance"
-        instance_data["publish"] = "True"
-        instance_data["reviewTrack"] = "None"
-        instance_data["sourceResolution"] = "False"
-        instance_data["variant"] = "Main"
-        instance_data["use_nuke"] = "False"
-        instance_data["ingested_grade"] = "None"
+        for key, value in tag_data.items():
+            if not isinstance(value, str):
+                value = str(value)
+            ingest_tag.metadata().setValue(f"tag.{key}", value)
 
-    if value:
-        # When family is changed the families need to adapt
-        if key == "family":
-            families = ["clip"]
-            if value == "plate":
-                families.append("review")
+        self.sequence().editFinished()
+        self.addTag(ingest_tag)
 
-            instance_data.update({"families": families})
+        # Need this here because the correct tag on run is always the next one
+        # _set_ingest_instance(self, key, value)
 
-        instance_data.update({key: value})
-
-    set_trackitem_openpype_tag(self, instance_data)
+    if update:
+        ingest_tag.metadata().setValue(f"tag.{key}", value)
 
     self.sequence().editFinished()
 
@@ -1836,158 +1797,208 @@ def _set_edit_note(self, note):
     self.sequence().editFinished()
 
 
-def _update_op_instance_asset(event):
-    # Always iter through all items since the user may never reselected the
-    timeline = hiero.ui.activeSequence()
-    track_items = []
-    # Grab all track items
-    if timeline:
-        for video_track in timeline.videoTracks():
-            for item in video_track.items():
-                if isinstance(item, hiero.core.TrackItem):
-                    track_items.append(item)
+def _set_main_plate(self, default_tag=False, spreadsheet=True):
+    main_plate_tag = self.get_main_plate()
+    if not main_plate_tag:
+        main_plate_tag = hiero.core.Tag("Main Plate")
+        main_plate_tag.setIcon("/pipe/resources/icons/main_plate.png")
+
+        self.addTag(main_plate_tag)
+        # Need this here because the correct tag on run is always the next one
+        _set_main_plate(self, default_tag)
+
+    if not default_tag:
+        main_plate_tag.metadata().setValue("override", "True")
+
+    if spreadsheet:
+        # Run cleanup on default tags
+        main_plate_utility = MainPlate()
+        main_plate_utility.set_track_item_main_plate(self)
+
+    self.sequence().editFinished()
+
+
+def unique_track_items(track_items):
+        # Create a set to store unique names
+    unique_names = set()
+
+    # Create a new list to store the filtered track items
+    filtered_track_items = []
 
     for track_item in track_items:
-        instance_tag = track_item.get_openpype_instance()
-        if not instance_tag:
-            continue
+        name = track_item.name()
 
-        track_item_name = track_item.name()
-        track_name = track_item.parentTrack().name()
-        project_name = get_current_project_name()
-        asset_doc = get_asset_by_name(project_name, track_item_name)
-        if not asset_doc:
-            track_item.removeTag(instance_tag)
-            continue
+        # Check if the name is unique (not in the set)
+        if name not in unique_names:
+            # Add the name to the set
+            unique_names.add(name)
+            # Add the track item to the filtered list
+            filtered_track_items.append(track_item)
 
-        hierarchy_data = get_hierarchy_data(
-            asset_doc, project_name, track_name
+    return filtered_track_items
+
+
+def _update_track_main_plates(event):
+
+    main_plate_track = MainPlate.get_main_plate_track()
+    if not main_plate_track:
+        return
+
+    project = main_plate_track.project()
+
+    if event.type == "kTrackItemUpdate":
+        track_items = event.track_items
+        from_plate_plate = event.main_track_switch
+        with project.beginUndo('Set Main Grades'):
+            if from_plate_plate:
+                # Make sure that only one item per a track is sent. no need to run more than once
+                main_track_items = unique_track_items(track_items)
+            else:
+                main_track_items = [item for item in track_items if item.parent() == main_plate_track]
+            if main_track_items:
+                main_plate_utility = MainPlate()
+                for track_item in main_track_items:
+                    main_plate_utility.set_track_item_main_plate(track_item)
+                    return
+
+    else: # Event type will be kTrackUpdate
+        with project.beginUndo('Set Main Grades'):
+            main_plate_utility = MainPlate()
+            main_plate_utility.set_track_main_plates()
+
+
+class TrackUpdateEvent:
+    # previous_track_item = ()
+    plate_tracks = []
+
+    def __init__(self):
+        # Register the custom event type in Hiero
+        hiero.core.events.registerEventType("kTrackUpdate")
+        self.set_plate_tracks()
+
+        hiero.core.events.registerInterest(
+            # Event is restricted to timeline as video track selections only happen on
+            # timeline
+            "kSelectionChanged/kTimeline", self.new_main_plate_track
         )
-        hierarchy_path = get_hierarchy_path(asset_doc)
-        hierarchy_parents = get_hierarchy_parents(hierarchy_data)
 
-        instance_data = {}
-        instance_data["hierarchyData"] = hierarchy_data
-        instance_data["hierarchy"] = hierarchy_path
-        instance_data["parents"] = hierarchy_parents
-        instance_data["asset"] = track_item_name
-        instance_data["subset"] = track_name
-        update = False
-        for key, value in instance_data.items():
-            current_value = instance_tag.metadata().value(f"tag.{key}")
-            # Need to compare objects in true form
-            if (
-                f"{current_value[0]}{current_value[-1]}" in ["{}", "[]", "()"]
-                or current_value == "None"
-            ):
-                current_value = ast.literal_eval(current_value)
+    def set_plate_tracks(self):
+        sequence = hiero.ui.activeSequence()
+        if not sequence:
+            self.plate_tracks = {}
+            return
 
-            if current_value != value:
-                # Change value into string form if not already a string
-                if not isinstance(value, str):
-                    value = value.__repr__()
+        self.plate_tracks = MainPlate.get_plate_tracks()
 
-                instance_tag.metadata().setValue(f"tag.{key}", value)
-                update = True
+    # There is more overhead when being less specific. Therefore only run
+    # when rename has for sure occurred
+    def new_main_plate_track(self, event):
+        """Rename event encapsulates all track updates that deal with name
+        updates. That includes new tracks
+        """
+        if not self.plate_tracks:
+            self.set_plate_tracks()
+            return
 
-        if update:
-            log.info(
-                f"{track_name}.{track_item_name}: "
-                "OP Instance updated - data modified"
-            )
+        old_plate_tracks = self.plate_tracks
+        self.set_plate_tracks()
 
-
-class TrackRenameEvent:
-    previous_track_item = ()
-
-    def _update_op_instance_subset(self, event):
-        video_track_change = False
-        # Because video tracks and track items can not coexist within a single
-        # selection it's known that if first index of selection is video track
-        # previous change of selection was for video track
-        if self.previous_track_item:
-            if isinstance(self.previous_track_item[0], hiero.core.VideoTrack):
-                video_track_change = True
-
-        if not video_track_change:
+        if old_plate_tracks[0] == self.plate_tracks[0]:
             self.previous_track_item = event.sender.selection()
             return
 
-        # Always iter through all items since the user may never reselected the
-        timeline = event.sender
-        track_items = []
-        # Grab relevant track items
-        if timeline:
-            for video_track in self.previous_track_item:
-                for item in video_track.items():
-                    if isinstance(item, hiero.core.TrackItem):
-                        track_items.append(item)
-
-        for track_item in track_items:
-            instance_tag = track_item.get_openpype_instance()
-            if not instance_tag:
-                continue
-
-            track_item_name = track_item.name()
-            track_name = track_item.parentTrack().name()
-            project_name = get_current_project_name()
-            asset_doc = get_asset_by_name(project_name, track_item_name)
-            if not asset_doc:
-                track_item.removeTag(instance_tag)
-                continue
-
-            hierarchy_data = get_hierarchy_data(
-                asset_doc, project_name, track_name
+        hiero.core.events.sendEvent( "kTrackUpdate", None,
+            renamed_track=self.plate_tracks[0],
+            timeline=event.sender,
             )
-
-            instance_data = {}
-            instance_data["hierarchyData"] = hierarchy_data
-            instance_data["subset"] = track_name
-            update = False
-            for key, value in instance_data.items():
-                current_value = instance_tag.metadata().value(f"tag.{key}")
-                # Need to compare objects in true form
-                if (
-                    f"{current_value[0]}{current_value[-1]}"
-                    in ["{}", "[]", "()"]
-                    or current_value == "None"
-                ):
-                    current_value = ast.literal_eval(current_value)
-
-                if current_value != value:
-                    # Change value into string form if not already a string
-                    if not isinstance(value, str):
-                        value = value.__repr__()
-
-                    instance_tag.metadata().setValue(f"tag.{key}", value)
-                    update = True
-
-            if update:
-                log.info(
-                    f"{track_name}.{track_item_name}: "
-                    "OP Instance updated - data modified"
-                )
 
         self.previous_track_item = event.sender.selection()
 
 
-def _update_avalon_track_item(event):
-    """
-    Event driven function that iters through all items as SequenceEdited
-    doesn't have self.sender and assign a validation attribute to each track
-    item
-    """
-    sequence = event.sequence
-    track_items = []
-    if sequence:
-        for video_track in sequence.videoTracks():
-            for item in video_track.items():
-                if isinstance(item, hiero.core.TrackItem):
-                    track_items.append(item)
+class TrackItemUpdateEvent():
+    track_items = set()
+
+    def __init__(self):
+        # Register the custom event type in Hiero
+        hiero.core.events.registerEventType("kTrackItemUpdate")
+        hiero.core.events.registerInterest(
+            # Event is restricted to timeline as video track selections only happen on
+            # timeline
+            "kSelectionChanged/kTimeline", self.track_item_update_event
+        )
+        hiero.core.events.registerInterest(
+            "kSequenceEdited", self.track_item_update_event
+        )
+
+    def set_track_items(self):
+        track_items = set()
+        seq = hiero.ui.activeSequence()
+        if seq:
+            for track in seq.videoTracks():
+                # The original track item is used to track if it was a rename or a new
+                # track item object
+                track_items.update([(item, item.name(), item.parent().name()) for item in track.items()])
+
+        self.track_items = track_items
+
+    def track_item_update_event(self, event):
+        previous_track_items = self.track_items
+        self.set_track_items()
+
+        item_differences = self.track_items.difference(previous_track_items)
+
+        # If item was simple rename or addition to main plate then always event
+        # If item was moved from other track make sure that track was main track then event
+        # Find out if track item was previously on main track
+        main_plate_track = MainPlate.get_main_plate_track()
+        main_track_switch = False
+        previously_changed_item = []
+        for item_difference in item_differences:
+            for previous_track_item in previous_track_items:
+                # If same item
+                if previous_track_item[0] in item_difference:
+                    previously_changed_item.append(previous_track_item[0])
+                    # If different track
+                    if previous_track_item[-1] != item_difference[-1]:
+                        # If was main track
+                        if previous_track_item[-1] == main_plate_track.name():
+                            main_track_switch = True
+                            break
+
+        # Track item update event
+        if item_differences:
+            hiero.core.events.sendEvent("kTrackItemUpdate", None,
+                track_items=tuple(item[0] for item in item_differences),
+                main_track_switch=main_track_switch,
+                )
+
+        # # New track item event
+        # if self.track_items > previous_track_items:
+        #     # previously_changed_item stores previous items in difference.
+        #     # Removing these values from difference will give new items
+        #     new_items = []
+        #     for item_difference in item_differences:
+        #         if item_difference[0] not in  previously_changed_item:
+        #             new_items.append(item_difference[0])
+        #     if new_items:
+        #         hiero.core.events.sendEvent("kTrackItemNew", None,
+        #             track_items=new_items,
+        #             )
+
+
+def _add_default_tags(event):
+    track_items = event.track_items
 
     for track_item in track_items:
-        track_item_env = get_track_item_env(track_item)
-        track_item.hierarchy_env = track_item_env
+        # If has context then add tags
+        if get_track_item_env(track_item):
+            # Check for ingest tag
+            if not track_item.get_ingest_instance():
+                track_item.set_ingest_instance("", "", update=False)
+
+            # Check for cut info tag
+            if not track_item.get_cut_info():
+                _set_cut_info(track_item, "", "", False)
 
 
 # Attach tag setters, getters and tag data get into hiero.core.TrackItem
@@ -2023,30 +2034,36 @@ hiero.core.TrackItem.cut_info_data = lambda self: get_tag_data(
     self, "Cut Info"
 )
 
-hiero.core.TrackItem.set_openpype_instance = _set_openpype_instance
-hiero.core.TrackItem.get_openpype_instance = lambda self: get_tag(
-    self, OPENPYPE_TAG_NAME, contains=True
+hiero.core.TrackItem.set_ingest_instance = _set_ingest_instance
+hiero.core.TrackItem.get_ingest_instance = lambda self: get_tag(self, "Ingest Data")
+hiero.core.TrackItem.ingest_instance_data = lambda self: get_tag_data(
+    self, "Ingest Data"
 )
+
+hiero.core.TrackItem.set_main_plate = _set_main_plate
+hiero.core.TrackItem.get_main_plate = lambda self: get_tag(self, "Main Plate")
+hiero.core.TrackItem.main_plate_data = lambda self: get_tag_data(
+    self, "Main Plate"
+)
+
 hiero.core.TrackItem.openpype_instance_data = lambda self: get_tag_data(
     self, OPENPYPE_TAG_NAME, contains=True
 )
 
+# Register custom events
+track_update = TrackUpdateEvent()
+track_item_update = TrackItemUpdateEvent()
 
-# Register openpype instance update event
 hiero.core.events.registerInterest(
-    "kSequenceEdited", _update_op_instance_asset
+    "kTrackUpdate", _update_track_main_plates
 )
 
-# SequenceEdited only capture Track Item renames and not Video Track renames
-# Need class to keep track of previous selection to limit event runtime
-track_rename = TrackRenameEvent()
 hiero.core.events.registerInterest(
-    "kSelectionChanged/kTimeline", track_rename._update_op_instance_subset
+    "kTrackItemUpdate", _update_track_main_plates
 )
 
-# Register validation query to avalon
 hiero.core.events.registerInterest(
-    "kSequenceEdited", _update_avalon_track_item
+    "kTrackItemUpdate", _add_default_tags
 )
 
 # Register our custom columns

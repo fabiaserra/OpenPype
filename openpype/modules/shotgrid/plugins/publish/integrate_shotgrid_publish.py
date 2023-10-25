@@ -42,9 +42,12 @@ class IntegrateShotgridPublish(pyblish.api.InstancePlugin):
             )
 
             ### Starts Alkemy-X Override ###
-            # Remove condition to only integrate if tags don't exist
-            # if representation.get("tags", []):
-                # continue
+            if "shotgridreview" not in representation.get("tags", []):
+                self.log.debug(
+                    "No 'shotgridreview' tag on representation '%s', skipping.",
+                    representation.get("name")
+                )
+                continue
 
             code = os.path.basename(local_path)
             # Extract and remove version number from code so Publishedfile versions are

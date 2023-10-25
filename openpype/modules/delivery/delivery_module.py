@@ -232,6 +232,7 @@ def republish_version_id_command(
 def cli_main():
     pass
 
+
 cli_main.add_command(deliver_playlist_id_command)
 cli_main.add_command(deliver_version_id_command)
 cli_main.add_command(republish_version_id_command)

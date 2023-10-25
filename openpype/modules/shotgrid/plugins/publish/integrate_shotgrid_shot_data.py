@@ -1,4 +1,9 @@
 import getpass
+import re
+
+from openpype.client.operations import OperationsSession
+from openpype.lib import run_subprocess
+from openpype.pipeline.context_tools import get_current_project_name
 import pyblish.api
 
 
@@ -12,7 +17,6 @@ class IntegrateShotgridShotData(pyblish.api.InstancePlugin):
 
     order = pyblish.api.IntegratorOrder + 0.4999
     label = "Integrate Shotgrid Shot Data"
-    hosts = ["hiero"]
     families = ["reference", "plate"]
 
     optional = True
@@ -37,18 +41,22 @@ class IntegrateShotgridShotData(pyblish.api.InstancePlugin):
 
         if not shotgrid_version:
             self.log.warning(
-                "No Shotgrid version collect. Collected shot data could not be integrated into Shotgrid"
+                "No Shotgrid version collected. Collected shot data could not be integrated into Shotgrid"
             )
             return
 
-        sg_shot = shotgrid_version["entity"]
+        sg_shot = shotgrid_version.get("entity")
+        if not sg_shot:
+            self.log.warning(
+                "Entity doesn't exist on shotgridVersion. Collected shot data could not be integrated into Shotgrid"
+            )
+            return
 
-        track_item = instance.data["item"]
-
-        self.update_cut_info(track_item, sg_shot)
-        self.update_shot_tags(track_item, sg_shot)
-        self.update_working_resolution(track_item, sg_shot)
-        self.update_edit_note(track_item, sg_shot)
+        if instance.data.get("main_ref"):
+            self.update_cut_info(instance, sg_shot)
+        self.update_shot_tags(instance, sg_shot)
+        self.update_working_resolution(instance, sg_shot)
+        self.update_edit_note(instance, sg_shot)
 
         result = self.sg.batch(self.sg_batch)
         if not result:
@@ -68,17 +76,19 @@ class IntegrateShotgridShotData(pyblish.api.InstancePlugin):
                 )
             )
 
-    def update_cut_info(self, track_item, sg_shot):
+    def update_cut_info(self, instance, sg_shot):
         # Check if track item had attached cut_info_data method
-        if not "cut_info_data" in track_item.__dir__():
+        cut_info = instance.data.get("cut_info_data")
+        if not cut_info:
             return
 
-        cut_info = track_item.cut_info_data()
-        if not cut_info:
-            self.log.info(
-                "No cut info found on instance track item. Ignoring cut update"
+        elif "None" in cut_info.values():
+            self.log.warning(
+                "None values found in cut info. Please fix - "
+                "Skipping cut in update"
             )
             return
+
         cut_in = int(cut_info["cut_in"])
         cut_out = int(cut_info["cut_out"])
         head_in = cut_in - int(cut_info["head_handles"])
@@ -99,16 +109,10 @@ class IntegrateShotgridShotData(pyblish.api.InstancePlugin):
         }
         self.sg_batch.append(cut_info_batch)
 
-    def update_shot_tags(self, track_item, sg_shot):
+    def update_shot_tags(self, instance, sg_shot):
         # Check if track item had attached sg_tags_data method
-        if not "sg_tags_data" in track_item.__dir__():
-            return
-
-        sg_tag_data = track_item.sg_tags_data()
+        sg_tag_data = instance.data.get("sg_tags_data")
         if not sg_tag_data:
-            self.log.info(
-                "No sg shot tags found on instance track item. Ignoring sg shot tag update"
-            )
             return
 
         tag_updates = []
@@ -117,8 +121,7 @@ class IntegrateShotgridShotData(pyblish.api.InstancePlugin):
             if sg_tag_data[key] == "True":
                 tag_updates.append(tag)
 
-        # compare tag_updates to current tags
-
+        # Compare tag_updates to current tags
         shot_tags = self.sg.find_one(
             "Shot", [["id", "is", sg_shot["id"]]], ["code", "tags"]
         ).get("tags")
@@ -146,20 +149,68 @@ class IntegrateShotgridShotData(pyblish.api.InstancePlugin):
         }
         self.sg_batch.append(sg_tag_batch)
 
-    def update_working_resolution(self, track_item, sg_shot):
-        # How to know if this plate should update the working resolution?
-        # Only set working res if plate is on track one.
-        # Find reliable way to get ingest resolution. This may come from SG
-        # or from the ingest resolution tag in hiero or the native pull
-        # resolution
-        pass
-
-    def update_edit_note(self, track_item, sg_shot):
-        # Check if track item had attached edit_note_data method
-        if not "edit_note_data" in track_item.__dir__():
+    def update_working_resolution(self, instance, sg_shot):
+        self.log.info("Integrating Working Resolution")
+        if not instance.data.get("main_plate"):
+            self.log.info("Skipping working resolution integration. Not main plate")
             return
-        edit_note_text = track_item.edit_note_data()
 
+        representations = instance.data["representations"]
+        if not "exr" in representations:
+            self.log.info("No exr representation found")
+            return
+
+        representation = representations["exr"]
+        transcoded_frame = representation["files"][-1]
+
+        # Grab width, height, and pixel aspect from last frame with exrheader
+        command_args = ["/sw/bin/exrheader", transcoded_frame]
+        result = run_subprocess(command_args)
+
+        oiio_xyrt = r"displayWindow.+?: \((?P<x>\d+) (?P<y>\d+)\) - \((?P<r>\d+) (?P<t>\d+)+\)"
+        xyrt_match = re.search(oiio_xyrt, result)
+        if not xyrt_match:
+            self.log.info("Could not parse width/height from ingest exr: %s", transcoded_frame)
+            return
+
+        x, y, r, t = map(int, xyrt_match.groups())
+        width = r - x + 1
+        height = t - y + 1
+        pixel_aspect = int(result.split("pixelAspectRatio")[-1].split("\n")[0].split(": ")[-1]) or 1
+
+        # Update shot/asset doc with proper working res.
+        asset_doc = instance.data["assetEntity"]
+        asset_doc["data"].update(
+            {
+                "resolutionWidth": width,
+                "resolutionHeight": height,
+                "pixelAspect": pixel_aspect,
+            }
+        )
+
+        project_name = get_current_project_name()
+        op_session = OperationsSession()
+        op_session.update_entity(
+            project_name, asset_doc["type"], asset_doc["_id"], asset_doc
+        )
+        op_session.commit()
+
+        # Also update Shotgrid shot fields
+        working_res_batch = {
+            "request_type": "update",
+            "entity_type": "Shot",
+            "entity_id": sg_shot["id"],
+            "data": {
+                "sg_resolution_width": width,
+                "sg_resolution_height": height,
+                "sg_pixel_aspect": float(pixel_aspect),
+            },
+        }
+        self.sg_batch.append(working_res_batch)
+
+    def update_edit_note(self, instance, sg_shot):
+        # Check if track item had attached edit_note_data method
+        edit_note_text = instance.data.get("edit_note_data", {}).get("Note")
         if not edit_note_text:
             return
 

@@ -6,6 +6,8 @@ quite a bit of refactoring. In the future we should abstract those functions
 in the plugins so they can be reused elsewhere.
 """
 import clique
+import re
+import glob
 import datetime
 import getpass
 import os
@@ -15,7 +17,14 @@ from openpype.lib import Logger, is_running_from_build
 from openpype.pipeline import Anatomy
 from openpype.pipeline.colorspace import get_imageio_config
 
+
 logger = Logger.get_logger(__name__)
+
+# Regular expression that allows us to replace the frame numbers of a file path
+# with any string token
+RE_FRAME_NUMBER = re.compile(
+    r"(?P<prefix>\w+)\.(?P<frame>(\*|%0?\d*d|\d)+)\.(?P<extension>\w+\.?(sc|gz)?$)"
+)
 
 
 def create_metadata_path(instance_data):
@@ -40,60 +49,133 @@ def create_metadata_path(instance_data):
     return os.path.join(output_dir, metadata_filename)
 
 
-def get_representations(instance_data, exp_files, do_not_add_review):
+def replace_frame_number_with_token(path, token):
+    root, filename = os.path.split(path)
+    filename = RE_FRAME_NUMBER.sub(
+        r"\g<prefix>.{}.\g<extension>".format(token), filename
+    )
+    return os.path.join(root, filename)
+
+
+def get_representations(
+    instance_data,
+    exp_representations,
+    add_review=True,
+    publish_to_sg=False
+):
     """Create representations for file sequences.
 
-    This will return representations of expected files if they are not
-    in hierarchy of aovs. There should be only one sequence of files for
-    most cases, but if not - we create representation from each of them.
+    This will return representation dictionaries of expected files. There
+    should be only one sequence of files for most cases, but if not - we create
+    a representation for each.
+
+    If the file path given is just a frame, it
 
     Arguments:
         instance_data (dict): instance["data"] for which we are
                             setting representations
-        exp_files (list): list of expected files
-        do_not_add_review (bool): explicitly skip review
+        exp_representations (dict[str:str]): Dictionary of expected
+            representations that should be created. Key is name of
+            representation and value is a file path to one of the files
+            from the representation (i.e., "exr": "/path/to/beauty.1001.exr").
 
     Returns:
         list of representations
 
     """
-    representations = []
-    collections, _ = clique.assemble(exp_files)
-
     anatomy = Anatomy(instance_data["project"])
 
-    # create representation for every collected sequence
-    for collection in collections:
-        ext = collection.tail.lstrip(".")
-        preview = True
+    representations = []
+    for rep_name, file_path in exp_representations.items():
+
+        rep_frame_start = None
+        rep_frame_end = None
+        ext = None
+
+        # Convert file path so it can be used with glob and find all the
+        # frames for the sequence
+        file_pattern = replace_frame_number_with_token(file_path, "*")
+
+        representation_files = glob.glob(file_pattern)
+        collections, remainder = clique.assemble(representation_files)
+
+        # If file path is in remainder it means it was a single file
+        if file_path in remainder:
+            collections = [remainder]
+            filename = os.path.basename(file_path)
+            frame_match = RE_FRAME_NUMBER.match(filename)
+            if frame_match:
+                ext = frame_match.group("extension")
+                frame = frame_match.group("frame")
+                rep_frame_start = frame
+                rep_frame_end = frame
+            else:
+                rep_frame_start = 1
+                rep_frame_end = 1
+                ext = os.path.splitext(file_path)[1][1:]
+
+        elif not collections:
+            logger.warning(
+                "Couldn't find a collection for file pattern '%s'.",
+                file_pattern
+            )
+            continue
+
+        if len(collections) > 1:
+            logger.warning(
+                "More than one sequence find for the file pattern '%s'."
+                " Using only first one: %s",
+                file_pattern,
+                collections,
+            )
+        collection = collections[0]
+
+        if not ext:
+            ext = collection.tail.lstrip(".")
 
         staging = os.path.dirname(list(collection)[0])
-        success, rootless_staging_dir = anatomy.find_root_template_from_path(staging)
+        success, rootless_staging_dir = anatomy.find_root_template_from_path(
+            staging
+        )
         if success:
             staging = rootless_staging_dir
         else:
             logger.warning(
-                (
-                    "Could not find root path for remapping '{}'."
-                    " This may cause issues on farm."
-                ).format(staging)
+                "Could not find root path for remapping '%s'."
+                " This may cause issues on farm.",
+                staging
             )
 
-        frame_start = int(instance_data.get("frameStartHandle"))
-        if instance_data.get("slate"):
-            frame_start -= 1
+        if not rep_frame_start or not rep_frame_end:
+            rep_frame_start = min(collection.indexes)
+            rep_frame_end = max(collection.indexes)
 
-        preview = preview and not do_not_add_review
+        tags = []
+        if add_review:
+            logger.debug("Adding 'review' tag")
+            tags.append("review")
+
+        if publish_to_sg:
+            logger.debug("Adding 'shotgridreview' tag")
+            tags.append("shotgridreview")
+
+        files = [os.path.basename(f) for f in list(collection)]
+        # If it's a single file on the collection we remove it
+        # from the list as OP checks if "files" is a list or tuple
+        # at certain places to validate if it's a sequence or not
+        if len(files) == 1:
+            files = files[0]
+
         rep = {
-            "name": ext,
+            "name": rep_name,
             "ext": ext,
-            "files": [os.path.basename(f) for f in list(collection)],
-            "frameStart": frame_start,
-            "frameEnd": int(instance_data.get("frameEndHandle")),
+            "files": files,
+            "frameStart": rep_frame_start,
+            "frameEnd": rep_frame_end,
             # If expectedFile are absolute, we need only filenames
             "stagingDir": staging,
             "fps": instance_data.get("fps"),
-            "tags": ["review", "shotgridreview"] if preview else [],
+            "tags": tags,
         }
 
         if instance_data.get("multipartExr", False):
@@ -106,7 +188,7 @@ def get_representations(instance_data, exp_files, do_not_add_review):
 
         representations.append(rep)
 
-        solve_families(instance_data, preview)
+        solve_families(instance_data, add_review)
 
     return representations
 
@@ -217,7 +299,7 @@ def expected_files(path, out_frame_start, out_frame_end):
 
 
 def submit_deadline_post_job(
-    instance_data, job, output_dir, deadline_url, metadata_path
+    instance_data, job, output_dir, deadline_url, metadata_path, job_name=None
 ):
     """Submit publish job to Deadline.
 
@@ -228,8 +310,8 @@ def submit_deadline_post_job(
     Returns:
         (str): deadline_publish_job_id
     """
-    subset = instance_data["subset"]
-    job_name = f"Republish - {instance_data['asset']} - {subset}"
+    if not job_name:
+        job_name = job["Props"]["Batch"]
 
     # Transfer the environment from the original job to this dependent
     # job so they use the same environment
