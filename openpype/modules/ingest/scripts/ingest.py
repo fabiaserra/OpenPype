@@ -487,11 +487,12 @@ def get_product_from_filepath(
     # Override task name if we find any of the names of the supported tasks in the
     # filepath
     if task_name not in OUTSOURCE_TASKS:
-        logger.debug(
-            "Overriding subset name '%s' with task name '%s'",
-            subset_name, task_name
-        )
-        subset_name = task_name
+        if task_name:
+            logger.debug(
+                "Overriding subset name '%s' with task name '%s'",
+                subset_name, task_name
+            )
+            subset_name = task_name
         for possible_task_name in OUTSOURCE_TASKS:
             if possible_task_name in filepath.split("/") or f"_{possible_task_name}_" in filepath:
                 logger.debug(
