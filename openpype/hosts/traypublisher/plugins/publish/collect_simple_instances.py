@@ -66,12 +66,6 @@ class CollectSettingsSimpleInstances(pyblish.api.InstancePlugin):
             representation_files_mapping
         )
 
-        # Hack to set env vars required to run in the farm
-        os.environ["AVALON_ASSET"] = instance.data["asset"]
-        os.environ["AVALON_TASK"] =  instance.data.get("task")
-        legacy_io.Session["AVALON_ASSET"] = instance.data["asset"]
-        legacy_io.Session["AVALON_TASK"] =  instance.data.get("task")
-
         self._create_review_representation(
             instance,
             source_filepaths,
@@ -263,7 +257,6 @@ class CollectSettingsSimpleInstances(pyblish.api.InstancePlugin):
         self.log.debug("Representation {} was marked for review. {}".format(
             review_representation["name"], review_path
         ))
-
 
     def _create_representation_data(
         self, filepath_item, repre_names_counter, repre_names
