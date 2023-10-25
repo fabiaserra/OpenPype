@@ -1,5 +1,6 @@
 import os
 import attr
+import sys
 import platform
 import traceback
 
@@ -160,7 +161,6 @@ class IngestDialog(QtWidgets.QDialog):
         publish_btn = QtWidgets.QPushButton(
             "Publish Products"
         )
-        publish_btn.setDefault(True)
         publish_btn.setToolTip(
             "Submit all products to publish in Deadline"
         )
@@ -189,6 +189,13 @@ class IngestDialog(QtWidgets.QDialog):
         self._model = model
         self._message_label = message_label
         self._text_area = text_area
+
+    def keyPressEvent(self, event: QtGui.QKeyEvent):
+        # Ignore enter key
+        if event.key() == QtCore.Qt.Key_Enter or event.key() == QtCore.Qt.Key_Return:
+            event.ignore()
+        else:
+            super().keyPressEvent(event)
 
     def showEvent(self, event):
         super(IngestDialog, self).showEvent(event)
@@ -648,4 +655,4 @@ def main():
     # Trigger on project change every time the tool loads
     window.on_project_change()
 
-    app_instance.exec_()
+    sys.exit(app_instance.exec_())
