@@ -113,7 +113,6 @@ class DeliveryDialog(QtWidgets.QDialog):
         delivery_outputs = DeliveryOutputsWidget()
         input_layout.addRow("Outputs {output}", delivery_outputs)
 
-        # TODO: validate whether version has already been generated or not
         # Add checkbox to choose whether we want to force the media to be
         # regenerated or not
         force_delivery_media_cb = QtWidgets.QCheckBox()
@@ -125,6 +124,16 @@ class DeliveryDialog(QtWidgets.QDialog):
         )
         input_layout.addRow(
             "Force regeneration of media", force_delivery_media_cb
+        )
+
+        force_override_files_cb = QtWidgets.QCheckBox()
+        force_override_files_cb.setChecked(False)
+        force_override_files_cb.setToolTip(
+            "Whether we want to force the generation of the media and override"\
+            " the existing files if the destination path is the same."
+        )
+        input_layout.addRow(
+            "Force override of files", force_override_files_cb
         )
 
         vendor_input = QtWidgets.QLineEdit(self.VENDOR_DEFAULT)
@@ -289,6 +298,7 @@ class DeliveryDialog(QtWidgets.QDialog):
         self._projects_combobox = projects_combobox
         self._delivery_outputs = delivery_outputs
         self._force_delivery_media_cb = force_delivery_media_cb
+        self._force_override_files_cb = force_override_files_cb
         self._vendor_input = vendor_input
         self._package_name_input = package_name_input
         self._filename_input = filename_input
@@ -538,6 +548,7 @@ class DeliveryDialog(QtWidgets.QDialog):
         delivery_data = {}
         delivery_data["output_names_ext"] = self._delivery_outputs.get_selected_outputs()
         delivery_data["force_delivery_media"] = self._force_delivery_media_cb.isChecked()
+        delivery_data["force_override_files"] = self._force_override_files_cb.isChecked()
         delivery_data["vendor_override"] = self._vendor_input.text()
         delivery_data["package_name_override"] = self._package_name_input.text()
         delivery_data["version_override"] = self._version_input.text()
