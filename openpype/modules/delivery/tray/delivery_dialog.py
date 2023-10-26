@@ -70,7 +70,9 @@ class DeliveryDialog(QtWidgets.QDialog):
         self.setWindowIcon(icon)
 
         self.setWindowFlags(
-            QtCore.Qt.WindowCloseButtonHint
+            QtCore.Qt.Window
+            | QtCore.Qt.WindowTitleHint
+            | QtCore.Qt.WindowCloseButtonHint
             | QtCore.Qt.WindowMaximizeButtonHint
             | QtCore.Qt.WindowMinimizeButtonHint
         )
