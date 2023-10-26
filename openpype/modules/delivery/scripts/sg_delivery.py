@@ -44,7 +44,7 @@ def deliver_playlist_id(
         [
             ["id", "is", int(playlist_id)],
         ],
-        ["project"],
+        ["project", "code"],
     )
 
     # Get the project name associated with the selected entities
@@ -53,6 +53,9 @@ def deliver_playlist_id(
     project_doc = get_project(project_name, fields=["name"])
     if not project_doc:
         return report_items[f"Didn't find project '{project_name}' in avalon."], False
+
+    # Get the name of the playlist to use it as the name of the package to place all deliveries
+    package_name = sg_playlist.get("code")
 
     # Get all the SG versions associated to the playlist
     sg_versions = sg.find(
@@ -69,6 +72,7 @@ def deliver_playlist_id(
             project_name,
             report_items,
             representation_names,
+            package_name
         )
         if new_report_items:
             report_items.update(new_report_items)
@@ -88,8 +92,6 @@ def deliver_version_id(
 
     Args:
         version_id (str): Shotgrid Version id to deliver.
-        project_name (str): Name of the project corresponding to the version being
-            delivered.
         representation_names (list): List of representation names to deliver. If not
             given, it will just deliver all the representations that exist for the subset.
 
@@ -125,6 +127,7 @@ def deliver_version(
     project_name,
     report_items,
     representation_names=None,
+    package_name=None,
 ):
     """Deliver a single SG version.
 
@@ -132,7 +135,10 @@ def deliver_version(
         sg_version (): Shotgrid Version object to deliver.
         project_name (str): Name of the project corresponding to the version being
             delivered.
+        report_items (dict): Dictionary with the messages to show in the
+            report.
         representation_names (list): List of representation names to deliver.
+        package_name (str): Name of the package to place the delivered versions in.
 
     Returns:
         tuple: A tuple containing a dictionary of report items and a boolean indicating
@@ -193,6 +199,11 @@ def deliver_version(
 
         anatomy_data = copy.deepcopy(repre["context"])
         logger.debug("Anatomy data: %s" % anatomy_data)
+
+        # Add package_name to anatomy data
+        if not package_name:
+            package_name = "sg_versions"
+        anatomy_data["package_name"] = package_name
 
         repre_report_items, dest_path = check_destination_path(
             repre["_id"],
