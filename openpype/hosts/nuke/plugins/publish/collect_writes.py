@@ -22,8 +22,6 @@ class CollectNukeWrites(pyblish.api.InstancePlugin,
 
         group_node = instance.data["transientData"]["node"]
         render_target = instance.data["render_target"]
-        family = instance.data["family"]
-        families = instance.data["families"]
 
         write_node = self._write_node_helper(instance)
 
