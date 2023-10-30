@@ -1,8 +1,13 @@
+import clique
+import glob
 import os
 import nuke
 import pyblish.api
+import re
 from openpype.hosts.nuke import api as napi
 from openpype.pipeline import publish
+
+from openpype.pipeline import publish, PublishXmlValidationError
 
 
 class CollectNukeWrites(pyblish.api.InstancePlugin,
@@ -96,6 +101,18 @@ class CollectNukeWrites(pyblish.api.InstancePlugin,
             for source_file in collected_frames
         ]
 
+    ### Starts Alkemy-X Override ###
+    def _set_frame_range_data(self, instance, first_frame, last_frame):
+        """Sets frame range data to the class instance. Later during calls
+        to get frame range data if instance has frame range it will use the
+        stored data instead. This method allows the explicit setting of frame
+        range data that may already exist.
+        """
+        instance_name = instance.data["name"]
+
+        self._frame_ranges[instance_name] = (first_frame, last_frame)
+    ### Ends Alkemy-X Override ###
+
     def _get_frame_range_data(self, instance):
         """Get frame range data from instance.
 
@@ -154,8 +171,10 @@ class CollectNukeWrites(pyblish.api.InstancePlugin,
         ext = write_node["file_type"].value()
 
         # get frame range data
-        handle_start = instance.context.data["handleStart"]
-        handle_end = instance.context.data["handleEnd"]
+        ### Starts Alkemy-X Override ###
+        # handle_start = instance.context.data["handleStart"]
+        # handle_end = instance.context.data["handleEnd"]
+        ### Ends Alkemy-X Override ###
         first_frame, last_frame = self._get_frame_range_data(instance)
 
         # get output paths
@@ -176,15 +195,7 @@ class CollectNukeWrites(pyblish.api.InstancePlugin,
         })
 
         if family == "render":
-            instance.data.update({
-                "handleStart": handle_start,
-                "handleEnd": handle_end,
-                "frameStart": first_frame + handle_start,
-                "frameEnd": last_frame - handle_end,
-                "frameStartHandle": first_frame,
-                "frameEndHandle": last_frame,
-            })
-        else:
+            ### Starts Alkemy-X Override ###
             instance.data.update({
                 "handleStart": 0,
                 "handleEnd": 0,
@@ -193,6 +204,7 @@ class CollectNukeWrites(pyblish.api.InstancePlugin,
                 "frameStartHandle": first_frame,
                 "frameEndHandle": last_frame,
             })
+            ### Ends Alkemy-X Override ###
 
 
         # TODO temporarily set stagingDir as persistent for backward
@@ -285,7 +297,9 @@ class CollectNukeWrites(pyblish.api.InstancePlugin,
         )
 
         if len(collected_frames) == 1:
-            representation['files'] = collected_frames.pop()
+            ### Starts Alkemy-X Override ###
+            representation['files'] = collected_frames[0]
+            ### Ends Alkemy-X Override ###
         else:
             representation['files'] = collected_frames
 
@@ -372,33 +386,46 @@ class CollectNukeWrites(pyblish.api.InstancePlugin,
         Returns:
             list: collected frames
         """
-
-        first_frame, last_frame = self._get_frame_range_data(instance)
-
         write_node = self._write_node_helper(instance)
 
+        ### Starts Alkemy-X Override ###
         write_file_path = nuke.filename(write_node)
-        output_dir = os.path.dirname(write_file_path)
 
-        # get file path knob
-        node_file_knob = write_node["file"]
-        # list file paths based on input frames
-        expected_paths = list(sorted({
-            node_file_knob.evaluate(frame)
-            for frame in range(first_frame, last_frame + 1)
-        }))
+        # Extension may not match write node file type
+        extension = os.path.splitext(write_file_path)[-1]
+        output_path_pattern = re.sub(fr"(.*\.)(#+)(\{extension})", r"\1*\3",  write_file_path)
+        output_files = glob.glob(output_path_pattern)
+        if not output_files:
+            raise PublishXmlValidationError(
+                self,
+                "No frames found on disk to publish matching write node output path",
+                formatting_data={
+                    "output_path": write_file_path,
+                    "write_node_name": write_node.fullName(),
+                },
+                key="no_render_files"
+            )
 
-        # convert only to base names
-        expected_filenames = {
-            os.path.basename(filepath)
-            for filepath in expected_paths
-        }
+        collections, remainders = clique.assemble(output_files)
+        if collections:
+            collected_frame_paths = list(collections[0])
+            collection_indexes = list(collections[0].indexes)
+            first_frame = collection_indexes[0]
+            last_frame = collection_indexes[-1]
+        elif remainders:
+            collected_frame_paths = [remainders[0]]
+            if f".{extension}" in napi.constants.VIDEO_FILE_EXTENSIONS:
+                duration = self._get_number_of_frames(collected_frames[0])
+                first_frame = 1
+                last_frame = duration
+            else:
+                first_frame = 1
+                last_frame = 1
 
-        # make sure files are existing at folder
-        collected_frames = [
-            filename
-            for filename in os.listdir(output_dir)
-            if filename in expected_filenames
-        ]
+        # Update frame instance frame range with collected frame range
+        self._set_frame_range_data(instance, first_frame, last_frame)
 
+        collected_frames = [os.path.basename(frame) for frame in collected_frame_paths]
+        self.log.info("Collected frames: %s", collected_frames)
+        ### Ends Alkemy-X Override ###
         return collected_frames
