@@ -17,7 +17,7 @@ from .vendor_bin_utils import (
 )
 
 # Max length of string that is supported by ffmpeg
-MAX_FFMPEG_STRING_LEN = 8196
+MAX_FFMPEG_STRING_LEN = 255
 # Not allowed symbols in attributes for ffmpeg
 
 ### Starts Alkemy-X Ovveride ###
