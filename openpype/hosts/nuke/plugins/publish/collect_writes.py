@@ -194,17 +194,16 @@ class CollectNukeWrites(pyblish.api.InstancePlugin,
             "colorspace": colorspace
         })
 
-        if family == "render":
-            ### Starts Alkemy-X Override ###
-            instance.data.update({
-                "handleStart": 0,
-                "handleEnd": 0,
-                "frameStart": first_frame,
-                "frameEnd": last_frame,
-                "frameStartHandle": first_frame,
-                "frameEndHandle": last_frame,
-            })
-            ### Ends Alkemy-X Override ###
+        ### Starts Alkemy-X Override ###
+        instance.data.update({
+            "handleStart": 0,
+            "handleEnd": 0,
+            "frameStart": first_frame,
+            "frameEnd": last_frame,
+            "frameStartHandle": first_frame,
+            "frameEndHandle": last_frame,
+        })
+        ### Ends Alkemy-X Override ###
 
 
         # TODO temporarily set stagingDir as persistent for backward
