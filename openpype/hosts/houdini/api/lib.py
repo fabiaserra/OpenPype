@@ -150,6 +150,8 @@ def get_export_parameter(node):
 
     if node_type == "Mantra" and node.parm("soho_outputmode").eval():
         return node.parm("soho_diskfile")
+    elif node_type == "USD" or node_type == "USD Render ROP" or node_type == "USD Render":
+        return node.parm("lopoutput")
     elif node_type == "Alfred":
         return node.parm("alf_diskfile")
     elif (node_type == "RenderMan" or node_type == "RenderMan RIS"):
@@ -199,6 +201,10 @@ def get_output_parameter(node):
     if node_type == "Geometry" or node_type == "Filmbox FBX" or \
             (node_type == "ROP Output Driver" and category == "Sop"):
         return node.parm("sopoutput")
+    elif node_type == "USD" or node_type == "HuskStandalone":
+        return node.parm("lopoutput")
+    elif node_type == "USD Render ROP" or node_type == "USD Render":
+        return node.parm("outputimage")
     elif node_type == "Composite":
         return node.parm("copoutput")
     elif node_type == "Channel":
