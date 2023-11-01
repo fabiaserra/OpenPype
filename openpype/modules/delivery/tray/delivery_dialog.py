@@ -648,7 +648,8 @@ class DeliveryOutputsWidget(QtWidgets.QWidget):
                 item.widget().deleteLater()
             self.layout.removeItem(item)
 
-        self.delivery_outputs = {}
+        self.delivery_widgets = {}
+        self.delivery_extensions = {}
         if not outputs_name_ext:
             return
 
