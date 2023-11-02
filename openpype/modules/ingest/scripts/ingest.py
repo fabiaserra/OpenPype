@@ -17,7 +17,14 @@ TRACK_2D_TASK = "2dtrack"
 TRACK_3D_TASK = "3dtrack"
 COMP_TASK = "comp"
 EDIT_TASK = "edit"
-OUTSOURCE_TASKS = [ROTO_TASK, PAINT_TASK, COMP_TASK, TRACK_2D_TASK, TRACK_3D_TASK, EDIT_TASK]
+OUTSOURCE_TASKS = [
+    ROTO_TASK,
+    PAINT_TASK,
+    COMP_TASK,
+    TRACK_2D_TASK,
+    TRACK_3D_TASK,
+    EDIT_TASK
+]
 
 # Dictionary that maps the extension name to the representation name
 # we want to use for it

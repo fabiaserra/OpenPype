@@ -500,7 +500,7 @@ def generate_delivery_media_version(
         }
 
         # Submit job to Deadline
-        task_name = f"{output_name} - {output_anatomy_data['filename']}"
+        task_name = f"Delivery - {output_name} - {output_anatomy_data['filename']} - {project_name}"
         response = submit.payload_submit(
             plugin="AxNuke",
             plugin_data=plugin_data,
