@@ -205,8 +205,10 @@ class ProcessSubmittedJobOnFarm(pyblish.api.InstancePlugin,
         subset = data["subset"]
         ### Starts Alkemy-X Override ###
         # Add 'asset' to publish job label for extra clarity
-        job_name = "Publish - {asset} - {subset}".format(
-            asset=instance.data.get("asset"), subset=subset
+        job_name = "Publish - {asset} - {subset} - {proj_name}".format(
+            asset=instance.data.get("asset"),
+            subset=subset,
+            proj_name=instance.context.data["projectName"]
         )
         ### Ends Alkemy-X Override ###
 
