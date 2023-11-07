@@ -114,73 +114,73 @@ class ExtractOIIOTranscode(publish.Extractor):
         if not profile:
             return
 
-        ### Starts Alkemy-X Override ###
-        # Grab which delivery types we are running by checking the families
-        # and remove the output definitions that don't match the delivery types
-        delivery_types = []
-        if "client_review" in instance.data.get("families") or \
-                "review" in instance.data.get("families"):
-            self.log.debug("Adding 'review' as delivery type for SG outputs.")
-            delivery_types.append("review")
-        elif "exr_review" in profile["outputs"]:
-            self.log.debug(
-                "Removing 'exr_review' from profile because 'client_review' or" \
-                " 'review' are not part of the families."
-            )
-            del profile["outputs"]["exr_review"]
+        # ### Starts Alkemy-X Override ###
+        # # Grab which delivery types we are running by checking the families
+        # # and remove the output definitions that don't match the delivery types
+        # delivery_types = []
+        # if "client_review" in instance.data.get("families") or \
+        #         "review" in instance.data.get("families"):
+        #     self.log.debug("Adding 'review' as delivery type for SG outputs.")
+        #     delivery_types.append("review")
+        # elif "exr_review" in profile["outputs"]:
+        #     self.log.debug(
+        #         "Removing 'exr_review' from profile because 'client_review' or" \
+        #         " 'review' are not part of the families."
+        #     )
+        #     del profile["outputs"]["exr_review"]
 
-        if "client_final" in instance.data.get("families"):
-            self.log.debug("Adding 'final' as delivery type for SG outputs.")
-            delivery_types.append("final")
-        elif "exr_final" in profile["outputs"]:
-            self.log.debug(
-                "Removing 'exr_final' from profile because 'client_final' is " \
-                "not part of the families."
-            )
-            del profile["outputs"]["exr_final"]
+        # if "client_final" in instance.data.get("families"):
+        #     self.log.debug("Adding 'final' as delivery type for SG outputs.")
+        #     delivery_types.append("final")
+        # elif "exr_final" in profile["outputs"]:
+        #     self.log.debug(
+        #         "Removing 'exr_final' from profile because 'client_final' is " \
+        #         "not part of the families."
+        #     )
+        #     del profile["outputs"]["exr_final"]
 
-        # Adds support to define review profiles from SG instead of OP settings
-        sg_outputs, entity = self.get_sg_output_profiles(instance, delivery_types)
-        if sg_outputs:
-            self.log.debug(
-                "Found some profile overrides on the SG instance at the entity " \
-                "level '%s': %s", sg_outputs, entity
-            )
-            # If 'exr' was one of the review outputs, remove the default 'delete'
-            # tag from the output definition profile
-            if "exr_review" in sg_outputs and \
-                    "delete" in profile["exr_review"]["custom_tags"]:
-                profile["exr_review"]["custom_tags"].remove("delete")
-                self.log.info(
-                    "Removed 'delete' tag from 'exr_review' tag so representation" \
-                    "doesn't get deleted."
-                )
+        # # Adds support to define review profiles from SG instead of OP settings
+        # sg_outputs, entity = self.get_sg_output_profiles(instance, delivery_types)
+        # if sg_outputs:
+        #     self.log.debug(
+        #         "Found some profile overrides on the SG instance at the entity " \
+        #         "level '%s': %s", sg_outputs, entity
+        #     )
+        #     # If 'exr' was one of the review outputs, remove the default 'delete'
+        #     # tag from the output definition profile
+        #     if "exr_review" in sg_outputs and \
+        #             "delete" in profile["exr_review"]["custom_tags"]:
+        #         profile["exr_review"]["custom_tags"].remove("delete")
+        #         self.log.info(
+        #             "Removed 'delete' tag from 'exr_review' tag so representation" \
+        #             "doesn't get deleted."
+        #         )
 
-            for out_name, out_def in sg_outputs.items():
-                # If SG output definition doesn't exist on the profile, add it
-                if out_name not in profile["outputs"]:
-                    profile["outputs"][out_name] = out_def
-                    self.log.info(
-                        "Added SG output definition '%s' to profile.",
-                        out_name
-                    )
-                # Otherwise override output definitions but only if values from SG
-                # aren't empty
-                else:
-                    # Remove "oiiotool_args" from SG definitions as we aren't defining
-                    # those and because of the update logic not considering the empty
-                    # values of child dictionaries it overrides possible existing
-                    # additional args from the existing profiles
-                    out_def.pop("oiiotool_args")
-                    profile["outputs"][out_name].update(
-                        {k: v for k, v in out_def.items() if v}
-                    )
-                    self.log.info(
-                        "Updated SG output definition %s with values from SG.",
-                        out_name
-                    )
+        #     for out_name, out_def in sg_outputs.items():
+        #         # If SG output definition doesn't exist on the profile, add it
+        #         if out_name not in profile["outputs"]:
+        #             profile["outputs"][out_name] = out_def
+        #             self.log.info(
+        #                 "Added SG output definition '%s' to profile.",
+        #                 out_name
+        #             )
+        #         # Otherwise override output definitions but only if values from SG
+        #         # aren't empty
+        #         else:
+        #             # Remove "oiiotool_args" from SG definitions as we aren't defining
+        #             # those and because of the update logic not considering the empty
+        #             # values of child dictionaries it overrides possible existing
+        #             # additional args from the existing profiles
+        #             out_def.pop("oiiotool_args")
+        #             profile["outputs"][out_name].update(
+        #                 {k: v for k, v in out_def.items() if v}
+        #             )
+        #             self.log.info(
+        #                 "Updated SG output definition %s with values from SG.",
+        #                 out_name
+        #             )
 
-        self.log.debug("Final profile: %s", profile)
+        # self.log.debug("Final profile: %s", profile)
         ### Ends Alkemy-X Override ###
 
         new_representations = []

@@ -183,79 +183,79 @@ class ExtractReview(pyblish.api.InstancePlugin):
                 " subset name \"{}\"."
             ).format(str(instance_families), subset_name))
 
-        ### Starts Alkemy-X Override ###
-        # Grab which delivery types we are running by checking the families
-        delivery_types = []
-        if "client_review" in instance.data.get("families"):
-            self.log.debug("Adding 'review' as delivery type for SG outputs.")
-            delivery_types.append("review")
+        # ### Starts Alkemy-X Override ###
+        # # Grab which delivery types we are running by checking the families
+        # delivery_types = []
+        # if "client_review" in instance.data.get("families"):
+        #     self.log.debug("Adding 'review' as delivery type for SG outputs.")
+        #     delivery_types.append("review")
 
-        if "client_final" in instance.data.get("families"):
-            self.log.debug("Adding 'final' as delivery type for SG outputs.")
-            delivery_types.append("final")
+        # if "client_final" in instance.data.get("families"):
+        #     self.log.debug("Adding 'final' as delivery type for SG outputs.")
+        #     delivery_types.append("final")
 
-        # Adds support to define review profiles from SG instead of OP settings
-        sg_outputs, entity = self.get_sg_output_profiles(
-            instance, delivery_types
-        )
-        if sg_outputs:
-            self.log.debug(
-                "Found some profile overrides on the SG instance at the entity " \
-                "level '%s': %s", sg_outputs, entity
-            )
-            for out_name, out_def in sg_outputs.items():
-                # If SG output definition doesn't exist on the profile, add it
-                if out_name not in filtered_outputs:
-                    filtered_outputs[out_name] = out_def
-                    self.log.info(
-                        "Added SG output definition '%s' to profile.",
-                        out_name
-                    )
-                # Otherwise override output definitions but only if existing
-                # values aren't empty
-                else:
-                    # Remove all the attributes from SG definitions that we aren't
-                    # exposing on SG yet because we don't want to override those
-                    # from possible existing profiles
-                    for non_sg_field in self.NON_SUPPORTED_SG_FIELDS:
-                        out_def.pop(non_sg_field)
+        # # Adds support to define review profiles from SG instead of OP settings
+        # sg_outputs, entity = self.get_sg_output_profiles(
+        #     instance, delivery_types
+        # )
+        # if sg_outputs:
+        #     self.log.debug(
+        #         "Found some profile overrides on the SG instance at the entity " \
+        #         "level '%s': %s", sg_outputs, entity
+        #     )
+        #     for out_name, out_def in sg_outputs.items():
+        #         # If SG output definition doesn't exist on the profile, add it
+        #         if out_name not in filtered_outputs:
+        #             filtered_outputs[out_name] = out_def
+        #             self.log.info(
+        #                 "Added SG output definition '%s' to profile.",
+        #                 out_name
+        #             )
+        #         # Otherwise override output definitions but only if existing
+        #         # values aren't empty
+        #         else:
+        #             # Remove all the attributes from SG definitions that we aren't
+        #             # exposing on SG yet because we don't want to override those
+        #             # from possible existing profiles
+        #             for non_sg_field in self.NON_SUPPORTED_SG_FIELDS:
+        #                 out_def.pop(non_sg_field)
 
-                    # Also ignore other fields if they are already defined
-                    if filtered_outputs[out_name]["filter"]["custom_tags"]:
-                        out_def.pop("filter")
+        #             # Also ignore other fields if they are already defined
+        #             if filtered_outputs[out_name]["filter"]["custom_tags"]:
+        #                 out_def.pop("filter")
 
-                    if filtered_outputs[out_name]["width"]:
-                        out_def.pop("width")
+        #             if filtered_outputs[out_name]["width"]:
+        #                 out_def.pop("width")
 
-                    if filtered_outputs[out_name]["height"]:
-                        out_def.pop("height")
+        #             if filtered_outputs[out_name]["height"]:
+        #                 out_def.pop("height")
 
-                    self.log.debug(
-                        "Existing filtered output for '%s': %s",
-                        out_name,
-                        filtered_outputs[out_name]
-                    )
-                    self.log.debug(
-                        "Getting overridden with: %s", out_def
-                    )
-                    filtered_outputs[out_name].update(
-                        {k: v for k, v in out_def.items() if v}
-                    )
-                    # Update ffmpeg_args separately because that one is always
-                    # coming from SG
-                    filtered_outputs[out_name]["ffmpeg_args"].update(
-                        out_def["ffmpeg_args"]
-                    )
-                    self.log.info(
-                        "Updated SG output definition '%s' with values from SG.",
-                        out_name
-                    )
+        #             self.log.debug(
+        #                 "Existing filtered output for '%s': %s",
+        #                 out_name,
+        #                 filtered_outputs[out_name]
+        #             )
+        #             self.log.debug(
+        #                 "Getting overridden with: %s", out_def
+        #             )
+        #             filtered_outputs[out_name].update(
+        #                 {k: v for k, v in out_def.items() if v}
+        #             )
+        #             # Update ffmpeg_args separately because that one is always
+        #             # coming from SG
+        #             filtered_outputs[out_name]["ffmpeg_args"].update(
+        #                 out_def["ffmpeg_args"]
+        #             )
+        #             self.log.info(
+        #                 "Updated SG output definition '%s' with values from SG.",
+        #                 out_name
+        #             )
 
-            self.log.info(
-                "Added SG output definitions '%s' to filtered outputs: %s",
-                sg_outputs.keys(), filtered_outputs
-            )
-        ### Ends Alkemy-X Override ###
+        #     self.log.info(
+        #         "Added SG output definitions '%s' to filtered outputs: %s",
+        #         sg_outputs.keys(), filtered_outputs
+        #     )
+        # ### Ends Alkemy-X Override ###
 
         # Store `filename_suffix` to save arguments
         profile_outputs = []
