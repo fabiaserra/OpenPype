@@ -242,10 +242,16 @@ def publish_version(
 
     logger.debug("Getting representations...")
 
+    add_review = family_name in REVIEW_FAMILIES
+    # Quick dirty solution to avoid generating reviews for 3dtrack
+    # tasks
+    if task_name == "3dtrack":
+        add_review = False
+
     representations = utils.get_representations(
         instance_data,
         expected_representations,
-        add_review=family_name in REVIEW_FAMILIES,
+        add_review=add_review,
         publish_to_sg=family_name in PUBLISH_TO_SG_FAMILIES,
     )
     if not representations:
@@ -253,7 +259,7 @@ def publish_version(
         logger.error(msg)
         return msg, False
 
-    if family_name in REVIEW_FAMILIES:
+    if add_review:
         # inject colorspace data if we are generating a review
         for rep in representations:
             source_colorspace = publish_data.get("colorspace") or "scene_linear"
