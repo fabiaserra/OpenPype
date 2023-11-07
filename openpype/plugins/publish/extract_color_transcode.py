@@ -62,7 +62,7 @@ class ExtractOIIOTranscode(publish.Extractor):
     # when to set those families. In the future we might want to run
     # this same transcode plugin for other cases but for now this simplifies our
     # pipeline so we can have more control over when the transcoding happens.
-    families = ["review", "client_review", "client_final"]
+    # families = ["review", "client_review", "client_final"]
 
     # Skeleton of an output definition of a profile
     profile_output_skeleton = {
@@ -322,8 +322,8 @@ class ExtractOIIOTranscode(publish.Extractor):
 
                 # Removing 'review' from new representations as we only want
                 # to generate review from the original representation
-                if "review" in new_repre["tags"]:
-                    new_repre["tags"].remove("review")
+                # if "review" in new_repre["tags"]:
+                    # new_repre["tags"].remove("review")
 
                 for tag in output_def["tags"]:
                     if tag not in new_repre["tags"]:
@@ -607,5 +607,5 @@ class ExtractOIIOTranscode(publish.Extractor):
             if "delete" not in repre["tags"]:
                 repre["tags"].append("delete")
 
-        # if added_review and "review" in repre["tags"]:
-            # repre["tags"].remove("review")
+        if added_review and "review" in repre["tags"]:
+            repre["tags"].remove("review")
