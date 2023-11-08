@@ -203,15 +203,6 @@ class ProcessSubmittedJobOnFarm(pyblish.api.InstancePlugin,
         """
         data = instance.data.copy()
         subset = data["subset"]
-        ### Starts Alkemy-X Override ###
-        # Add 'asset' to publish job label for extra clarity
-        job_name = "Publish - {} - {} - {} ({})".format(
-            instance.data.get("asset"),
-            subset,
-            instance.context.data["projectName"],
-            os.getenv("SHOW")
-        )
-        ### Ends Alkemy-X Override ###
 
         anatomy = instance.context.data['anatomy']
 
@@ -221,6 +212,19 @@ class ProcessSubmittedJobOnFarm(pyblish.api.InstancePlugin,
         instance_version = instance.data.get("version")  # take this if exists
         if instance_version != 1:
             override_version = instance_version
+
+        ### Starts Alkemy-X Override ###
+        # Add 'asset' to publish job label for extra clarity
+        job_name = "Publish {} - {}{} - {} - {} - {} ({})".format(
+            instances[0]["family"],
+            instances[0]["subset"],
+            " v{0:03d}".format(override_version) if override_version else "",
+            instance.context.data["task"],
+            instance.data["asset"],
+            instance.context.data["projectName"],
+            os.getenv("SHOW")
+        )
+        ### Ends Alkemy-X Override ###
 
         output_dir = self._get_publish_folder(
             anatomy,

@@ -325,9 +325,10 @@ def publish_version(
     project_doc = get_project(
         project_name, fields=["data.code"]
     )
-    deadline_task_name = "Publish {} - {} - {} - {} - {} ({})".format(
+    deadline_task_name = "Publish {} - {}{} - {} - {} - {} ({})".format(
         family_name,
         subset_name,
+        " v{0:03d}".format(instance_data.get("version")) if instance_data.get("version") else "",
         task_name,
         asset_name,
         project_name,
