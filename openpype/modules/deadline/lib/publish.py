@@ -275,10 +275,10 @@ def publish_version(
                 rep, project_name, colorspace=source_colorspace
             )
 
-    instance_data["frameStart"] = representations[0]["frameStart"]
-    instance_data["frameEnd"] = representations[0]["frameEnd"]
-    instance_data["frameStartHandle"] = representations[0]["frameStart"]
-    instance_data["frameEndHandle"] = representations[0]["frameEnd"]
+    instance_data["frameStart"] = int(representations[0]["frameStart"])
+    instance_data["frameEnd"] = int(representations[0]["frameEnd"])
+    instance_data["frameStartHandle"] = int(representations[0]["frameStart"])
+    instance_data["frameEndHandle"] = int(representations[0]["frameEnd"])
 
     # add representation
     instance_data["representations"] = representations
