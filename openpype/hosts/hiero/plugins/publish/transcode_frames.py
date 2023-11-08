@@ -152,9 +152,11 @@ class TranscodeFrames(publish.Extractor, publish.ColormanagedPyblishPluginMixin)
             self.log.debug("Output ext: %s", self.output_ext)
 
             # Create names for Deadline batch job and tasks
-            task_name = "Transcode - {} - {}".format(
+            task_name = "Transcode - {} - {} - {} ({})".format(
                 os.path.basename(output_path),
-                staging_dir
+                staging_dir,
+                os.getenv("AVALON_PROJECT"),
+                os.getenv("SHOW")
             )
 
             # If either source or output is a video format, transcode using Nuke

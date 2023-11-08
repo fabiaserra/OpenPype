@@ -4,7 +4,12 @@ import json
 
 from openpype.lib import Logger
 from openpype.pipeline import legacy_io
-from openpype.client import get_asset_by_name, get_subset_by_name, get_version_by_name
+from openpype.client import (
+    get_project,
+    get_asset_by_name,
+    get_subset_by_name,
+    get_version_by_name
+)
 
 from openpype.modules.deadline import constants as dl_constants
 from openpype.modules.deadline.lib import submit
@@ -316,15 +321,20 @@ def publish_version(
         "OPENPYPE_SG_USER": username,
     }
 
-    deadline_task_name = "Publish {} - {} - {} - {} - {}".format(
+    # Get project code to grab the project code and add it to the task name
+    project_doc = get_project(
+        project_name, fields=["data.code"]
+    )
+    deadline_task_name = "Publish {} - {} - {} - {} - {} ({})".format(
         family_name,
         subset_name,
         task_name,
         asset_name,
-        project_name
+        project_name,
+        project_doc["data"]["code"]
     )
-    logger.debug("Submitting payload...")
 
+    logger.debug("Submitting payload...")
     response = submit.payload_submit(
         plugin="OpenPype",
         plugin_data=plugin_data,
