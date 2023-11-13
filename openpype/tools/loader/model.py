@@ -380,7 +380,9 @@ class SubsetsModel(BaseRepresentationModel, TreeModel):
         if frame_start is not None and frame_end is not None:
             # Remove superfluous zeros from numbers (3.0 -> 3) to improve
             # readability for most frame ranges
+            frame_start = float(frame_start)
             start_clean = ("%f" % frame_start).rstrip("0").rstrip(".")
+            frame_end = float(frame_end)
             end_clean = ("%f" % frame_end).rstrip("0").rstrip(".")
             frames = "{0}-{1}".format(start_clean, end_clean)
             duration = frame_end - frame_start + 1

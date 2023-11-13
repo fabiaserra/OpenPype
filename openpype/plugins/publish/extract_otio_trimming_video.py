@@ -50,6 +50,16 @@ class ExtractOTIOTrimmingVideo(publish.Extractor):
             new_file = self._ffmpeg_trim_seqment(
                 input_file_path, otio_trim_range)
 
+            ### Starts Alkemy-X Override ###
+            # If extension is mxf change it to mov as there's a bug in
+            # Nuke that reads the trimmed mxf in a different resolution
+            # showing a green edge at the edge of the frame
+            _, ext = os.path.splitext(input_file_path)
+            if ext == ".mxf":
+                _repre["name"] = "mov"
+                _repre["ext"] = "mov"
+            ### Ends Alkemy-X Override ###
+
             # prepare new representation data
             repre_data = deepcopy(_repre)
             ### Starts Alkemy-X Override ###
@@ -123,6 +133,13 @@ class ExtractOTIOTrimmingVideo(publish.Extractor):
         """
         basename = os.path.basename(file_path)
         name, ext = os.path.splitext(basename)
+        ### Starts Alkemy-X Override ###
+        # If extension is mxf change it to mov as there's a bug in
+        # Nuke that reads the trimmed mxf in a different resolution
+        # showing a green edge at the edge of the frame
+        if ext == ".mxf":
+            ext = ".mov"
+        ### Ends Alkemy-X Override ###
 
         output_file = "{}_{}{}".format(
             name,

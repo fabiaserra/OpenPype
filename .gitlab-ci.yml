@@ -8,6 +8,7 @@ variables:
 
 stages:
   - build
+  - build-op-container
   - deploy
   - release
 
@@ -94,8 +95,12 @@ build-ubuntu22:
     - ./tools/docker_build.sh $BUILD_OS
     - version_command="import os;exec(open(os.path.join('./', 'openpype', 'version.py')).read());print('.'.join(__version__.split('.')[:2]));"
     - openpype_version="$(python3 -c "${version_command}")"
+    - echo "openpype_version=$openpype_version" >> build.env
     - "tar -czvf ./build/openpype-${openpype_version}-${BUILD_OS}.tar.gz ./build"
     - 'curl --header "JOB-TOKEN: $CI_JOB_TOKEN" --upload-file ./build/openpype-${openpype_version}-${BUILD_OS}.tar.gz "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/openpype/${openpype_version}/openpype-${openpype_version}-${BUILD_OS}.tar.gz"'
+  artifacts:
+    reports:
+      dotenv: build.env
   rules:
     - if: $CI_COMMIT_TAG
       when: never
@@ -123,9 +128,29 @@ build-patch:
     - when: manual
   allow_failure: false
 
-deploy-patch:
+build-op-container:
+  stage: build-op-container
+  needs:
+    - build-ubuntu22
   tags:
-    - cw-pvc
+    - kube
+  image:
+    name: gcr.io/kaniko-project/executor:v1.14.0-debug
+    entrypoint: [""]
+  script:
+    - CI_COMMIT_BRANCH_SAFE="${CI_COMMIT_BRANCH////-}" && echo "$CI_COMMIT_BRANCH_SAFE"
+    - /kaniko/executor
+      --context "${CI_PROJECT_DIR}/op-container"
+      --dockerfile "${CI_PROJECT_DIR}/op-container/Dockerfile"
+      --destination "${CI_REGISTRY_IMAGE}/openpype:jammy-${VERSION}-${CI_COMMIT_SHORT_SHA}"
+  rules:
+    - if: $CI_COMMIT_TAG
+      when: never
+
+deploy-patch:
+  image: alpine:latest
+  tags:
+    - mnt-pipe
   stage: deploy
   script:
     - cp -R ./artifact/build/* /pipe/openpype/versions/
@@ -164,8 +189,9 @@ release-patch:
     - when: always
 
 deploy-to-deadline:
+  image: alpine:latest
   tags:
-    - cw-pvc
+    - mnt-pipe
   stage: deploy
   script:
     - rsync -avh --chmod=777 --chown=nobody:nogroup $CI_PROJECT_DIR/openpype/modules/deadline/repository/custom/plugins/* /deadline-repo/custom/plugins/

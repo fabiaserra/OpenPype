@@ -53,8 +53,8 @@ class ExtractBurnin(publish.Extractor):
         "flame",
         "houdini",
         "max",
-        "blender"
-        # "resolve"
+        "blender",
+        "unreal"
     ]
 
     optional = True
@@ -83,7 +83,7 @@ class ExtractBurnin(publish.Extractor):
             return
 
         if not instance.data.get("representations"):
-            self.log.info(
+            self.log.debug(
                 "Instance does not have filled representations. Skipping")
             return
 
@@ -135,11 +135,11 @@ class ExtractBurnin(publish.Extractor):
                 burnin_defs, repre["tags"]
             )
             if not repre_burnin_defs:
-                self.log.info((
+                self.log.debug(
                     "Skipped representation. All burnin definitions from"
-                    " selected profile does not match to representation's"
-                    " tags. \"{}\""
-                ).format(str(repre["tags"])))
+                    " selected profile do not match to representation's"
+                    " tags. \"{}\"".format(repre["tags"])
+                )
                 continue
             filtered_repres.append((repre, repre_burnin_defs))
 
@@ -164,7 +164,7 @@ class ExtractBurnin(publish.Extractor):
                                   logger=self.log)
 
         if not profile:
-            self.log.info((
+            self.log.debug((
                 "Skipped instance. None of profiles in presets are for"
                 " Host: \"{}\" | Families: \"{}\" | Task \"{}\""
                 " | Task type \"{}\" | Subset \"{}\" "
@@ -176,7 +176,7 @@ class ExtractBurnin(publish.Extractor):
         # Pre-filter burnin definitions by instance families
         burnin_defs = self.filter_burnins_defs(profile, instance)
         if not burnin_defs:
-            self.log.info((
+            self.log.debug((
                 "Skipped instance. Burnin definitions are not set for profile"
                 " Host: \"{}\" | Families: \"{}\" | Task \"{}\""
                 " | Profile \"{}\""
@@ -223,10 +223,10 @@ class ExtractBurnin(publish.Extractor):
             # If result is None the requirement of conversion can't be
             #   determined
             if do_convert is None:
-                self.log.info((
+                self.log.debug(
                     "Can't determine if representation requires conversion."
                     " Skipped."
-                ))
+                )
                 continue
 
             # Do conversion if needed
@@ -577,7 +577,7 @@ class ExtractBurnin(publish.Extractor):
 
         Store data to `temp_data` for keys "full_input_path" which is full path
         to source files optionally with sequence formatting,
-        "full_output_path" full path to otput with optionally with sequence
+        "full_output_path" full path to output with optionally with sequence
         formatting, "full_input_paths" list of all source files which will be
         deleted when burnin script ends, "repre_files" list of output
         filenames.
@@ -585,7 +585,7 @@ class ExtractBurnin(publish.Extractor):
         Args:
             new_repre (dict): Currently processed new representation.
             temp_data (dict): Temp data of representation process.
-            filename_suffix (str): Filename suffix added to inputl filename.
+            filename_suffix (str): Filename suffix added to input filename.
 
         Returns:
             None: This is processing method.
@@ -705,6 +705,7 @@ class ExtractBurnin(publish.Extractor):
             and "slate-frame" in repre["tags"]
         ):
             burnin_slate_frame_start -= 1
+            temp_data["frame_start"] = burnin_slate_frame_start
 
         self.log.debug("burnin_slate_frame_start: {}".format(
             burnin_slate_frame_start

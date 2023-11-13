@@ -323,4 +323,3 @@ class HoudiniSubmitDeadline(
         # Store output dir for unified publisher (filesequence)
         output_dir = os.path.dirname(instance.data["files"][0])
         instance.data["outputDir"] = output_dir
-        instance.data["toBeRenderedOn"] = "deadline"

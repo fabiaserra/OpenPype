@@ -82,66 +82,75 @@ class IntegrateAsset(pyblish.api.InstancePlugin):
 
     label = "Integrate Asset"
     order = pyblish.api.IntegratorOrder
-    families = ["workfile",
-                "pointcache",
-                "pointcloud",
-                "proxyAbc",
-                "camera",
-                "animation",
-                "model",
-                "maxScene",
-                "mayaAscii",
-                "mayaScene",
-                "setdress",
-                "layout",
-                "ass",
-                "vdbcache",
-                "scene",
-                "vrayproxy",
-                "vrayscene_layer",
-                "render",
-                "prerender",
-                "imagesequence",
-                "review",
-                "rendersetup",
-                "rig",
-                "plate",
-                "reference",
-                "look",
-                "audio",
-                "yetiRig",
-                "yeticache",
-                "nukenodes",
-                "gizmo",
-                "source",
-                "matchmove",
-                "image",
-                "assembly",
-                "fbx",
-                "gltf",
-                "textures",
-                "action",
-                "harmony.template",
-                "harmony.palette",
-                "editorial",
-                "background",
-                "camerarig",
-                "redshiftproxy",
-                "effect",
-                "xgen",
-                "hda",
-                "usd",
-                "staticMesh",
-                "skeletalMesh",
-                "mvLook",
-                "mvUsd",
-                "mvUsdComposition",
-                "mvUsdOverride",
-                "simpleUnrealTexture",
-                "online",
-                "uasset",
-                "blendScene"
-                ]
+    families = [
+        "action",
+        "animation",
+        "arnold_rop",
+        "ass",
+        "assembly",
+        "audio",
+        "background",
+        "blendScene",
+        "camera",
+        "camerarig",
+        "color_grade",
+        "distortion",
+        "editorial",
+        "effect",
+        "fbx",
+        "gizmo",
+        "gltf",
+        "harmony.palette",
+        "harmony.template",
+        "hda",
+        "image",
+        "imagesequence",
+        "karma_rop",
+        "layout",
+        "look",
+        "mantra_rop",
+        "matchmove",
+        "maxScene",
+        "mayaAscii",
+        "mayaScene",
+        "model",
+        "mvLook",
+        "mvUsd",
+        "mvUsdComposition",
+        "mvUsdOverride",
+        "nukenodes",
+        "online",
+        "plate",
+        "reference",
+        "pointcache",
+        "pointcloud",
+        "prerender",
+        "proxyAbc",
+        "redshift_rop",
+        "redshiftproxy",
+        "render",
+        "rendersetup",
+        "review",
+        "rig",
+        "scene",
+        "setdress",
+        "simpleUnrealTexture",
+        "skeletalMesh",
+        "source",
+        "staticMesh",
+        "textures",
+        "uasset",
+        "usd",
+        "usdrender",
+        "vdbcache",
+        "vrayproxy",
+        "vrayscene_layer",
+        "workfile",
+        "xgen",
+        "yeticache",
+        "yeticacheUE",
+        "yetiRig",
+    ]
 
     default_template_name = "publish"
 
@@ -156,13 +165,13 @@ class IntegrateAsset(pyblish.api.InstancePlugin):
 
         # Instance should be integrated on a farm
         if instance.data.get("farm"):
-            self.log.info(
+            self.log.debug(
                 "Instance is marked to be processed on farm. Skipping")
             return
 
         # Instance is marked to not get integrated
         if not instance.data.get("integrate", True):
-            self.log.info("Instance is marked to skip integrating. Skipping")
+            self.log.debug("Instance is marked to skip integrating. Skipping")
             return
 
         filtered_repres = self.filter_representations(instance)
@@ -307,7 +316,7 @@ class IntegrateAsset(pyblish.api.InstancePlugin):
         # increase if the file transaction takes a long time.
         op_session.commit()
 
-        self.log.info("Subset {subset[name]} and Version {version[name]} "
+        self.log.info("Subset '{subset[name]}' version {version[name]} "
                       "written to database..".format(subset=subset,
                                                      version=version))
 
@@ -393,8 +402,13 @@ class IntegrateAsset(pyblish.api.InstancePlugin):
             p["representation"]["_id"]: p for p in prepared_representations
         }
 
-        self.log.info("Registered {} representations: {}"
-                      "".format(len(prepared_representations), new_repre_names_low))
+        self.log.info(
+            "Registered {} representations: {}".format(
+                len(prepared_representations),
+                ", ".join(p["representation"]["name"]
+                          for p in prepared_representations)
+            )
+        )
 
     def prepare_subset(self, instance, op_session, project_name):
         asset_doc = instance.data["assetEntity"]

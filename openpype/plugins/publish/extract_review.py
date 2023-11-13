@@ -21,6 +21,7 @@ from openpype.lib.transcoding import (
     IMAGE_EXTENSIONS,
     get_ffprobe_streams,
     should_convert_for_ffmpeg,
+    get_review_layer_name,
     convert_input_paths_for_ffmpeg,
     get_transcode_temp_directory,
 )
@@ -45,7 +46,12 @@ class ExtractReview(pyblish.api.InstancePlugin):
 
     label = "Extract Review"
     order = pyblish.api.ExtractorOrder + 0.02
-    families = ["review"]
+    families = [
+        "review",
+        "arnold_rop",
+        "mantra_rop",
+        "karma_rop"
+    ]
     hosts = [
         "nuke",
         "maya",
@@ -69,7 +75,7 @@ class ExtractReview(pyblish.api.InstancePlugin):
 
     # Supported extensions
     image_exts = ["exr", "jpg", "jpeg", "png", "dpx"]
-    video_exts = ["mov", "mp4"]
+    video_exts = ["mov", "mp4", "mxf"]
     supported_exts = image_exts + video_exts
 
     alpha_exts = ["exr", "png", "dpx"]
@@ -109,6 +115,13 @@ class ExtractReview(pyblish.api.InstancePlugin):
             "line_color": [255, 0, 0, 255],
         },
     }
+
+    NON_SUPPORTED_SG_FIELDS = [
+        "letter_box",
+        "bg_color",
+        "overscan_crop",
+        "overscan_color",
+    ]
     ### Ends Alkemy-X Override ###
 
     def process(self, instance):
@@ -170,30 +183,79 @@ class ExtractReview(pyblish.api.InstancePlugin):
                 " subset name \"{}\"."
             ).format(str(instance_families), subset_name))
 
-        ### Starts Alkemy-X Override ###
-        # Grab which delivery types we are running by checking the families
-        delivery_types = []
-        if "client_review" in instance.data.get("families"):
-            self.log.debug("Adding 'review' as delivery type for SG outputs.")
-            delivery_types.append("review")
+        # ### Starts Alkemy-X Override ###
+        # # Grab which delivery types we are running by checking the families
+        # delivery_types = []
+        # if "client_review" in instance.data.get("families"):
+        #     self.log.debug("Adding 'review' as delivery type for SG outputs.")
+        #     delivery_types.append("review")
 
-        if "client_final" in instance.data.get("families"):
-            self.log.debug("Adding 'final' as delivery type for SG outputs.")
-            delivery_types.append("final")
+        # if "client_final" in instance.data.get("families"):
+        #     self.log.debug("Adding 'final' as delivery type for SG outputs.")
+        #     delivery_types.append("final")
 
-        # Adds support to define review profiles from SG instead of OP settings
-        sg_outputs, entity = self.get_sg_output_profiles(instance, delivery_types)
-        if sg_outputs:
-            self.log.debug(
-                "Found some profile overrides on the SG instance at the entity " \
-                "level '%s': %s", sg_outputs, entity
-            )
-            filtered_outputs.update(sg_outputs)
-            self.log.info(
-                "Added SG output definitions '%s' to filtered outputs.",
-                sg_outputs.keys()
-            )
-        ### Ends Alkemy-X Override ###
+        # # Adds support to define review profiles from SG instead of OP settings
+        # sg_outputs, entity = self.get_sg_output_profiles(
+        #     instance, delivery_types
+        # )
+        # if sg_outputs:
+        #     self.log.debug(
+        #         "Found some profile overrides on the SG instance at the entity " \
+        #         "level '%s': %s", sg_outputs, entity
+        #     )
+        #     for out_name, out_def in sg_outputs.items():
+        #         # If SG output definition doesn't exist on the profile, add it
+        #         if out_name not in filtered_outputs:
+        #             filtered_outputs[out_name] = out_def
+        #             self.log.info(
+        #                 "Added SG output definition '%s' to profile.",
+        #                 out_name
+        #             )
+        #         # Otherwise override output definitions but only if existing
+        #         # values aren't empty
+        #         else:
+        #             # Remove all the attributes from SG definitions that we aren't
+        #             # exposing on SG yet because we don't want to override those
+        #             # from possible existing profiles
+        #             for non_sg_field in self.NON_SUPPORTED_SG_FIELDS:
+        #                 out_def.pop(non_sg_field)
+
+        #             # Also ignore other fields if they are already defined
+        #             if filtered_outputs[out_name]["filter"]["custom_tags"]:
+        #                 out_def.pop("filter")
+
+        #             if filtered_outputs[out_name]["width"]:
+        #                 out_def.pop("width")
+
+        #             if filtered_outputs[out_name]["height"]:
+        #                 out_def.pop("height")
+
+        #             self.log.debug(
+        #                 "Existing filtered output for '%s': %s",
+        #                 out_name,
+        #                 filtered_outputs[out_name]
+        #             )
+        #             self.log.debug(
+        #                 "Getting overridden with: %s", out_def
+        #             )
+        #             filtered_outputs[out_name].update(
+        #                 {k: v for k, v in out_def.items() if v}
+        #             )
+        #             # Update ffmpeg_args separately because that one is always
+        #             # coming from SG
+        #             filtered_outputs[out_name]["ffmpeg_args"].update(
+        #                 out_def["ffmpeg_args"]
+        #             )
+        #             self.log.info(
+        #                 "Updated SG output definition '%s' with values from SG.",
+        #                 out_name
+        #             )
+
+        #     self.log.info(
+        #         "Added SG output definitions '%s' to filtered outputs: %s",
+        #         sg_outputs.keys(), filtered_outputs
+        #     )
+        # ### Ends Alkemy-X Override ###
 
         # Store `filename_suffix` to save arguments
         profile_outputs = []
@@ -261,10 +323,15 @@ class ExtractReview(pyblish.api.InstancePlugin):
                         out_name, entity
                     )
 
-                    sg_profiles[out_name] = self.profile_output_skeleton.copy()
+                    sg_profiles[out_name] = copy.deepcopy(self.profile_output_skeleton)
                     sg_profiles[out_name]["ext"] = out_fields["sg_extension"]
                     sg_profiles[out_name]["tags"] = ent_overrides.get(f"sg_{delivery_type}_tags") or []
                     sg_profiles[out_name]["fps"] = ent_overrides.get(f"sg_{delivery_type}_fps")
+                    resolution = ent_overrides.get(f"sg_{delivery_type}_resolution")
+                    if resolution:
+                        width, height = resolution.split("x")
+                        sg_profiles[out_name]["width"] = width
+                        sg_profiles[out_name]["height"] = height
                     # Set final/review_colorspace tag so it uses the transcoded
                     # representations that have that tag
                     sg_profiles[out_name]["filter"]["custom_tags"] = [
@@ -273,7 +340,7 @@ class ExtractReview(pyblish.api.InstancePlugin):
 
                     # Iterate over the different keys of the ffmpeg_args dictionary of
                     # the profile and fill them up with the SG entity fields (if set)
-                    for ffmpeg_arg in sg_profiles[out_name]["ffmpeg_args"].keys():
+                    for ffmpeg_arg in self.profile_output_skeleton["ffmpeg_args"].keys():
                         ffmpeg_val = out_fields.get(f"sg_ffmpeg_{ffmpeg_arg}")
                         if ffmpeg_val:
                             sg_profiles[out_name]["ffmpeg_args"][ffmpeg_arg] = [ffmpeg_val]
@@ -289,6 +356,7 @@ class ExtractReview(pyblish.api.InstancePlugin):
         outputs_per_representations = []
         for repre in instance.data["representations"]:
             repre_name = str(repre.get("name"))
+            self.log.debug("Getting outputs for repre '%s'", repre_name)
             tags = repre.get("tags") or []
             custom_tags = repre.get("custom_tags")
             if "review" not in tags:
@@ -325,12 +393,17 @@ class ExtractReview(pyblish.api.InstancePlugin):
             # custom tags (optional)
             outputs = self.filter_outputs_by_custom_tags(
                 profile_outputs, custom_tags)
+            self.log.debug(
+                "Outputs for repre '%s': %s",
+                repre_name,
+                [_o["filename_suffix"] for _o in outputs]
+            )
             if not outputs:
-                self.log.info((
+                self.log.info(
                     "Skipped representation '%s'. All output definitions from"
                     " selected profile does not match to representation's"
-                    " custom tags. \"{}\""
-                ).format(repre_name, str(custom_tags)))
+                    " custom tags. \"%s\"", repre_name, str(custom_tags)
+                )
                 continue
 
             outputs_per_representations.append((repre, outputs))
@@ -417,6 +490,8 @@ class ExtractReview(pyblish.api.InstancePlugin):
                 ))
                 continue
 
+            layer_name = get_review_layer_name(first_input_path)
+
             # Do conversion if needed
             #   - change staging dir of source representation
             #   - must be set back after output definitions processing
@@ -435,7 +510,8 @@ class ExtractReview(pyblish.api.InstancePlugin):
                     instance,
                     repre,
                     src_repre_staging_dir,
-                    filtered_output_defs
+                    filtered_output_defs,
+                    layer_name
                 )
 
             finally:
@@ -449,7 +525,12 @@ class ExtractReview(pyblish.api.InstancePlugin):
                         shutil.rmtree(new_staging_dir)
 
     def _render_output_definitions(
-        self, instance, repre, src_repre_staging_dir, output_definitions
+        self,
+        instance,
+        repre,
+        src_repre_staging_dir,
+        output_definitions,
+        layer_name
     ):
         fill_data = copy.deepcopy(instance.data["anatomyData"])
         for _output_def in output_definitions:
@@ -521,7 +602,12 @@ class ExtractReview(pyblish.api.InstancePlugin):
 
             try:  # temporary until oiiotool is supported cross platform
                 ffmpeg_args = self._ffmpeg_arguments(
-                    output_def, instance, new_repre, temp_data, fill_data
+                    output_def,
+                    instance,
+                    new_repre,
+                    temp_data,
+                    fill_data,
+                    layer_name,
                 )
             except ZeroDivisionError:
                 # TODO recalculate width and height using OIIO before
@@ -667,7 +753,7 @@ class ExtractReview(pyblish.api.InstancePlugin):
             ### Starts Alkemy-X Override ###
             # Grab FPS from SG delivery (i.e., review or final) if it
             # exists, otherwise default to the project FPS
-            "fps": float( output_def.get("fps") or instance.data["fps"]),
+            "fps": float(output_def.get("fps") or instance.data["fps"]),
             ### Ends Alkemy-X Override ###
             "frame_start": frame_start,
             "frame_end": frame_end,
@@ -690,7 +776,13 @@ class ExtractReview(pyblish.api.InstancePlugin):
         }
 
     def _ffmpeg_arguments(
-        self, output_def, instance, new_repre, temp_data, fill_data
+        self,
+        output_def,
+        instance,
+        new_repre,
+        temp_data,
+        fill_data,
+        layer_name
     ):
         """Prepares ffmpeg arguments for expected extraction.
 
@@ -757,6 +849,10 @@ class ExtractReview(pyblish.api.InstancePlugin):
             )
 
         duration_seconds = float(output_frames_len / temp_data["fps"])
+
+        # Define which layer should be used
+        if layer_name:
+            ffmpeg_input_args.extend(["-layer", layer_name])
 
         if temp_data["input_is_sequence"]:
             # Set start frame of input sequence (just frame in filename)

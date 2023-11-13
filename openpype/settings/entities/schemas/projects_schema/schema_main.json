@@ -152,6 +152,10 @@
                 },
                 {
                     "type": "schema",
+                    "name": "schema_project_rv"
+                },
+                {
+                    "type": "schema",
                     "name": "schema_project_traypublisher"
                 },
                 {

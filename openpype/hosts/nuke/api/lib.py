@@ -2041,6 +2041,7 @@ class WorkfileSettings(object):
         )
 
         workfile_settings = imageio_host["workfile"]
+        viewer_process_settings = imageio_host["viewer"]["viewerProcess"]
 
         if not config_data:
             # TODO: backward compatibility for old projects - remove later
@@ -2091,6 +2092,15 @@ class WorkfileSettings(object):
         workfile_settings.pop("colorManagement", None)
         workfile_settings.pop("OCIO_config", None)
 
+        # get monitor lut from settings respecting Nuke version differences
+        monitor_lut = workfile_settings.pop("monitorLut", None)
+        monitor_lut_data = self._get_monitor_settings(
+            viewer_process_settings, monitor_lut)
+
+        # set monitor related knobs luts (MonitorOut, Thumbnails)
+        for knob, value_ in monitor_lut_data.items():
+            workfile_settings[knob] = value_
+
         # then set the rest
         for knob, value_ in workfile_settings.items():
             # skip unfilled ocio config path
@@ -2107,8 +2117,9 @@ class WorkfileSettings(object):
 
         # set ocio config path
         if config_data:
+            config_path = config_data["path"].replace("\\", "/")
             log.info("OCIO config path found: `{}`".format(
-                config_data["path"]))
+                config_path))
 
             # check if there's a mismatch between environment and settings
             correct_settings = self._is_settings_matching_environment(
@@ -2117,6 +2128,40 @@ class WorkfileSettings(object):
             # if there's no mismatch between environment and settings
             if correct_settings:
                 self._set_ocio_config_path_to_workfile(config_data)
+
+    def _get_monitor_settings(self, viewer_lut, monitor_lut):
+        """ Get monitor settings from viewer and monitor lut
+
+        Args:
+            viewer_lut (str): viewer lut string
+            monitor_lut (str): monitor lut string
+
+        Returns:
+            dict: monitor settings
+        """
+        output_data = {}
+        m_display, m_viewer = get_viewer_config_from_string(monitor_lut)
+        v_display, v_viewer = get_viewer_config_from_string(viewer_lut)
+
+        # set monitor lut differently for nuke version 14
+        if nuke.NUKE_VERSION_MAJOR >= 14:
+            output_data["monitorOutLUT"] = create_viewer_profile_string(
+                m_viewer, m_display, path_like=False)
+            # monitorLut=thumbnails - viewerProcess makes more sense
+            output_data["monitorLut"] = create_viewer_profile_string(
+                v_viewer, v_display, path_like=False)
+
+        if nuke.NUKE_VERSION_MAJOR == 13:
+            output_data["monitorOutLUT"] = create_viewer_profile_string(
+                m_viewer, m_display, path_like=False)
+            # monitorLut=thumbnails - viewerProcess makes more sense
+            output_data["monitorLut"] = create_viewer_profile_string(
+                v_viewer, v_display, path_like=True)
+        if nuke.NUKE_VERSION_MAJOR <= 12:
+            output_data["monitorLut"] = create_viewer_profile_string(
+                m_viewer, m_display, path_like=True)
+
+        return output_data
 
     def _is_settings_matching_environment(self, config_data):
         """ Check if OCIO config path is different from environment
@@ -2177,6 +2222,7 @@ Reopening Nuke should synchronize these paths and resolve any discrepancies.
         """
         # replace path with env var if possible
         ocio_path = self._replace_ocio_path_with_env_var(config_data)
+        ocio_path = ocio_path.replace("\\", "/")
 
         log.info("Setting OCIO config path to: `{}`".format(
             ocio_path))
@@ -2232,7 +2278,7 @@ Reopening Nuke should synchronize these paths and resolve any discrepancies.
         Returns:
             str: OCIO config path with environment variable TCL expression
         """
-        config_path = config_data["path"]
+        config_path = config_data["path"].replace("\\", "/")
         config_template = config_data["template"]
 
         included_vars = self._get_included_vars(config_template)
@@ -2377,37 +2423,40 @@ Reopening Nuke should synchronize these paths and resolve any discrepancies.
                             nname,
                             knobs["to"]))
 
+    ### Starts Alkemy-x Override ###
     def set_colorspace(self):
         ''' Setting colorspace following presets
         '''
+        nuke.root()["colorManagement"].setValue("OCIO")
         # get imageio
-        nuke_colorspace = get_nuke_imageio_settings()
+        # nuke_colorspace = get_nuke_imageio_settings()
 
-        log.info("Setting colorspace to workfile...")
-        try:
-            self.set_root_colorspace(nuke_colorspace)
-        except AttributeError as _error:
-            msg = "Set Colorspace to workfile error: {}".format(_error)
-            nuke.message(msg)
+        # log.info("Setting colorspace to workfile...")
+        # try:
+        #     self.set_root_colorspace(nuke_colorspace)
+        # except AttributeError as _error:
+        #     msg = "Set Colorspace to workfile error: {}".format(_error)
+        #     nuke.message(msg)
 
-        log.info("Setting colorspace to viewers...")
-        try:
-            self.set_viewers_colorspace(nuke_colorspace["viewer"])
-        except AttributeError as _error:
-            msg = "Set Colorspace to viewer error: {}".format(_error)
-            nuke.message(msg)
+        # log.info("Setting colorspace to viewers...")
+        # try:
+        #     self.set_viewers_colorspace(nuke_colorspace["viewer"])
+        # except AttributeError as _error:
+        #     msg = "Set Colorspace to viewer error: {}".format(_error)
+        #     nuke.message(msg)
 
-        log.info("Setting colorspace to write nodes...")
-        try:
-            self.set_writes_colorspace()
-        except AttributeError as _error:
-            nuke.message(_error)
-            log.error(_error)
+        # log.info("Setting colorspace to write nodes...")
+        # try:
+        #     self.set_writes_colorspace()
+        # except AttributeError as _error:
+        #     nuke.message(_error)
+        #     log.error(_error)
 
-        log.info("Setting colorspace to read nodes...")
-        read_clrs_inputs = nuke_colorspace["regexInputs"].get("inputs", [])
-        if read_clrs_inputs:
-            self.set_reads_colorspace(read_clrs_inputs)
+        # log.info("Setting colorspace to read nodes...")
+        # read_clrs_inputs = nuke_colorspace["regexInputs"].get("inputs", [])
+        # if read_clrs_inset_reads_colorspaceputs:
+        #     self.(read_clrs_inputs)
+    ### Ends Alkemy-x Override ###
 
     def reset_frame_range_handles(self):
         """Set frame range to current asset"""
@@ -2453,16 +2502,20 @@ Reopening Nuke should synchronize these paths and resolve any discrepancies.
         # update node graph so knobs are updated
         update_node_graph()
 
-        frame_range = '{0}-{1}'.format(
-            int(asset_data["frameStart"]),
-            int(asset_data["frameEnd"])
-        )
+        ### Starts Alkemy-X Override ###
+        # Set default frame range to Global
+        viewers = []
+        for w in QtWidgets.QApplication.instance().allWidgets():
+            if "Viewer." in w.objectName():
+                viewers.append(w)
 
-        for node in nuke.allNodes(filter="Viewer"):
-            node['frame_range'].setValue(frame_range)
-            node['frame_range_lock'].setValue(True)
-            node['frame_range'].setValue(frame_range)
-            node['frame_range_lock'].setValue(True)
+        for viewer in viewers:
+            for w in viewer.findChildren(QtWidgets.QWidget, ''):
+                if w.toolTip() == 'FrameSlider Range':
+                    for a in w.menu().actions():
+                        if a.text() == 'Global':
+                            a.trigger()
+        ### Ends Alkemy-X Override ###
 
         if not ASSIST:
             set_node_data(
@@ -2564,12 +2617,16 @@ Reopening Nuke should synchronize these paths and resolve any discrepancies.
         asset = get_current_asset_name()
         favorite_items = OrderedDict()
 
+        ### Starts Alkemy-x Override ###
+        project_code = os.getenv("SHOW")
+
         # project
         # get project's root and split to parts
         projects_root = os.path.normpath(work_dir.split(
-            Context.project_name)[0])
+            project_code)[0])
         # add project name
-        project_dir = os.path.join(projects_root, Context.project_name) + "/"
+        project_dir = os.path.join(projects_root, project_code) + "/"
+        ### Ends Alkemy-x Override ###
         # add to favorites
         favorite_items.update({"Project dir": project_dir.replace("\\", "/")})
 
@@ -2608,6 +2665,40 @@ def get_write_node_template_attr(node):
         plugin_name=plugin_names_mapping[identifier],
         subset=node_data["subset"]
     )
+
+
+### Starts Alkemy-X Override ###
+def get_all_dependent_nodes(node, expression=True, links=True, hidden_input=True):
+    """Find all dependent nodes connected to node.
+
+    This function explores the graph of dependent nodes starting
+    from the given node and collects all nodes that directly depend on it
+
+    Args:
+        node (nuke.Node): The node for which dependent nodes are to be found.
+
+    Returns:
+        nodes (list): A list of dependent nodes connected to the input node.
+
+    Note: No dependencies are returned. In Nuke terms dependencies rely on this
+        node and dependents read this node
+    """
+    expression_flag = nuke.EXPRESSIONS if expression else 0
+    links_flag = nuke.LINKINPUTS if links else 0
+    hidden_input_flag = nuke.HIDDEN_INPUTS if hidden_input else 0
+    dependency_flags = expression_flag | links_flag | hidden_input_flag | nuke.INPUTS
+
+    dependents = []
+    branches = [node]
+    while branches:
+        branch = branches.pop(0)
+        # Always pass if input is visible
+        branch_dependents = branch.dependent(dependency_flags)
+        branches.extend(branch_dependents)
+        dependents.extend(branch_dependents)
+
+    return dependents
+### Ends Alkemy-X Override ###
 
 
 def get_dependent_nodes(nodes):
@@ -3320,11 +3411,11 @@ def get_viewer_config_from_string(input_string):
         display = split[0]
     elif "(" in viewer:
         pattern = r"([\w\d\s\.\-]+).*[(](.*)[)]"
-        result = re.findall(pattern, viewer)
+        result_ = re.findall(pattern, viewer)
         try:
-            result = result.pop()
-            display = str(result[1]).rstrip()
-            viewer = str(result[0]).rstrip()
+            result_ = result_.pop()
+            display = str(result_[1]).rstrip()
+            viewer = str(result_[0]).rstrip()
         except IndexError:
             raise IndexError((
                 "Viewer Input string is not correct. "
@@ -3332,3 +3423,22 @@ def get_viewer_config_from_string(input_string):
             ).format(input_string))
 
     return (display, viewer)
+
+
+def create_viewer_profile_string(viewer, display=None, path_like=False):
+    """Convert viewer and display to string
+
+    Args:
+        viewer (str): viewer name
+        display (Optional[str]): display name
+        path_like (Optional[bool]): if True, return path like string
+
+    Returns:
+        str: viewer config string
+    """
+    if not display:
+        return viewer
+
+    if path_like:
+        return "{}/{}".format(display, viewer)
+    return "{} ({})".format(viewer, display)

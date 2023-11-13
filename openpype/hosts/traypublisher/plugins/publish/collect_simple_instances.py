@@ -30,7 +30,7 @@ class CollectSettingsSimpleInstances(pyblish.api.InstancePlugin):
     """
 
     label = "Collect Settings Simple Instances"
-    order = pyblish.api.CollectorOrder + 0.002
+    order = pyblish.api.CollectorOrder - 0.49
 
     hosts = ["traypublisher"]
 
@@ -65,12 +65,6 @@ class CollectSettingsSimpleInstances(pyblish.api.InstancePlugin):
             repre_names,
             representation_files_mapping
         )
-
-        # Hack to set env vars required to run in the farm
-        os.environ["AVALON_ASSET"] = instance.data["asset"]
-        os.environ["AVALON_TASK"] =  instance.data.get("task")
-        legacy_io.Session["AVALON_ASSET"] = instance.data["asset"]
-        legacy_io.Session["AVALON_TASK"] =  instance.data.get("task")
 
         self._create_review_representation(
             instance,
@@ -255,8 +249,6 @@ class CollectSettingsSimpleInstances(pyblish.api.InstancePlugin):
 
         if "review" not in instance.data["families"]:
             instance.data["families"].append("review")
-            instance.data["families"].append("client_review")
-            instance.data["families"].append("client_final")
 
         if not instance.data.get("thumbnailSource"):
             instance.data["thumbnailSource"] = first_filepath
@@ -265,7 +257,6 @@ class CollectSettingsSimpleInstances(pyblish.api.InstancePlugin):
         self.log.debug("Representation {} was marked for review. {}".format(
             review_representation["name"], review_path
         ))
-
 
     def _create_representation_data(
         self, filepath_item, repre_names_counter, repre_names

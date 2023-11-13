@@ -15,6 +15,7 @@ from openpype.lib import (
     get_ffmpeg_format_args,
 )
 from openpype.pipeline import publish
+from openpype.pipeline.publish import KnownPublishError
 
 
 class ExtractReviewSlate(publish.Extractor):
@@ -47,7 +48,7 @@ class ExtractReviewSlate(publish.Extractor):
                 "*": inst_data.get("slateFrame")
             }
 
-        self.log.info("_ slates_data: {}".format(pformat(slates_data)))
+        self.log.debug("_ slates_data: {}".format(pformat(slates_data)))
 
         if "reviewToWidth" in inst_data:
             use_legacy_code = True
@@ -77,7 +78,7 @@ class ExtractReviewSlate(publish.Extractor):
             )
             # get slate data
             slate_path = self._get_slate_path(input_file, slates_data)
-            self.log.info("_ slate_path: {}".format(slate_path))
+            self.log.debug("_ slate_path: {}".format(slate_path))
 
             slate_width, slate_height = self._get_slates_resolution(slate_path)
 
@@ -94,9 +95,10 @@ class ExtractReviewSlate(publish.Extractor):
 
             # Raise exception of any stream didn't define input resolution
             if input_width is None:
-                raise AssertionError((
+                raise KnownPublishError(
                     "FFprobe couldn't read resolution from input file: \"{}\""
-                ).format(input_path))
+                    .format(input_path)
+                )
 
             (
                 audio_codec,
@@ -301,19 +303,20 @@ class ExtractReviewSlate(publish.Extractor):
             if input_audio:
                 fmap = [
                     "-filter_complex",
-                    "[0:v] [0:a] [1:v] [1:a] concat=n=2:v=1:a=1 [v] [a]",
-                    "-map", '[v]',
-                    "-map", '[a]'
+                    '"[0:v][0:a][1:v][1:a]concat=n=2:v=1:a=1[v][a]"',
+                    "-map", '"[v]"',
+                    "-map", '"[a]"'
                 ]
             else:
                 fmap = [
                     "-filter_complex",
-                    "[0:v] [1:v] concat=n=2:v=1:a=0 [v]",
-                    "-map", '[v]'
+                    '"[0:v][1:v]concat=n=2:v=1:a=0[v]"',
+                    "-map", '"[v]"'
                 ]
             concat_args = get_ffmpeg_tool_args(
                 "ffmpeg",
                 "-y",
+                "-vsync 2",  # avoids duplicating frames while concatenating
                 "-i", slate_v_path,
                 "-i", input_path,
             )
@@ -353,8 +356,10 @@ class ExtractReviewSlate(publish.Extractor):
                 "Executing concat filter: {}".format
                 (" ".join(concat_args))
             )
+
+            concat_args_cmd = " ".join(concat_args)
             run_subprocess(
-                concat_args, logger=self.log
+                concat_args_cmd, shell=True, logger=self.log
             )
 
             self.log.debug("__ repre[tags]: {}".format(repre["tags"]))
@@ -549,8 +554,10 @@ class ExtractReviewSlate(publish.Extractor):
         self.log.debug("Silent Slate Executing: {}".format(
             " ".join(slate_silent_args)
         ))
+        slate_silent_cmd = " ".join(slate_silent_args)
+
         run_subprocess(
-            slate_silent_args, logger=self.log
+            slate_silent_cmd, shell=True, logger=self.log
         )
 
     def add_video_filter_args(self, args, inserting_arg):

@@ -55,17 +55,17 @@ class MissingColorFile(QtWidgets.QDialog):
     """
 
     data = {}
-    default_browser_path = ""
     prev_file_path_input = ""
     prev_edl_entries_path = ""
     edl = {}
     ignore_grade = False
 
-    def __init__(self, shot_name, source_name, main_grade, parent=None):
+    def __init__(self, shot_name, source_name, source_path, main_grade, parent=None):
         super(MissingColorFile, self).__init__(parent)
         self.shot_name = shot_name
         self.source_name = source_name
         self.main_grade = main_grade
+        self.default_browser_path = os.path.dirname(source_path)
 
         self.setWindowTitle("Locate Color File")
         width = 519
@@ -573,153 +573,6 @@ def get_files(package_path, filters):
     return files
 
 
-def priority_color_file(color_files, item_name, source_name):
-    """Returns the closest matching file from a list of color files given an
-    item and a source name.
-
-    Priority is given to the closest match of source_name then item_name as
-    well as found file type. The function searches for non-EDL files first,
-    followed by EDL files.
-
-    Args:
-        color_files (dict): A dictionary containing color files organized by
-            type.
-        item_name (str): The name of the item to match.
-        source_name (str): The name of the source to match.
-
-    Returns:
-        tuple or None: A tuple containing the priority level, CDL information,
-            and path of the matching color file, or None if no matches are
-            found. Priority level is determined based on the match between the
-            item and source names as well as the file type. CDL information is
-            extracted from the matching file if it's not an EDL file.
-    """
-
-    source_name = source_name.lower()
-    matches = []
-    for color_ext in COLOR_FILE_EXTS:
-        ext_color_files = color_files.get(color_ext)
-        if not ext_color_files:
-            continue
-
-        for color_file in ext_color_files:
-            # Check non edls first. Sometimes edls don't carry ground truth
-            # SOPS
-            if color_ext != "edl":
-                # Name match priority
-                priority = None
-                # Remove extension and ignore case
-                color_file_name = os.path.splitext(
-                    os.path.basename(color_file)
-                )[0].lower()
-                # Incase file name is wack
-                if (
-                    color_file_name.endswith("_ccc")
-                    or color_file_name.endswith("_cc")
-                    or color_file_name.endswith("_cdl")
-                ):
-                    color_file_name = (
-                        color_file_name.replace("_ccc", "")
-                        .replace("_cc", "")
-                        .replace("_cdl", "")
-                    )
-
-                if source_name == color_file_name:
-                    priority = 0
-                elif item_name == color_file_name:
-                    priority = 8
-
-                if priority:
-                    # Distinguish type priority
-                    if color_ext == "cc":
-                        priority += 0
-                    elif color_ext == "ccc":
-                        priority += 1
-                    # EDL is priority += 2
-                    elif color_ext == "cdl":
-                        priority += 3
-
-                    cdl = phiero.parse_cdl(color_file)
-                    matches.append((priority, cdl, color_file))
-            else:
-                edits = phiero.parse_edl_events(
-                    color_file, color_edits_only=True
-                )
-                for edit, edl_event in edits["events"].items():
-                    priority = None
-                    edl_event = edits["events"][edit]
-                    cdl = {
-                        "slope": edl_event["slope"],
-                        "offset": edl_event["offset"],
-                        "power": edl_event["power"],
-                        "sat": edl_event["sat"],
-                    }
-                    loc_name = edl_event["LOC"].lower()
-                    if source_name == loc_name:
-                        priority = 2
-                    elif item_name == loc_name:
-                        priority = 10
-
-                    if priority:
-                        matches.append((priority, cdl, color_file))
-
-    if matches:
-        return sorted(matches, key=lambda x: x[0])[0]
-
-    return None, None, None
-
-
-def get_color_file(source_path, item_name, source_name):
-    """Find best guess color file for a given source path"""
-    incoming_split = re.split("/incoming/\d+/", source_path)
-    # There is no split which means no incoming directory found
-    if len(incoming_split) == 1:
-        return None, None, None
-
-    package_path_end = incoming_split[1]
-    package_name = package_path_end.split("/")[0]
-    dated_incoming = source_path.split(package_name)[0]
-    package_path = "{0}{1}".format(
-        dated_incoming,
-        package_name,
-    )
-
-    incoming_path = os.path.dirname(source_path.split("/" + package_name)[0])
-    incoming_packages = [
-        d for d in sorted(glob(incoming_path + "/*")) if os.path.isdir(d)
-    ]
-
-    # Create Package list
-    sorted_incoming = sorted(
-        incoming_packages,
-        key=lambda x: int(os.path.basename(x))
-        if os.path.basename(x).isdigit()
-        else int(
-            datetime.fromtimestamp(os.path.getctime(x)).strftime("%Y%m%d")
-        ),
-    )
-
-    # Add current package directory
-    if os.path.isfile(package_path):
-        package_path = os.path.dirname(package_path)
-        if package_path in incoming_packages:
-            sorted_incoming.remove(package_path)
-        sorted_incoming.insert(0, package_path)
-
-    priority, cdl, color_file = None, None, None
-    for path in sorted_incoming:
-        color_files = get_files(path, COLOR_FILE_EXTS)
-
-        # Prioritize which color files will be used
-        priority, cdl, color_file = priority_color_file(
-            color_files, item_name, source_name
-        )
-        if color_file:
-            break
-
-    return priority, cdl, color_file
-
-
 class CollectColorFile(pyblish.api.InstancePlugin):
     """Collect Color File for plate."""
 
@@ -742,7 +595,7 @@ class CollectColorFile(pyblish.api.InstancePlugin):
         incoming_match = re.match(incoming_pattern, source_path)
         color_info = {}
         if incoming_match:
-            priority, cdl, color_file = get_color_file(
+            priority, cdl, color_file = self.get_color_file(
                 source_path, item_name, source_name
             )
             if color_file:
@@ -756,7 +609,7 @@ class CollectColorFile(pyblish.api.InstancePlugin):
                 color_info["ignore"] = False
 
         if not color_file:
-            dialog = MissingColorFile(item_name, source_name, main_grade)
+            dialog = MissingColorFile(item_name, source_name, source_path, main_grade)
             dialog_result = dialog.exec()
             if dialog_result:
                 color_info = dialog.data
@@ -772,3 +625,173 @@ class CollectColorFile(pyblish.api.InstancePlugin):
 
         instance.data["shot_grade"] = color_info
         self.log.info("Collected Color File: {0}".format(color_info))
+
+    def get_color_file(self, source_path, item_name, source_name):
+        """Find best guess color file for a given source path"""
+        incoming_split = re.split("/incoming/\d+/", source_path)
+        # There is no split which means no incoming directory found
+        if len(incoming_split) == 1:
+            return None, None, None
+
+        package_path_end = incoming_split[1]
+        package_name = package_path_end.split("/")[0]
+        dated_incoming = source_path.split(package_name)[0]
+        package_path = "{0}{1}".format(
+            dated_incoming,
+            package_name,
+        )
+
+        incoming_path = os.path.dirname(
+            source_path.split("/" + package_name)[0]
+        )
+        incoming_packages = [
+            d for d in sorted(glob(incoming_path + "/*")) if os.path.isdir(d)
+        ]
+
+        # Create Package list
+        sorted_incoming = sorted(
+            incoming_packages,
+            key=lambda x: int(os.path.basename(x))
+            if os.path.basename(x).isdigit()
+            else int(
+                datetime.fromtimestamp(os.path.getctime(x)).strftime("%Y%m%d")
+            ),
+        )
+
+        # Add current package directory
+        if os.path.isfile(package_path):
+            package_path = os.path.dirname(package_path)
+            if package_path in incoming_packages:
+                sorted_incoming.remove(package_path)
+            sorted_incoming.insert(0, package_path)
+
+        priority, cdl, color_file = None, None, None
+        for path in sorted_incoming:
+            color_files = get_files(path, COLOR_FILE_EXTS)
+
+            # Prioritize which color files will be used
+            priority, cdl, color_file = self.priority_color_file(
+                color_files, item_name, source_name
+            )
+            if color_file:
+                break
+
+        return priority, cdl, color_file
+
+    def priority_color_file(self, color_files, item_name, source_name):
+        """Returns the closest matching file from a list of color files given
+        an item and a source name.
+
+        Priority is given to the closest match of source_name then item_name as
+        well as found file type. The function searches for non-EDL files first,
+        followed by EDL files.
+
+        Args:
+            color_files (dict): A dictionary containing color files organized
+                by type.
+            item_name (str): The name of the item to match.
+            source_name (str): The name of the source to match.
+
+        Returns:
+            tuple or None: A tuple containing the priority level, CDL
+                information, and path of the matching color file, or None if no
+                matches are found. Priority level is determined based on the
+                match between the item and source names as well as the file
+                type. CDL information is extracted from the matching file if
+                it's not an EDL file.
+        """
+
+        source_name = source_name.lower()
+        source_name_no_color = source_name
+        # Color file may be wack but source name may also be wack
+        if (
+            source_name_no_color.endswith("_ccc")
+            or source_name_no_color.endswith("_cc")
+            or source_name_no_color.endswith("_cdl")
+        ):
+            source_name_no_color = (
+                source_name_no_color.replace("_ccc", "")
+                .replace("_cc", "")
+                .replace("_cdl", "")
+            )
+
+        matches = []
+        for color_ext in COLOR_FILE_EXTS:
+            ext_color_files = color_files.get(color_ext)
+            if not ext_color_files:
+                continue
+
+            for color_file in ext_color_files:
+                # Check non edls first. Sometimes edls don't carry ground truth
+                # SOPS
+                if color_ext != "edl":
+                    # Name match priority
+                    priority = None
+                    # Remove extension and ignore case
+                    color_file_name = os.path.splitext(
+                        os.path.basename(color_file)
+                    )[0].lower()
+
+                    if source_name == color_file_name:
+                        priority = 0
+                    elif item_name == color_file_name:
+                        priority = 8
+                    else:
+                        # Incase file name is wack
+                        if (
+                            color_file_name.endswith("_ccc")
+                            or color_file_name.endswith("_cc")
+                            or color_file_name.endswith("_cdl")
+                        ):
+                            color_file_name = (
+                                color_file_name.replace("_ccc", "")
+                                .replace("_cc", "")
+                                .replace("_cdl", "")
+                            )
+                        if source_name_no_color == color_file_name:
+                            priority = 4
+
+                    # Need to compare to None since priority can be 0
+                    if priority is not None:
+                        # Distinguish type priority
+                        if color_ext == "cc":
+                            priority += 0
+                        elif color_ext == "ccc":
+                            priority += 1
+                        # EDL is priority += 2
+                        elif color_ext == "cdl":
+                            priority += 3
+
+                        cdl = phiero.parse_cdl(color_file)
+                        matches.append((priority, cdl, color_file))
+                else:
+                    edits = phiero.parse_edl_events(
+                        color_file, color_edits_only=True
+                    )
+                    if edits is False:
+                        self.log.warning("UnicodeDecodeError error. Color "
+                                        f"file not be parsed: {color_file}")
+                        continue
+
+                    for edit, edl_event in edits["events"].items():
+                        priority = None
+                        edl_event = edits["events"][edit]
+                        cdl = {
+                            "slope": edl_event["slope"],
+                            "offset": edl_event["offset"],
+                            "power": edl_event["power"],
+                            "sat": edl_event["sat"],
+                        }
+                        loc_name = edl_event["LOC"].lower()
+                        if source_name == loc_name:
+                            priority = 2
+                        elif item_name == loc_name:
+                            priority = 10
+
+                        if priority:
+                            matches.append((priority, cdl, color_file))
+
+        if matches:
+            return sorted(matches, key=lambda x: x[0])[0]
+
+        return None, None, None

@@ -1,5 +1,6 @@
-import pyblish.api
+from openpype.hosts.hiero.api.constants import OPENPYPE_TAG_NAME
 
+import pyblish.api
 
 class CollectFrameRange(pyblish.api.InstancePlugin):
     """A Pyblish plugin for collecting the frame range of a plate instance that
@@ -92,8 +93,8 @@ class CollectFrameRange(pyblish.api.InstancePlugin):
         """
         for item_tag in self.track_item.tags():
             tag_metadata = item_tag.metadata().dict()
-            tag_family = tag_metadata.get("tag.family")
-            if tag_family == "plate":
+            tag_label = tag_metadata.get("tag.label")
+            if OPENPYPE_TAG_NAME in tag_label:
                 return tag_metadata
 
         return None

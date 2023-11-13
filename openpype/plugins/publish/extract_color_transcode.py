@@ -56,12 +56,13 @@ class ExtractOIIOTranscode(publish.Extractor):
     label = "Transcode color spaces"
     order = pyblish.api.ExtractorOrder + 0.019
     ### Starts Alkemy-X Override ###
-    # Filter plugin so it only gets executed for `client_review` family, which
-    # we are currently controlling with a Client Review toggle on the publisher
-    # In the future we might want to run the transcode for other cases but
-    # for now this simplifies our pipeline so we can have more control over
-    # when the transcoding happens.
-    families = ["client_review", "client_final"]
+    # Filter plugin so it only gets executed for "review", "client_review" and
+    # "client_final"`families. We are currently controlling with a "Review",
+    # "Client Review" and "Client Final" checkboxes on the publisher to define
+    # when to set those families. In the future we might want to run
+    # this same transcode plugin for other cases but for now this simplifies our
+    # pipeline so we can have more control over when the transcoding happens.
+    # families = ["review", "client_review", "client_final"]
 
     # Skeleton of an output definition of a profile
     profile_output_skeleton = {
@@ -70,7 +71,10 @@ class ExtractOIIOTranscode(publish.Extractor):
         "colorspace": "",
         "display": "",
         "view": "",
-        "oiiotool_args": {"additional_command_args": ["-v"]},
+        "oiiotool_args": {
+            "additional_pre_command_args": "",
+            "additional_post_command_args": "",
+        },
         "tags": [],
         "custom_tags": [],
     }
@@ -110,75 +114,103 @@ class ExtractOIIOTranscode(publish.Extractor):
         if not profile:
             return
 
-        ### Starts Alkemy-X Override ###
-        # Grab which delivery types we are running by checking the families
-        # and remove the output definitions that don't match the delivery types
-        delivery_types = []
-        if "client_review" in instance.data.get("families"):
-            self.log.debug("Adding 'review' as delivery type for SG outputs.")
-            delivery_types.append("review")
-        else:
-            self.log.debug(
-                "Removing 'exr_review' from profile because 'client_review' is " \
-                "not part of the families."
-            )
-            del profile["outputs"]["exr_review"]
+        # ### Starts Alkemy-X Override ###
+        # # Grab which delivery types we are running by checking the families
+        # # and remove the output definitions that don't match the delivery types
+        # delivery_types = []
+        # if "client_review" in instance.data.get("families") or \
+        #         "review" in instance.data.get("families"):
+        #     self.log.debug("Adding 'review' as delivery type for SG outputs.")
+        #     delivery_types.append("review")
+        # elif "exr_review" in profile["outputs"]:
+        #     self.log.debug(
+        #         "Removing 'exr_review' from profile because 'client_review' or" \
+        #         " 'review' are not part of the families."
+        #     )
+        #     del profile["outputs"]["exr_review"]
 
-        if "client_final" in instance.data.get("families"):
-            self.log.debug("Adding 'final' as delivery type for SG outputs.")
-            delivery_types.append("final")
-        else:
-            self.log.debug(
-                "Removing 'exr_final' from profile because 'client_final' is " \
-                "not part of the families."
-            )
-            del profile["outputs"]["exr_final"]
+        # if "client_final" in instance.data.get("families"):
+        #     self.log.debug("Adding 'final' as delivery type for SG outputs.")
+        #     delivery_types.append("final")
+        # elif "exr_final" in profile["outputs"]:
+        #     self.log.debug(
+        #         "Removing 'exr_final' from profile because 'client_final' is " \
+        #         "not part of the families."
+        #     )
+        #     del profile["outputs"]["exr_final"]
 
-        # Adds support to define review profiles from SG instead of OP settings
-        sg_outputs, entity = self.get_sg_output_profiles(instance, delivery_types)
-        if sg_outputs:
-            self.log.debug(
-                "Found some profile overrides on the SG instance at the entity " \
-                "level '%s': %s", sg_outputs, entity
-            )
-            # If 'exr' was one of the review outputs, remove the default 'delete'
-            # tag from the output definition profile
-            if "exr_review" in sg_outputs and \
-                    "delete" in profile["exr_review"]["custom_tags"]:
-                profile["exr_review"]["custom_tags"].remove("delete")
-                self.log.info(
-                    "Removed 'delete' tag from 'exr_review' tag so representation" \
-                    "doesn't get deleted."
-                )
+        # # Adds support to define review profiles from SG instead of OP settings
+        # sg_outputs, entity = self.get_sg_output_profiles(instance, delivery_types)
+        # if sg_outputs:
+        #     self.log.debug(
+        #         "Found some profile overrides on the SG instance at the entity " \
+        #         "level '%s': %s", sg_outputs, entity
+        #     )
+        #     # If 'exr' was one of the review outputs, remove the default 'delete'
+        #     # tag from the output definition profile
+        #     if "exr_review" in sg_outputs and \
+        #             "delete" in profile["exr_review"]["custom_tags"]:
+        #         profile["exr_review"]["custom_tags"].remove("delete")
+        #         self.log.info(
+        #             "Removed 'delete' tag from 'exr_review' tag so representation" \
+        #             "doesn't get deleted."
+        #         )
 
-            for out_name, out_def in sg_outputs.items():
-                # If SG output definition doesn't exist on the profile, add it
-                if out_name not in profile["outputs"]:
-                    profile["outputs"][out_name] = out_def
-                    self.log.info(
-                        "Added SG output definition '%s' to profile.",
-                        out_name
-                    )
-                # Otherwise override output definitions but only if values from SG
-                # aren't empty
-                else:
-                    profile["outputs"][out_name].update(
-                        {k: v for k, v in out_def.items() if v}
-                    )
-                    self.log.info(
-                        "Updated SG output definition %s with values from SG.",
-                        out_name
-                    )
+        #     for out_name, out_def in sg_outputs.items():
+        #         # If SG output definition doesn't exist on the profile, add it
+        #         if out_name not in profile["outputs"]:
+        #             profile["outputs"][out_name] = out_def
+        #             self.log.info(
+        #                 "Added SG output definition '%s' to profile.",
+        #                 out_name
+        #             )
+        #         # Otherwise override output definitions but only if values from SG
+        #         # aren't empty
+        #         else:
+        #             # Remove "oiiotool_args" from SG definitions as we aren't defining
+        #             # those and because of the update logic not considering the empty
+        #             # values of child dictionaries it overrides possible existing
+        #             # additional args from the existing profiles
+        #             out_def.pop("oiiotool_args")
+        #             profile["outputs"][out_name].update(
+        #                 {k: v for k, v in out_def.items() if v}
+        #             )
+        #             self.log.info(
+        #                 "Updated SG output definition %s with values from SG.",
+        #                 out_name
+        #             )
 
-        self.log.debug("Final profile: %s", profile)
+        # self.log.debug("Final profile: %s", profile)
         ### Ends Alkemy-X Override ###
 
         new_representations = []
         repres = instance.data["representations"]
         for idx, repre in enumerate(list(repres)):
-            self.log.debug("repre ({}): `{}`".format(idx + 1, repre["name"]))
+            repre_name = repre["name"]
+            self.log.debug("repre ({}): `{}`".format(idx + 1, repre_name))
+
             if not self._repre_is_valid(repre):
                 continue
+
+            ### Starts Alkemy-X Override ###
+            # Filter out full resolution exr from getting transcodes
+            if repre_name == "exr_fr":
+                self.log.debug("Full resolution representation, skipping.")
+                continue
+
+            tags = repre.get("tags") or []
+            if "thumbnail" in tags:
+                self.log.debug((
+                    "Repre: {} - Found \"thumbnail\" in tags. Skipping"
+                ).format(repre_name))
+                continue
+
+            if "passing" in tags:
+                self.log.debug((
+                    "Repre: {} - Found \"passing\" in tags. Skipping"
+                ).format(repre_name))
+                continue
+            ### Ends Alkemy-X Override ###
 
             added_representations = False
             added_review = False
@@ -232,8 +264,12 @@ class ExtractOIIOTranscode(publish.Extractor):
                     new_repre["colorspaceData"]["colorspace"] = \
                         target_colorspace
 
-                additional_command_args = (output_def["oiiotool_args"]
-                                           ["additional_command_args"])
+                additional_pre_command_args = (output_def["oiiotool_args"]
+                                           ["additional_pre_command_args"])
+
+                additional_post_command_args = (output_def["oiiotool_args"]
+                                           ["additional_post_command_args"])
+
 
                 files_to_convert = self._translate_to_sequence(
                     files_to_convert)
@@ -251,7 +287,8 @@ class ExtractOIIOTranscode(publish.Extractor):
                         target_colorspace,
                         view,
                         display,
-                        additional_command_args,
+                        additional_pre_command_args,
+                        additional_post_command_args,
                         self.log
                     )
                     self.log.info(
@@ -285,8 +322,8 @@ class ExtractOIIOTranscode(publish.Extractor):
 
                 # Removing 'review' from new representations as we only want
                 # to generate review from the original representation
-                if "review" in new_repre["tags"]:
-                    new_repre["tags"].remove("review")
+                # if "review" in new_repre["tags"]:
+                    # new_repre["tags"].remove("review")
 
                 for tag in output_def["tags"]:
                     if tag not in new_repre["tags"]:
@@ -381,7 +418,7 @@ class ExtractOIIOTranscode(publish.Extractor):
                         out_name, entity
                     )
 
-                    sg_profiles[out_name] = self.profile_output_skeleton.copy()
+                    sg_profiles[out_name] = copy.deepcopy(self.profile_output_skeleton)
                     sg_profiles[out_name]["extension"] = out_fields["sg_extension"]
                     # Ignoring tags as most of those only apply for the ExtractReview step
                     # Maybe in the future we want to split the tags for transcode / review
@@ -521,7 +558,7 @@ class ExtractOIIOTranscode(publish.Extractor):
                                   logger=self.log)
 
         if not profile:
-            self.log.info((
+            self.log.debug((
               "Skipped instance. None of profiles in presets are for"
               " Host: \"{}\" | Families: \"{}\" | Task \"{}\""
               " | Task type \"{}\" | Subset \"{}\" "
@@ -570,5 +607,5 @@ class ExtractOIIOTranscode(publish.Extractor):
             if "delete" not in repre["tags"]:
                 repre["tags"].append("delete")
 
-        # if added_review and "review" in repre["tags"]:
-            # repre["tags"].remove("review")
+        if added_review and "review" in repre["tags"]:
+            repre["tags"].remove("review")

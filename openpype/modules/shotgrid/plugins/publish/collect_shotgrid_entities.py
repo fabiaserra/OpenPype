@@ -18,10 +18,8 @@ class CollectShotgridEntities(pyblish.api.InstancePlugin):
     ### Ends Alkemy-X Override ###
 
         avalon_project = context.data.get("projectEntity")
-        avalon_asset = context.data.get("assetEntity") or instance.data.get(
-            "assetEntity"
-        )
-        avalon_task_name = context.data.get("task")
+        avalon_asset = instance.data.get("assetEntity")
+        avalon_task_name = instance.data["anatomyData"]["task"]["name"]
 
         self.log.debug(avalon_project)
         self.log.debug(avalon_asset)

@@ -18,6 +18,11 @@ from openpype.pipeline.publish import (
     get_publish_template_name
 )
 
+
+SG_UPLOAD_FAMILIES = ["reference", "plate"]
+SG_GENERATE_REVIEW_FAMILIES = ["plate"]
+
+
 class CollectOtioSubsetResources(pyblish.api.InstancePlugin):
     """Get Resources for a subset version"""
 
@@ -239,13 +244,13 @@ class CollectOtioSubsetResources(pyblish.api.InstancePlugin):
 
         ### Starts Alkemy-X Override ###
         representation_data["tags"] = []
-        if self.family in ["reference", "plate"]:
+        if self.family in SG_UPLOAD_FAMILIES:
             self.log.debug("Adding 'shotgridreview' to representation tags")
             representation_data["tags"].append("shotgridreview")
-            # If the representation is not video format then make a review of it
-            if not representation_data["ext"] in ["mov", "avi", "mp4"]:
-                self.log.debug("Adding 'review' to representation tags")
-                representation_data["tags"].append("review")
+
+        if self.family in SG_GENERATE_REVIEW_FAMILIES:
+            self.log.debug("Adding 'review' to representation tags")
+            representation_data["tags"].append("review")
 
             self.log.debug("Updated representation -> %s" % representation_data)
 
