@@ -328,7 +328,7 @@ def publish_version(
     deadline_task_name = "Publish {} - {}{} - {} - {} - {} ({})".format(
         family_name,
         subset_name,
-        " v{0:03d}".format(instance_data.get("version")) if instance_data.get("version") else "",
+        " v{0:03d}".format(int(instance_data.get("version"))) if instance_data.get("version") else "",
         task_name,
         asset_name,
         project_name,
