@@ -58,7 +58,7 @@ SG_VERSION_IMPORTANT_FIELDS = [
 NESTED_TOKENS_RE = re.compile(r"(\w+)\[(\w+)\]")
 
 # All file extensions that will (most likely) be a single file
-SINGLE_FILE_EXTENSIONS = ["mov", "mp4", "png", "jpg", "jpeg"]
+SINGLE_FILE_EXTENSIONS = ["mov", "mp4", "png", "jpg", "jpeg", "mxf"]
 
 # Columns for CSV data file
 CSV_DATA_COLUMNS = ["Filename", "Submitted For", "Notes"]
