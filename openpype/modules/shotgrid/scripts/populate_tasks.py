@@ -127,52 +127,61 @@ def populate_tasks(project_code):
 
     # Try add tasks to all Shots
     shots = sg.find("Shot", [["project", "is", project]], ["id", "code"])
+    shot_names = {shot["code"] for shot in shots}
 
-    # If no 'edit_shot' exists on the project level, create it
-    shot_names = [shot["code"] for shot in shots]
-    if "edit_shot" not in shot_names:
-        logger.info("Generic 'edit_shot' doesn't exist in project yet, creating it.")
-        edit_shot = sg.create(
+    # Create generic shots used on start of the project to set up templates
+
+    # If no generic edit shot exists on the project, create it
+    if "_edit_shot" not in shot_names:
+        logger.info("Generic '_edit_shot' doesn't exist in project yet, creating it.")
+        _edit_shot = sg.create(
             "Shot",
             {
                 "project": project,
-                "code": "edit_shot",
+                "code": "_edit_shot",
                 "description": "Generic shot used for edit to conform"
             }
         )
-        # Append edit_shot to shots so the Edit task gets created
-        shots.append(edit_shot)
+        # Add 'edit' task to edit_shot
+        add_tasks_to_sg_entities(project, [_edit_shot], "Shot", {"edit": "Edit"})
+    else:  # Remove _edit_shot from list of shots so we don't add default tasks
+        shots = [item for item in shots if item.get("code") != "_edit_shot"]
 
-    if shots:
-        add_tasks_to_sg_entities(project, shots, "Shot", default_tasks)
-
-    # Also create a generic 2d_shot in the global context
-    if "2d_shot" not in shot_names:
-        logger.info("Generic '2d_shot' doesn't exist in project yet, creating it.")
-        shot = sg.create(
+    # If no generic 2d shot exists on the project, create it
+    if "_2d_shot" not in shot_names:
+        logger.info("Generic '_2d_shot' doesn't exist in project yet, creating it.")
+        _2d_shot = sg.create(
             "Shot",
             {
                 "project": project,
-                "code": "2d_shot",
+                "code": "_2d_shot",
                 "description": "Generic shot used for 2D to start doing lookdev without shots created."
             }
         )
-        # Append 2d_shot to shots so the Edit task gets created
-        add_tasks_to_sg_entities(project, [shot], "Shot", {"comp": "Comp"})
+        # Add 'comp' task to 2d_shot
+        add_tasks_to_sg_entities(project, [_2d_shot], "Shot", {"comp": "Comp"})
+    else:  # Remove _2d_shot from list of shots so we don't add default tasks
+        shots = [item for item in shots if item.get("code") != "_2d_shot"]
 
-    # Also create a generic 3d_shot in the global context
-    if "3d_shot" not in shot_names:
-        logger.info("Generic '3d_shot' doesn't exist in project yet, creating it.")
-        shot = sg.create(
+    # If no generic 3d shot exists on the project, create it
+    if "_3d_shot" not in shot_names:
+        logger.info("Generic '_3d_shot' doesn't exist in project yet, creating it.")
+        _3d_shot = sg.create(
             "Shot",
             {
                 "project": project,
-                "code": "3d_shot",
+                "code": "_3d_shot",
                 "description": "Generic shot used for 3D to start doing lookdev without shots created."
             }
         )
-        # Append 2d_shot to shots so the Edit task gets created
-        add_tasks_to_sg_entities(project, [shot], "Shot", {"generic": "Generic"})
+        # Add 'generic' task to 3d_shot
+        add_tasks_to_sg_entities(project, [_3d_shot], "Shot", {"generic": "Generic"})
+    else:
+        shots = [item for item in shots if item.get("code") != "_3d_shot"]
+
+    # Add default tasks to all remaining shots that aren't the generic ones
+    if shots:
+        add_tasks_to_sg_entities(project, shots, "Shot", default_tasks)
 
     # Try add tasks to all Assets
     assets = sg.find("Asset", [["project", "is", project]], ["id", "code"])
