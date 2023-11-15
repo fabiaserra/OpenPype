@@ -127,6 +127,22 @@ def populate_tasks(project_code):
 
     # Try add tasks to all Shots
     shots = sg.find("Shot", [["project", "is", project]], ["id", "code"])
+
+    # If no 'edit_shot' exists on the project level, create it
+    shot_names = [shot["code"] for shot in shots]
+    if "edit_shot" not in shot_names:
+        logger.info("Generic 'edit_shot' doesn't exist in project yet, creating it.")
+        edit_shot = sg.create(
+            "Shot",
+            {
+                "project": project,
+                "code": "edit_shot",
+                "description": "Generic shot used for edit to conform"
+            }
+        )
+        # Append edit_shot to shots so the Edit task gets created
+        shots.append(edit_shot)
+
     if shots:
         add_tasks_to_sg_entities(project, shots, "Shot", default_tasks)
 
