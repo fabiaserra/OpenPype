@@ -236,7 +236,7 @@ def publish_version(
         "source": source_path,
         "overrideExistingFrame": False,
         "useSequenceForReview": True,
-        "colorspace": publish_data.get("colorspace"),
+        "colorspace": publish_data.get("src_colorspace"),
         "version": publish_data.get("version"),
         "outputDir": os.path.dirname(source_path),
     }
@@ -290,7 +290,8 @@ def publish_version(
             review_data = {
                 "comment": publish_data.get("comment", ""),
                 "batch_name": publish_data.get("jobBatchName") or deadline_task_name,
-                "colorspace": publish_data.get("colorspace") or "scene_linear"
+                "src_colorspace": publish_data.get("src_colorspace") or "scene_linear",
+                "out_colorspace": publish_data.get("out_colorspace", "")
             }
 
             # Create read path to pass to Nuke task

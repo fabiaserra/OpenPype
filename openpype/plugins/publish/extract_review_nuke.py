@@ -64,7 +64,7 @@ class ExtractReviewNuke(publish.Extractor):
             # Add source colorspace if it's set on the representation
             colorspace_data = repre.get("colorspaceData")
             if colorspace_data:
-                review_data["colorspace"] = colorspace_data["colorspace"]
+                review_data["src_colorspace"] = colorspace_data["colorspace"]
 
             # Submit job to the farm
             response = review.generate_review(
