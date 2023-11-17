@@ -375,6 +375,7 @@ def generate_delivery_media_version(
 
     # Create environment variables required to run Nuke script
     task_env = {
+        "_AX_DELIVERY_NUKESCRIPT": delivery_data["nuke_template_script"],
         "_AX_DELIVERY_READPATH": input_hashes_path,
         "_AX_DELIVERY_FRAMES": "{0}_{1}".format(
             int(out_frame_start), int(out_frame_end)
@@ -385,7 +386,6 @@ def generate_delivery_media_version(
             anatomy_data.get("submit_for"),
         "_AX_DELIVERY_ARTIST": sg_version.get("user", {}).get("name") or
             anatomy_data.get("user"),
-        "_AX_DELIVERY_NUKESCRIPT": delivery_data["nuke_template_script"],
         "_AX_DEBUG_PATH": os.path.join(package_path, "nuke_scripts"),
         "AVALON_ASSET": anatomy_data["asset"],
         "AVALON_TASK": anatomy_data["task"]["name"],

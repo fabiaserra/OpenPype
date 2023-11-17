@@ -44,7 +44,7 @@ EXT_TO_REP_NAME = {
 # information from other contexts like the file name (i.e, cameras would
 # for example have .abc as extension too)
 FAMILY_EXTS_MAP = {
-    "render": {".exr", ".tif", ".jpg", ".jpeg"},
+    "render": {".exr", ".dpx", ".tif", ".tiff", ".jpg", ".jpeg"},
     "pointcache": {".abc"},
     "camera": {".abc", ".fbx"},
     "reference": {".mov", ".mp4", ".mxf", ".avi", ".wmv"},
