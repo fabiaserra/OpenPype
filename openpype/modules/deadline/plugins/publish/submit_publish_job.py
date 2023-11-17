@@ -240,7 +240,7 @@ class ProcessSubmittedJobOnFarm(pyblish.api.InstancePlugin,
         # job so they use the same environment
         metadata_path, rootless_metadata_path = \
             create_metadata_path(instance, anatomy)
-        self.log.debug("Metadata path: %s", metadata_path)
+        self.log.info("Metadata path: %s", metadata_path)
 
         environment = {
             "AVALON_PROJECT": instance.context.data["projectName"],

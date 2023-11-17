@@ -1,21 +1,16 @@
 import os
-import re
-import json
 import glob
-import getpass
-import requests
 import pyblish.api
 
 import hiero
 
-from openpype.lib import is_running_from_build
 from openpype.pipeline import publish, legacy_io
 from openpype.hosts.hiero.api import work_root
 from openpype.modules.deadline.lib import submit
 from openpype.modules.deadline import constants as dl_constants
 
 
-class TranscodeFrames(publish.Extractor, publish.ColormanagedPyblishPluginMixin):
+class TranscodeFrames(publish.Extractor):
     """Transcode Hiero media to the right colorspace using OIIO or Nuke"""
 
     order = pyblish.api.ExtractorOrder - 0.1
@@ -109,7 +104,11 @@ class TranscodeFrames(publish.Extractor, publish.ColormanagedPyblishPluginMixin)
         hiero_version = "{}.{}".format(
             hiero.core.env["VersionMajor"], hiero.core.env["VersionMinor"]
         )
-        app_name = hiero.core.env["VersionString"].split("Hiero ")[-1].replace(".", "-").replace('v', "")
+        app_name = "hiero/{}-{}{}".format(
+            hiero.core.env["VersionMajor"],
+            hiero.core.env["VersionMinor"],
+            hiero.core.env["VersionRelease"].replace("v", "")
+        )
 
         # By default, we only ingest a single resolution (WR) unless
         # we have an ingest_resolution on the data stating a different
@@ -183,7 +182,7 @@ class TranscodeFrames(publish.Extractor, publish.ColormanagedPyblishPluginMixin)
                 extra_env["OPENPYPE_RENDER_JOB"] = 1
                 extra_env["AVALON_ASSET"] = instance.data["asset"]
                 extra_env["AVALON_APP"] = "nuke"
-                extra_env["AVALapp_nameON_APP"] = app_name
+                extra_env["AVALON_APP_NAME"] = app_name
 
                 # Create dictionary of data specific to Nuke plugin for payload submit
                 plugin_data = {
@@ -348,14 +347,16 @@ class TranscodeFrames(publish.Extractor, publish.ColormanagedPyblishPluginMixin)
         instance.data["frameStartHandle"] = out_frame_start
         instance.data["frameEndHandle"] = out_frame_end
 
-    def get_show_nuke_transcode_script(self, representation):
+    def get_show_nuke_transcode_script(self, resolution):
         ingest_template = ""
         ingest_template_path = os.path.join(
             os.getenv("AX_PROJ_ROOT"),
             os.getenv("SHOW"),
-            "resources/ingest_template"
+            "resources",
+            "ingest_template"
+            f"{resolution}*"
         )
-        ingest_templates = sorted(glob.glob(ingest_template_path + f"/{representation}*"))
+        ingest_templates = sorted(glob.glob(ingest_template_path))
         if ingest_templates:
             ingest_template = ingest_templates[-1]
 
