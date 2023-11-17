@@ -3,7 +3,7 @@ import getpass
 import json
 
 from openpype.lib import Logger
-from openpype.pipeline import legacy_io
+from openpype.pipeline import legacy_io, Anatomy
 from openpype.client import (
     get_project,
     get_asset_by_name,
@@ -65,11 +65,12 @@ def check_task_exists(project_name, asset_doc, task_name, force_creation=False):
         logger.debug("Creating task '%s' in asset '%s'", task_name, asset_doc["name"])
         sg = credentials.get_shotgrid_session()
         sg_project = sg.find_one("Project", [["name", "is", project_name]], ["code"])
-        sg_shot = sg.find_one("Shot", [["code", "is", asset_doc["name"]]], ["code"])
+        sg_entity_type = asset_doc["data"].get("sgEntityType") or "Shot"
+        sg_entity = sg.find_one(sg_entity_type, [["code", "is", asset_doc["name"]]], ["code"])
         populate_tasks.add_tasks_to_sg_entities(
             sg_project,
-            [sg_shot],
-            "Shot",
+            [sg_entity],
+            sg_entity_type,
             tasks={task_name: task_name}
         )
     elif task_name not in asset_doc.get("data", {}).get("tasks", {}):
@@ -281,9 +282,24 @@ def publish_version(
     # the representation that is an image extension
     job_submissions = []
     if add_review:
+        anatomy = Anatomy(project_name)
+
         for repre in representations:
             if repre["ext"] not in review.GENERATE_REVIEW_EXTENSIONS:
                 continue
+
+            staging_dir = repre["stagingDir"]
+            success, rootless_staging_dir = anatomy.find_root_template_from_path(
+                staging_dir
+            )
+            if success:
+                staging_dir = rootless_staging_dir
+            else:
+                logger.warning(
+                    "Could not find root path for remapping '%s'."
+                    " This may cause issues on farm.",
+                    staging_dir
+                )
 
             # Create dictionary with some useful data required to submit
             # Nuke review job to the farm
@@ -296,14 +312,14 @@ def publish_version(
 
             # Create read path to pass to Nuke task
             basename = repre["files"][0] if isinstance(repre["files"], list) else repre["files"]
-            read_path = os.path.join(repre["stagingDir"], basename)
+            read_path = os.path.join(staging_dir, basename)
             read_path = utils.replace_frame_number_with_token(read_path, "####")
             logger.debug("Review read path: %s", read_path)
 
             # Create review output path
             file_name = f"{repre['name']}_h264.mov"
             output_path = os.path.join(
-                repre["stagingDir"],
+                staging_dir,
                 file_name
             )
             logger.debug("Review output path: %s", output_path)
@@ -329,7 +345,7 @@ def publish_version(
                     "files": file_name,
                     "frameStart": repre["frameStart"],
                     "frameEnd": repre["frameEnd"],
-                    "stagingDir": repre["stagingDir"],
+                    "stagingDir": staging_dir,
                     "fps": instance_data.get("fps"),
                     "tags": ["shotgridreview"],
                 }
