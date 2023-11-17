@@ -156,7 +156,7 @@ class IntegrateShotgridShotData(pyblish.api.InstancePlugin):
             return
 
         representations = instance.data["representations"]
-        if not "exr" in representations:
+        if "exr" not in representations:
             self.log.info("No exr representation found")
             return
 
