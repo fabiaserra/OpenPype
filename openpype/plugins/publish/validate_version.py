@@ -1,8 +1,14 @@
 import pyblish.api
-from openpype.pipeline.publish import PublishValidationError
+from openpype.pipeline.publish import (
+    PublishValidationError,
+    OptionalPyblishPluginMixin
+)
 
 
-class ValidateVersion(pyblish.api.InstancePlugin):
+class ValidateVersion(
+    OptionalPyblishPluginMixin,
+    pyblish.api.InstancePlugin
+):
     """Validate instance version.
 
     OpenPype does not allow overwriting previously published versions.
@@ -14,7 +20,7 @@ class ValidateVersion(pyblish.api.InstancePlugin):
     hosts = ["nuke", "maya", "houdini", "blender", "standalonepublisher",
              "photoshop", "aftereffects"]
 
-    optional = False
+    optional = True
     active = True
 
     def process(self, instance):
@@ -27,16 +33,16 @@ class ValidateVersion(pyblish.api.InstancePlugin):
                 "Version '{0}' from instance '{1}' that you are "
                 "trying to publish is lower or equal to an existing version "
                 "in the database. Version in database: '{2}'."
-                "Please version up your file to a higher version number "
-                "than: '{2}'."
+                "Please version up the file to a higher version number "
+                "than: '{2}' or disable the 'Validate version' on the instance."
             ).format(version, instance.data["name"], latest_version)
 
             msg_html = (
                 "Version <b>{0}</b> from instance <b>{1}</b> that you are "
                 "trying to publish is lower or equal to an existing version "
                 "in the database. Version in database: <b>{2}</b>.<br><br>"
-                "Please version up your file to a higher version number "
-                "than: <b>{2}</b>."
+                "Please version up the file to a higher version number "
+                "than: <b>{2}</b> or disable the 'Validate version' on the instance."
             ).format(version, instance.data["name"], latest_version)
             raise PublishValidationError(
                 title="Higher version of publish already exists",
