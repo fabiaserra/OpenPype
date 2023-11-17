@@ -352,9 +352,11 @@ class TranscodeFrames(publish.Extractor):
         ingest_template_path = os.path.join(
             os.getenv("AX_PROJ_ROOT"),
             os.getenv("SHOW"),
-            "resources/ingest_template"
+            "resources",
+            "ingest_template"
+            f"{resolution}*"
         )
-        ingest_templates = sorted(glob.glob(ingest_template_path + f"/{resolution}*"))
+        ingest_templates = sorted(glob.glob(ingest_template_path))
         if ingest_templates:
             ingest_template = ingest_templates[-1]
 
