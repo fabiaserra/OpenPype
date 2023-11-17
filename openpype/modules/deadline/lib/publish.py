@@ -15,7 +15,7 @@ from openpype.modules.deadline import constants as dl_constants
 from openpype.modules.deadline.lib import submit
 from openpype.modules.shotgrid.lib import credentials
 from openpype.modules.shotgrid.scripts import populate_tasks
-from openpype.modules.delivery.scripts import utils
+from openpype.modules.delivery.scripts import utils, review
 
 
 logger = Logger.get_logger(__name__)
@@ -30,6 +30,11 @@ PUBLISH_TO_SG_FAMILIES = {
     "render",
     "review",
     "reference",
+}
+
+TASKS_TO_IGNORE_REVIEW = {
+    "3dtrack",
+    "roto",
 }
 
 
@@ -148,18 +153,9 @@ def validate_version(
     }
 
     logger.debug("Getting representations...")
-
-    add_review = family_name in REVIEW_FAMILIES
-    # Quick dirty solution to avoid generating reviews for 3dtrack
-    # tasks
-    if task_name == "3dtrack":
-        add_review = False
-
     representations = utils.get_representations(
         instance_data,
         expected_representations,
-        add_review=add_review,
-        publish_to_sg=family_name in PUBLISH_TO_SG_FAMILIES,
     )
     if not representations:
         msg = f"{item_str} -> No representations could be found on expected dictionary: {expected_representations}"
@@ -248,9 +244,10 @@ def publish_version(
     logger.debug("Getting representations...")
 
     add_review = family_name in REVIEW_FAMILIES
-    # Quick dirty solution to avoid generating reviews for 3dtrack
+
+    # Quick dirty solution to avoid generating reviews for certain
     # tasks
-    if task_name == "3dtrack":
+    if task_name in TASKS_TO_IGNORE_REVIEW:
         add_review = False
 
     representations = utils.get_representations(
@@ -264,16 +261,84 @@ def publish_version(
         logger.error(msg)
         return msg, False
 
+    # Get project code to grab the project code and add it to the task name
+    project_doc = get_project(
+        project_name, fields=["data.code"]
+    )
+    project_code = project_doc["data"]["code"]
+
+    deadline_task_name = "Publish {} - {}{} - {} - {} - {} ({})".format(
+        family_name,
+        subset_name,
+        " v{0:03d}".format(int(instance_data.get("version"))) if instance_data.get("version") else "",
+        task_name,
+        asset_name,
+        project_name,
+        project_code,
+    )
+
+    # If we are generating a review, create a Deadline Nuke task for
+    # the representation that is an image extension
+    job_submissions = []
     if add_review:
-        # inject colorspace data if we are generating a review
-        for rep in representations:
-            source_colorspace = publish_data.get("colorspace") or "scene_linear"
-            logger.debug(
-                "Setting colorspace '%s' to representation", source_colorspace
+        for repre in representations:
+            if repre["ext"] not in review.GENERATE_REVIEW_EXTENSIONS:
+                continue
+
+            # Create dictionary with some useful data required to submit
+            # Nuke review job to the farm
+            review_data = {
+                "comment": publish_data.get("comment", ""),
+                "batch_name": publish_data.get("jobBatchName") or deadline_task_name,
+                "colorspace": publish_data.get("colorspace") or "scene_linear"
+            }
+
+            # Create read path to pass to Nuke task
+            basename = repre["files"][0] if isinstance(repre["files"], list) else repre["files"]
+            read_path = os.path.join(repre["stagingDir"], basename)
+            read_path = utils.replace_frame_number_with_token(read_path, "####")
+            logger.debug("Review read path: %s", read_path)
+
+            # Create review output path
+            file_name = f"{repre['name']}_h264.mov"
+            output_path = os.path.join(
+                repre["stagingDir"],
+                file_name
             )
-            utils.set_representation_colorspace(
-                rep, project_name, colorspace=source_colorspace
+            logger.debug("Review output path: %s", output_path)
+
+            response = review.generate_review(
+                project_name,
+                project_code,
+                asset_name,
+                task_name,
+                read_path,
+                output_path,
+                repre["frameStart"],
+                repre["frameEnd"],
+                review_data
             )
+            job_submissions.append(response)
+
+            # Add review as a new representation to publish
+            representations.append(
+                {
+                    "name": "h264",
+                    "ext": "mov",
+                    "files": file_name,
+                    "frameStart": repre["frameStart"],
+                    "frameEnd": repre["frameEnd"],
+                    "stagingDir": repre["stagingDir"],
+                    "fps": instance_data.get("fps"),
+                    "tags": ["shotgridreview"],
+                }
+            )
+
+            # We force it to only generate a review for the first representation
+            # that supports it
+            # TODO: in the future we might want to improve this if it's common
+            # that we ingest multiple image representations
+            break
 
     instance_data["frameStart"] = int(representations[0]["frameStart"])
     instance_data["frameEnd"] = int(representations[0]["frameEnd"])
@@ -321,20 +386,6 @@ def publish_version(
         "OPENPYPE_SG_USER": username,
     }
 
-    # Get project code to grab the project code and add it to the task name
-    project_doc = get_project(
-        project_name, fields=["data.code"]
-    )
-    deadline_task_name = "Publish {} - {}{} - {} - {} - {} ({})".format(
-        family_name,
-        subset_name,
-        " v{0:03d}".format(int(instance_data.get("version"))) if instance_data.get("version") else "",
-        task_name,
-        asset_name,
-        project_name,
-        project_doc["data"]["code"]
-    )
-
     logger.debug("Submitting payload...")
     response = submit.payload_submit(
         plugin="OpenPype",
@@ -343,6 +394,7 @@ def publish_version(
         task_name=deadline_task_name,
         group=dl_constants.OP_GROUP,
         extra_env=extra_env,
+        job_dependencies=job_submissions
     )
 
     # Set session environment variables as a few OP plugins
