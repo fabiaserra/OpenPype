@@ -126,6 +126,10 @@ class ExtractReviewNuke(publish.Extractor):
 
             tags = repre.get("tags") or []
 
+            if repre_name == "exr_fr":
+                self.log.debug("Full resolution representation, skipping.")
+                continue
+
             if "review" not in tags:
                 self.log.debug((
                     "Repre: {} - Didn't found \"review\" in tags. Skipping"

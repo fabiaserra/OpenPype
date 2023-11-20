@@ -388,6 +388,8 @@ def prepare_representations(skeleton_data, exp_files, anatomy, aov_filter,
         if "_fr" in collection.head:
             repre_name = "{}_fr".format(ext)
             preview = False
+        elif "h264" in collection.head:
+            repre_name = "h264"
 
         # explicitly disable review by user
         preview = preview and not do_not_add_review
