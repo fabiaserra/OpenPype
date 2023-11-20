@@ -31,6 +31,46 @@ class ExtractReviewNuke(publish.Extractor):
 
         staging_dir = instance.data["outputDir"]
 
+        base_path = None
+        output_path = None
+        src_colorspace = None
+
+        # If there's job dependencies it means there's a prior Deadline task that might be
+        # generating files that will be used to generate the review (i.e., transcode frames)
+        job_dependencies = instance.data.get("deadlineSubmissionJobs")
+        if job_dependencies:
+            base_path = instance.data["expectedFiles"][0]
+            output_path = "{}_h264.mov".format(base_path.split(".", 1)[0])
+            src_colorspace = instance.data["colorspace"]
+        # Otherwise we just iterate from the created representations to generate the review from
+        else:
+            self.log.info("No Deadline job dependencies, checking instance representations.")
+            for repre in self.get_review_representations(instance):
+                # Create read path
+                basename = repre["files"][0] if isinstance(repre["files"], list) else repre["files"]
+                base_path = os.path.join(staging_dir, basename)
+
+                # Create review output path
+                output_path = os.path.join(
+                    staging_dir,
+                    f"{repre['name']}_h264.mov"
+                )
+
+                # Get source colorspace from representation
+                colorspace_data = repre.get("colorspaceData")
+                if colorspace_data:
+                    src_colorspace = colorspace_data["colorspace"]
+
+                break
+
+        if not (base_path and output_path):
+            self.log.info(
+                "Skipping review generation as it couldn't find any representations to generate from."
+            )
+            return
+
+        read_path = utils.replace_frame_number_with_token(base_path, "####")
+
         # Name to use for batch grouping Deadline tasks
         batch_name = instance.data.get("deadlineBatchName") or os.path.splitext(
             os.path.basename(context.data.get("currentFile")))[0]
@@ -39,65 +79,45 @@ class ExtractReviewNuke(publish.Extractor):
         frame_start = instance.data["frameStart"]
         frame_end = instance.data["frameEnd"]
 
-        submission_jobs = []
-        for repre in self.get_review_representations(instance):
-            # Create read path
-            basename = repre["files"][0] if isinstance(repre["files"], list) else repre["files"]
-            read_path = os.path.join(staging_dir, basename)
-            read_path = utils.replace_frame_number_with_token(read_path, "####")
+        self.log.debug("Output path: %s", output_path)
 
-            # Create review output path
-            output_path = os.path.join(
-                staging_dir,
-                f"{repre['name']}_h264.mov"
-            )
-            self.log.debug("Output path: %s", output_path)
+        # Create dictionary with other useful data required to submit
+        # Nuke review job to the farm
+        review_data = {
+            "comment": instance.data.get("comment", ""),
+            "batch_name": batch_name
+        }
 
-            # Create dictionary with other useful data required to submit
-            # Nuke review job to the farm
-            review_data = {
-                "comment": instance.data.get("comment", ""),
-                "batch_name": batch_name
-            }
+        # Add source colorspace if it's set on the representation
+        if src_colorspace:
+            review_data["src_colorspace"] = src_colorspace
 
-            # Add source colorspace if it's set on the representation
-            colorspace_data = repre.get("colorspaceData")
-            if colorspace_data:
-                review_data["src_colorspace"] = colorspace_data["colorspace"]
+        # Submit job to the farm
+        response = review.generate_review(
+            os.getenv("AVALON_PROJECT"),
+            os.getenv("SHOW"),
+            instance.data["asset"],
+            instance.data.get("task", os.getenv("AVALON_TASK")),
+            read_path,
+            output_path,
+            frame_start,
+            frame_end,
+            review_data
+        )
 
-            # Submit job to the farm
-            response = review.generate_review(
-                os.getenv("AVALON_PROJECT"),
-                os.getenv("SHOW"),
-                instance.data["asset"],
-                instance.data["task"],
-                read_path,
-                output_path,
-                frame_start,
-                frame_end,
-                review_data
-            )
+        # Adding the review file that will be generated to expected files
+        if not instance.data.get("expectedFiles"):
+            instance.data["expectedFiles"] = []
 
-            # Adding the review file that will be generated to expected files
-            if not instance.data.get("expectedFiles"):
-                instance.data["expectedFiles"] = []
+        instance.data["expectedFiles"].append(output_path)
+        self.log.debug(
+            "__ expectedFiles: `{}`".format(instance.data["expectedFiles"])
+        )
 
-            instance.data["expectedFiles"].append(output_path)
-            self.log.debug(
-                "__ expectedFiles: `{}`".format(instance.data["expectedFiles"])
-            )
-            submission_jobs.append(response)
-
-            # We force it to only generate a review for the first representation
-            # that supports it
-            # TODO: in the future we might want to improve this if it's common
-            # that we ingest multiple image representations
-            break
-
-        if "deadlineSubmissionJobs" in instance.data:
-            instance.data["deadlineSubmissionJobs"].extend(submission_jobs)
+        if job_dependencies:
+            instance.data["deadlineSubmissionJobs"].append(response)
         else:
-            instance.data["deadlineSubmissionJobs"] = submission_jobs
+            instance.data["deadlineSubmissionJobs"] = [response]
 
     def get_review_representations(self, instance):
         for repre in instance.data["representations"]:

@@ -291,7 +291,6 @@ class TranscodeFrames(publish.Extractor):
 
         # Store output dir for unified publisher (filesequence)
         instance.data["deadlineSubmissionJobs"] = submission_jobs
-        instance.data["publishJobState"] = "Suspended"
         instance.data["outputDir"] = staging_dir
 
         # Remove source representation as its replaced by the transcoded frames
