@@ -32,9 +32,8 @@ class ExtractReviewNuke(publish.Extractor):
         staging_dir = instance.data["outputDir"]
 
         # Name to use for batch grouping Deadline tasks
-        batch_name = os.path.splitext(
-            os.path.basename(context.data.get("currentFile"))
-        )[0]
+        batch_name = instance.data.get("deadlineBatchName") or os.path.splitext(
+            os.path.basename(context.data.get("currentFile")))[0]
 
         # Grab frame start/end
         frame_start = instance.data["frameStart"]
@@ -95,8 +94,10 @@ class ExtractReviewNuke(publish.Extractor):
             # that we ingest multiple image representations
             break
 
-        instance.data["deadlineSubmissionJobs"] = submission_jobs
-        instance.data["publishJobState"] = "Suspended"
+        if "deadlineSubmissionJobs" in instance.data:
+            instance.data["deadlineSubmissionJobs"].extend(submission_jobs)
+        else:
+            instance.data["deadlineSubmissionJobs"] = submission_jobs
 
     def get_review_representations(self, instance):
         for repre in instance.data["representations"]:

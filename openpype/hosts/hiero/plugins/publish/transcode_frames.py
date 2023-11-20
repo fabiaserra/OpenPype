@@ -117,9 +117,10 @@ class TranscodeFrames(publish.Extractor):
         ingest_resolutions = ["fr", "wr"]
 
         # Name to use for batch grouping Deadline tasks
-        batch_name = "Transcode frames - {}".format(
+        batch_name = "Ingest - {}".format(
             context.data.get("currentFile", "")
         )
+        instance.data["deadlineBatchName"] = batch_name
 
         # For each output resolution we create a job in the farm
         submission_jobs = []
@@ -151,7 +152,7 @@ class TranscodeFrames(publish.Extractor):
             self.log.debug("Output ext: %s", self.output_ext)
 
             # Create names for Deadline batch job and tasks
-            task_name = "Transcode - {} - {} - {} ({})".format(
+            task_name = "Transcode frames - {} - {} - {} ({})".format(
                 os.path.basename(output_path),
                 staging_dir,
                 os.getenv("AVALON_PROJECT"),
