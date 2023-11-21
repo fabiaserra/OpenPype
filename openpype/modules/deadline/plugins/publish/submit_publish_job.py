@@ -204,14 +204,6 @@ class ProcessSubmittedJobOnFarm(pyblish.api.InstancePlugin,
         """
         data = instance.data.copy()
         subset = data["subset"]
-        ### Starts Alkemy-X Override ###
-        # Add 'asset' to publish job label for extra clarity
-        job_name = "Publish - {asset} - {subset} - {proj_name}".format(
-            asset=instance.data.get("asset"),
-            subset=subset,
-            proj_name=instance.context.data["projectName"]
-        )
-        ### Ends Alkemy-X Override ###
 
         anatomy = instance.context.data['anatomy']
 
@@ -221,6 +213,19 @@ class ProcessSubmittedJobOnFarm(pyblish.api.InstancePlugin,
         instance_version = instance.data.get("version")  # take this if exists
         if instance_version != 1:
             override_version = instance_version
+
+        ### Starts Alkemy-X Override ###
+        # Add 'asset' to publish job label for extra clarity
+        job_name = "Publish {} - {}{} - {} - {} - {} ({})".format(
+            instances[0]["family"],
+            instances[0]["subset"],
+            " v{0:03d}".format(override_version) if override_version else "",
+            instance.context.data["task"],
+            instance.data["asset"],
+            instance.context.data["projectName"],
+            os.getenv("SHOW")
+        )
+        ### Ends Alkemy-X Override ###
 
         output_dir = self._get_publish_folder(
             anatomy,
@@ -236,7 +241,7 @@ class ProcessSubmittedJobOnFarm(pyblish.api.InstancePlugin,
         # job so they use the same environment
         metadata_path, rootless_metadata_path = \
             create_metadata_path(instance, anatomy)
-        self.log.debug("Metadata path: %s", metadata_path)
+        self.log.info("Metadata path: %s", metadata_path)
 
         environment = {
             "AVALON_PROJECT": instance.context.data["projectName"],

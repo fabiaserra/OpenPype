@@ -2448,6 +2448,10 @@ Reopening Nuke should synchronize these paths and resolve any discrepancies.
         ''' Setting colorspace following presets
         '''
         nuke.root()["colorManagement"].setValue("OCIO")
+
+        # Temp hack to make sure system fonts are disabled
+        nuke.root()["free_type_system_fonts"].setValue(False)
+
         # get imageio
         # nuke_colorspace = get_nuke_imageio_settings()
 

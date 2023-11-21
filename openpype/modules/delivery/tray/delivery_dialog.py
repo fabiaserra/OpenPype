@@ -41,7 +41,7 @@ class DeliveryDialog(QtWidgets.QDialog):
         {project[name]}: Project's full name
         {project[code]}: Project's code
         {seq}: Sequence entity name
-        {episde}: Episode entity name
+        {episode}: Episode entity name
         {shot}: Shot entity name
         {shotnum}: The integer part of a shot name (eg. "uni_pg_0010" -> "0010")
         {asset_type}: Type of asset (eg. "Char", "Prop", "Environment")
@@ -388,8 +388,11 @@ class DeliveryDialog(QtWidgets.QDialog):
 
     def get_filtered_projects(self):
         projects = list()
-        for project in get_projects(fields=["name"]):
-            projects.append(project["name"])
+        for project in get_projects(fields=["name", "data.active", "data.library_project"]):
+            is_active = project.get("data", {}).get("active", False)
+            is_library = project.get("data", {}).get("library_project", False)
+            if is_active and not is_library:
+                projects.append(project["name"])
 
         return projects
 

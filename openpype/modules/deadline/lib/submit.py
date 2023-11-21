@@ -32,10 +32,10 @@ def payload_submit(
     frame_range=None,
     department="",
     extra_env=None,
-    response_data=None,
+    job_dependencies=None,
 ):
-    if not response_data:
-        response_data = {}
+    if not job_dependencies:
+        job_dependencies = []
 
     frames = "0" if not frame_range else f"{frame_range[0]}-{frame_range[1]}"
 
@@ -66,15 +66,9 @@ def payload_submit(
         "AuxFiles": [],
     }
 
-    if response_data.get("_id"):
-        payload["JobInfo"].update(
-            {
-                "JobType": "Normal",
-                "BatchName": response_data["Props"]["Batch"],
-                "JobDependency0": response_data["_id"],
-                "ChunkSize": 99999999,
-            }
-        )
+    # Set job dependencies if they exist
+    for index, job in enumerate(job_dependencies):
+        payload["JobInfo"][f"JobDependency{index}"] = job["_id"]
 
     # Include critical environment variables with submission
     keys = [

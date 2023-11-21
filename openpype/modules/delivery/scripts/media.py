@@ -58,7 +58,7 @@ SG_VERSION_IMPORTANT_FIELDS = [
 NESTED_TOKENS_RE = re.compile(r"(\w+)\[(\w+)\]")
 
 # All file extensions that will (most likely) be a single file
-SINGLE_FILE_EXTENSIONS = ["mov", "mp4", "png", "jpg", "jpeg"]
+SINGLE_FILE_EXTENSIONS = ["mov", "mp4", "png", "jpg", "jpeg", "mxf"]
 
 # Columns for CSV data file
 CSV_DATA_COLUMNS = ["Filename", "Submitted For", "Notes"]
@@ -375,6 +375,7 @@ def generate_delivery_media_version(
 
     # Create environment variables required to run Nuke script
     task_env = {
+        "_AX_DELIVERY_NUKESCRIPT": delivery_data["nuke_template_script"],
         "_AX_DELIVERY_READPATH": input_hashes_path,
         "_AX_DELIVERY_FRAMES": "{0}_{1}".format(
             int(out_frame_start), int(out_frame_end)
@@ -385,13 +386,12 @@ def generate_delivery_media_version(
             anatomy_data.get("submit_for"),
         "_AX_DELIVERY_ARTIST": sg_version.get("user", {}).get("name") or
             anatomy_data.get("user"),
-        "_AX_DELIVERY_NUKESCRIPT": delivery_data["nuke_template_script"],
         "_AX_DEBUG_PATH": os.path.join(package_path, "nuke_scripts"),
         "AVALON_ASSET": anatomy_data["asset"],
         "AVALON_TASK": anatomy_data["task"]["name"],
         "AVALON_PROJECT": project_name,
-        "AVALON_APP": "nukex",
-        "AVALON_APP_NAME": "nukex/14-03",
+        "AVALON_APP": "nuke",
+        "AVALON_APP_NAME": "nuke/14-03",
         "OPENPYPE_RENDER_JOB": "1",
     }
     if thumbnail_repre_doc:
@@ -500,7 +500,12 @@ def generate_delivery_media_version(
         }
 
         # Submit job to Deadline
-        task_name = f"Delivery - {output_name} - {output_anatomy_data['filename']} - {project_name}"
+        task_name = "Delivery - {} - {} - {} ({})".format(
+            output_name,
+            output_anatomy_data["filename"],
+            project_name,
+            asset_data["project"]["code"]
+        )
         response = submit.payload_submit(
             plugin="AxNuke",
             plugin_data=plugin_data,

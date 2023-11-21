@@ -11,7 +11,7 @@ class IntegrateVersionUpWorkfile(api.ContextPlugin):
     hosts = ["hiero"]
 
     optional = True
-    active = True
+    active = False
 
     def process(self, context):
         project = context.data["activeProject"]

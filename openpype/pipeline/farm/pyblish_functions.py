@@ -21,7 +21,6 @@ from openpype.lib import Logger
 from openpype.pipeline.publish import KnownPublishError
 from openpype.pipeline.farm.patterning import match_aov_pattern
 
-
 @attr.s
 class TimeData(object):
     """Structure used to handle time related data."""
@@ -386,6 +385,8 @@ def prepare_representations(skeleton_data, exp_files, anatomy, aov_filter,
         if "_fr" in collection.head:
             repre_name = "{}_fr".format(ext)
             preview = False
+        elif "h264" in collection.head:
+            repre_name = "h264"
 
         # explicitly disable review by user
         preview = preview and not do_not_add_review
@@ -443,15 +444,21 @@ def prepare_representations(skeleton_data, exp_files, anatomy, aov_filter,
             "files": os.path.basename(remainder),
             "stagingDir": staging,
         }
-
         preview = match_aov_pattern(
             host_name, aov_filter, remainder
         )
         preview = preview and not do_not_add_review
+
+        ### Starts Alkemy-X Override ###
+        # Only add 'review' and 'shotgridreview' tags for video files
+        if ext not in {"mp4", "mov", "mxf"}:
+            preview = False
+        ### Ends Alkemy-X Override ###
+
         if preview:
             rep.update({
                 "fps": skeleton_data.get("fps"),
-                "tags": ["review"]
+                "tags": ["review", "shotgridreview"]
             })
             skeleton_data["families"] = \
                 _add_review_families(skeleton_data["families"])

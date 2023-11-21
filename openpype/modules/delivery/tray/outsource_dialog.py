@@ -204,8 +204,11 @@ class OutsourceDialog(QtWidgets.QDialog):
 
     def get_filtered_projects(self):
         projects = list()
-        for project in get_projects(fields=["name"]):
-            projects.append(project["name"])
+        for project in get_projects(fields=["name", "data.active", "data.library_project"]):
+            is_active = project.get("data", {}).get("active", False)
+            is_library = project.get("data", {}).get("library_project", False)
+            if is_active and not is_library:
+                projects.append(project["name"])
 
         return projects
 
