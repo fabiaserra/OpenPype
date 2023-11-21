@@ -45,12 +45,7 @@ class ExtractReview(pyblish.api.InstancePlugin):
 
     label = "Extract Review"
     order = pyblish.api.ExtractorOrder + 0.02
-    families = [
-        "review",
-        "arnold_rop",
-        "mantra_rop",
-        "karma_rop"
-    ]
+    families = ["review"]
     hosts = [
         "nuke",
         "maya",
@@ -73,8 +68,8 @@ class ExtractReview(pyblish.api.InstancePlugin):
     ]
 
     # Supported extensions
-    image_exts = ["exr", "jpg", "jpeg", "png", "dpx"]
-    video_exts = ["mov", "mp4", "mxf"]
+    image_exts = ["exr", "jpg", "jpeg", "png", "dpx", "tga"]
+    video_exts = ["mov", "mp4"]
     supported_exts = image_exts + video_exts
 
     alpha_exts = ["exr", "png", "dpx"]
@@ -83,15 +78,6 @@ class ExtractReview(pyblish.api.InstancePlugin):
     profiles = None
 
     def process(self, instance):
-
-        ### Starts Alkemy-X Override ###
-        # Skip execution if instance is marked to be processed in the farm
-        if instance.data.get("farm"):
-            self.log.info(
-                "Instance is marked to be processed on farm. Skipping")
-            return
-        ### Ends Alkemy-X Override ###
-
         self.log.debug(str(instance.data["representations"]))
         # Skip review when requested.
         if not instance.data.get("review", True):
@@ -153,12 +139,11 @@ class ExtractReview(pyblish.api.InstancePlugin):
         outputs_per_representations = []
         for repre in instance.data["representations"]:
             repre_name = str(repre.get("name"))
-            self.log.debug("Getting outputs for repre '%s'", repre_name)
             tags = repre.get("tags") or []
             custom_tags = repre.get("custom_tags")
             if "review" not in tags:
                 self.log.debug((
-                    "Repre: {} - Didn't found \"review\" in tags. Skipping"
+                    "Repre: {} - Didn't find \"review\" in tags. Skipping"
                 ).format(repre_name))
                 continue
 
@@ -190,17 +175,12 @@ class ExtractReview(pyblish.api.InstancePlugin):
             # custom tags (optional)
             outputs = self.filter_outputs_by_custom_tags(
                 profile_outputs, custom_tags)
-            self.log.debug(
-                "Outputs for repre '%s': %s",
-                repre_name,
-                [_o["filename_suffix"] for _o in outputs]
-            )
             if not outputs:
-                self.log.info(
-                    "Skipped representation '%s'. All output definitions from"
+                self.log.info((
+                    "Skipped representation. All output definitions from"
                     " selected profile does not match to representation's"
-                    " custom tags. \"%s\"", repre_name, str(custom_tags)
-                )
+                    " custom tags. \"{}\""
+                ).format(str(custom_tags)))
                 continue
 
             outputs_per_representations.append((repre, outputs))
@@ -433,12 +413,8 @@ class ExtractReview(pyblish.api.InstancePlugin):
                     os.unlink(f)
 
             new_repre.update({
-                # Grab FPS from SG delivery (i.e., review or final) if it
-                # exists, otherwise default to the project FPS
                 "fps": temp_data["fps"],
-                ### Starts Alkemy-X Override ###
-                "name": output_name,
-                ### Ends Alkemy-X Override ###
+                "name": "{}_{}".format(output_name, output_ext),
                 "outputName": output_name,
                 "outputDef": output_def,
                 "frameStartFtrack": temp_data["output_frame_start"],
@@ -453,7 +429,7 @@ class ExtractReview(pyblish.api.InstancePlugin):
 
             # adding representation
             self.log.debug(
-                "Adding new representation: {} - {}".format(new_repre["name"], new_repre)
+                "Adding new representation: {}".format(new_repre)
             )
             instance.data["representations"].append(new_repre)
 
@@ -547,11 +523,7 @@ class ExtractReview(pyblish.api.InstancePlugin):
                 input_allow_bg = True
 
         return {
-            ### Starts Alkemy-X Override ###
-            # Grab FPS from SG delivery (i.e., review or final) if it
-            # exists, otherwise default to the project FPS
-            "fps": float(output_def.get("fps") or instance.data["fps"]),
-            ### Ends Alkemy-X Override ###
+            "fps": float(instance.data["fps"]),
             "frame_start": frame_start,
             "frame_end": frame_end,
             "handle_start": handle_start,

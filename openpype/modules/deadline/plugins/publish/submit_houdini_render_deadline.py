@@ -1,9 +1,8 @@
-import hou
-
 import os
 import attr
 import getpass
 from datetime import datetime
+
 import pyblish.api
 
 from openpype.pipeline import legacy_io, OpenPypePyblishPluginMixin
@@ -175,6 +174,7 @@ class HoudiniSubmitDeadline(
 
         filepath = context.data["currentFile"]
         filename = os.path.basename(filepath)
+
         job_info.Name = "{} - {}".format(filename, instance.name)
         job_info.BatchName = filename
 
@@ -196,9 +196,11 @@ class HoudiniSubmitDeadline(
             job_info.BatchName += datetime.now().strftime("%d%m%Y%H%M%S")
 
         # Deadline requires integers in frame range
+        start = instance.data["frameStartHandle"]
+        end = instance.data["frameEndHandle"]
         frames = "{start}-{end}x{step}".format(
-            start=int(instance.data["frameStart"]),
-            end=int(instance.data["frameEnd"]),
+            start=int(start),
+            end=int(end),
             step=int(instance.data["byFrameStep"]),
         )
         job_info.Frames = frames
@@ -243,19 +245,8 @@ class HoudiniSubmitDeadline(
         if self._instance.context.data.get("deadlinePassMongoUrl"):
             keys.append("OPENPYPE_MONGO")
 
-        # add allowed keys from preset if any
-        if self.env_allowed_keys:
-            keys += self.env_allowed_keys
-
         environment = dict({key: os.environ[key] for key in keys
                             if key in os.environ}, **legacy_io.Session)
-
-        # finally search replace in values of any key
-        if self.env_search_replace_values:
-            for key, value in environment.items():
-                for _k, _v in self.env_search_replace_values.items():
-                    environment[key] = value.replace(_k, _v)
-
         for key in keys:
             value = environment.get(key)
             if value:
@@ -277,10 +268,14 @@ class HoudiniSubmitDeadline(
         return job_info
 
     def get_plugin_info(self, job_type=None):
+        # Not all hosts can import this module.
+        import hou
 
         instance = self._instance
         context = instance.context
 
+        # Output driver to render
+        driver = hou.node(instance.data["instance_node"])
         hou_major_minor = hou.applicationVersionString().rsplit(".", 1)[0]
 
         # Output driver to render

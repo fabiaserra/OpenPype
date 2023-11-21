@@ -114,7 +114,7 @@
                 },
                 {
                     "key": "ValidateScriptAttributes",
-                    "label": "Validate script attributes"
+                    "label": "Validate workfile attributes"
                 }
             ]
         },

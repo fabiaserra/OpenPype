@@ -238,7 +238,7 @@ class PypeCommands:
 
     def run_tests(self, folder, mark, pyargs,
                   test_data_folder, persist, app_variant, timeout, setup_only,
-                  mongo_url):
+                  mongo_url, app_group):
         """
             Runs tests from 'folder'
 
@@ -283,6 +283,9 @@ class PypeCommands:
 
         if persist:
             args.extend(["--persist", persist])
+
+        if app_group:
+            args.extend(["--app_group", app_group])
 
         if app_variant:
             args.extend(["--app_variant", app_variant])

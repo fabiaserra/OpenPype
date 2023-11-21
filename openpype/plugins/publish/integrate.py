@@ -142,6 +142,7 @@ class IntegrateAsset(pyblish.api.InstancePlugin):
                 "uasset",
                 "blendScene",
                 "yeticacheUE",
+                "tycache",
                 #### Starts Alkemy-X overrides ####
                 # Missing from OP TODO: create PR to add them
                 "mantra_rop",
@@ -709,20 +710,15 @@ class IntegrateAsset(pyblish.api.InstancePlugin):
             destination_indexes = list(src_collection.indexes)
             # Use last frame for minimum padding
             #   - that should cover both 'udim' and 'frame' minimum padding
-            ### Starts Alkemy-X Override ###
-            # Just use the padding set on the project settings
-            destination_padding = int(
-                publish_template_category["frame_padding"]
-            )
+            destination_padding = len(str(destination_indexes[-1]))
             if not is_udim:
                 # Change padding for frames if template has defined higher
                 #   padding.
-                # destination_padding = int(
-                #     publish_template_category["frame_padding"]
-                # )
-                # if template_padding > destination_padding:
-                #     destination_padding = template_padding
-                ### Ends Alkemy-X Override ###
+                template_padding = int(
+                    publish_template_category["frame_padding"]
+                )
+                if template_padding > destination_padding:
+                    destination_padding = template_padding
 
                 # If the representation has `frameStart` set it renumbers the
                 # frame indices of the published collection. It will start from
