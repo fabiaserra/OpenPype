@@ -1,9 +1,12 @@
 import pyblish
+
+from openpype import AYON_SERVER_ENABLED
 from openpype.pipeline.editorial import is_overlapping_otio_ranges
+
 from openpype.hosts.hiero import api as phiero
 from openpype.hosts.hiero.api.otio import hiero_export
-import hiero
 
+import hiero
 # # developer reload modules
 from pprint import pformat
 
@@ -80,7 +83,8 @@ class PrecollectInstances(pyblish.api.ContextPlugin):
                 if k not in ("id", "applieswhole", "label")
             })
 
-            asset = tag_data["asset"]
+            asset, asset_name = self._get_asset_data(tag_data)
+
             subset = tag_data["subset"]
 
             # insert family into families
@@ -99,16 +103,16 @@ class PrecollectInstances(pyblish.api.ContextPlugin):
             families.insert(0, str(family))
 
             # form label
-            label = asset
-            if asset != clip_name:
+            label = "{} -".format(asset)
+            if asset_name != clip_name:
                 label += " ({})".format(clip_name)
             label += " {}".format(subset)
-            label += " {}".format("[" + ", ".join(families) + "]")
 
             data.update({
                 "name": "{}_{}".format(asset, subset),
                 "label": label,
                 "asset": asset,
+                "asset_name": asset_name,
                 "item": track_item,
                 "families": families,
                 "publish": tag_data["publish"],
@@ -189,9 +193,9 @@ class PrecollectInstances(pyblish.api.ContextPlugin):
             })
 
     def create_shot_instance(self, context, **data):
+        subset = "shotMain"
         master_layer = data.get("heroTrack")
         hierarchy_data = data.get("hierarchyData")
-        asset = data.get("asset")
         item = data.get("item")
         clip_name = item.name()
 
@@ -202,23 +206,21 @@ class PrecollectInstances(pyblish.api.ContextPlugin):
             return
 
         asset = data["asset"]
-        subset = "shotMain"
+        asset_name = data["asset_name"]
 
         # insert family into families
         family = "shot"
 
         # form label
-        label = asset
-        if asset != clip_name:
+        label = "{} -".format(asset)
+        if asset_name != clip_name:
             label += " ({}) ".format(clip_name)
         label += " {}".format(subset)
-        label += " [{}]".format(family)
 
         data.update({
             "name": "{}_{}".format(asset, subset),
             "label": label,
             "subset": subset,
-            "asset": asset,
             "family": family,
             "families": []
         })
@@ -228,7 +230,33 @@ class PrecollectInstances(pyblish.api.ContextPlugin):
         self.log.debug(
             "_ instance.data: {}".format(pformat(instance.data)))
 
+    def _get_asset_data(self, data):
+        folder_path = data.pop("folderPath", None)
+
+        if data.get("asset_name"):
+            asset_name = data["asset_name"]
+        else:
+            asset_name = data["asset"]
+
+        # backward compatibility for clip tags
+        # which are missing folderPath key
+        # TODO remove this in future versions
+        if not folder_path:
+            hierarchy_path = data["hierarchy"]
+            folder_path = "/{}/{}".format(
+                hierarchy_path,
+                asset_name
+            )
+
+        if AYON_SERVER_ENABLED:
+            asset = folder_path
+        else:
+            asset = asset_name
+
+        return asset, asset_name
+
     def create_audio_instance(self, context, **data):
+        subset = "audioMain"
         master_layer = data.get("heroTrack")
 
         if not master_layer:
@@ -243,23 +271,21 @@ class PrecollectInstances(pyblish.api.ContextPlugin):
             return
 
         asset = data["asset"]
-        subset = "audioMain"
+        asset_name = data["asset_name"]
 
         # insert family into families
         family = "audio"
 
         # form label
-        label = asset
-        if asset != clip_name:
+        label = "{} -".format(asset)
+        if asset_name != clip_name:
             label += " ({}) ".format(clip_name)
         label += " {}".format(subset)
-        label += " [{}]".format(family)
 
         data.update({
             "name": "{}_{}".format(asset, subset),
             "label": label,
             "subset": subset,
-            "asset": asset,
             "family": family,
             "families": ["clip"]
         })
