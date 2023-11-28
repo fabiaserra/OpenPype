@@ -1,8 +1,12 @@
 from openpype import client
+from openpype import AYON_SERVER_ENABLED
 from openpype.lib import Logger
 from openpype.pipeline import project_folders
-from openpype.modules.shotgrid.lib import credentials
 from openpype.settings import get_project_settings
+if AYON_SERVER_ENABLED:
+    from ayon_shotgrid.lib import credentials
+else:
+    from openpype.modules.shotgrid.lib import credentials
 
 
 logger = Logger.get_logger(__name__)

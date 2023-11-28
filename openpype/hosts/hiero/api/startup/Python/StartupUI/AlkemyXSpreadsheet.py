@@ -12,6 +12,7 @@ from qtpy.QtGui import *
 
 import hiero
 
+from openpype import AYON_SERVER_ENABLED
 from openpype.client import (
     get_asset_by_name,
     get_project,
@@ -20,7 +21,10 @@ from openpype.client import (
 from openpype.hosts.hiero.api.constants import OPENPYPE_TAG_NAME
 from openpype.hosts.hiero.api.lib import MainPlate
 from openpype.lib import Logger
-from openpype.modules.shotgrid.lib import credentials
+if AYON_SERVER_ENABLED:
+    from ayon_shotgrid.lib import credentials
+else:
+    from openpype.modules.shotgrid.lib import credentials
 from openpype.pipeline.context_tools import (
     get_current_project_name,
     get_hierarchy_env,

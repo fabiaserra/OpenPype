@@ -7,12 +7,16 @@ import re
 import click
 import csv
 
+from openpype import AYON_SERVER_ENABLED
 from openpype import client as op_cli
 from openpype.lib import Logger, StringTemplate, get_datetime_data
 from openpype.pipeline import delivery, template_data
 from openpype.modules.deadline import constants as dl_constants
 from openpype.modules.deadline.lib import submit
-from openpype.modules.shotgrid.lib import credentials
+if AYON_SERVER_ENABLED:
+    from ayon_shotgrid.lib import credentials
+else:
+    from openpype.modules.shotgrid.lib import credentials
 
 
 # Default paths where template nuke script and corresponding python file
