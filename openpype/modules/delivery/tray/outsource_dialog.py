@@ -49,8 +49,6 @@ class OutsourceDialog(QtWidgets.QDialog):
 
         self.setMinimumSize(QtCore.QSize(self.SIZE_W, self.SIZE_H))
 
-        self.sg = credentials.get_shotgrid_session()
-
         self._first_show = True
         self._initial_refresh = False
         self._ignore_project_change = False
@@ -225,7 +223,8 @@ class OutsourceDialog(QtWidgets.QDialog):
 
         self.dbcon.Session["AVALON_PROJECT"] = project_name
 
-        sg_project = self.sg.find_one(
+        sg = credentials.get_shotgrid_session()
+        sg_project = sg.find_one(
             "Project",
             [["name", "is", project_name]],
             ["sg_code"]
@@ -242,7 +241,7 @@ class OutsourceDialog(QtWidgets.QDialog):
         self._current_proj_code = proj_code
 
         # Add existing playlists from project
-        sg_playlists = self.sg.find(
+        sg_playlists = sg.find(
             "Playlist",
             [["project", "is", sg_project]],
             ["id", "code"]

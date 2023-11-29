@@ -67,8 +67,6 @@ class IngestDialog(QtWidgets.QDialog):
 
         self.setMinimumSize(QtCore.QSize(self.SIZE_W, self.SIZE_H))
 
-        self.sg = credentials.get_shotgrid_session()
-
         self._first_show = True
         self._initial_refresh = False
         self._ignore_project_change = False
@@ -290,7 +288,8 @@ class IngestDialog(QtWidgets.QDialog):
 
         self.dbcon.Session["AVALON_PROJECT"] = project_name
 
-        sg_project = self.sg.find_one(
+        sg = credentials.get_shotgrid_session()
+        sg_project = sg.find_one(
             "Project",
             [["name", "is", project_name]],
             fields=["sg_code"]
