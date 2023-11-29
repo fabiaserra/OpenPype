@@ -24,12 +24,18 @@ logger = Logger.get_logger(__name__)
 REVIEW_FAMILIES = {
     "render",
     "reference",
+    "plate",
+    "review"
 }
 
 PUBLISH_TO_SG_FAMILIES = {
     "render",
     "review",
     "reference",
+}
+
+IGNORE_LUT_FAMILIES = {
+    "reference"
 }
 
 TASKS_TO_IGNORE_REVIEW = {
@@ -294,13 +300,20 @@ def publish_version(
                 repre["stagingDir"]
             )
 
+            # Set output colorspace default to 'shot_lut' unless it's a review/reference family
+            out_colorspace = "shot_lut"
+            if family_name in IGNORE_LUT_FAMILIES:
+                out_colorspace = ""
+
             # Create dictionary with some useful data required to submit
             # Nuke review job to the farm
             review_data = {
                 "comment": publish_data.get("comment", ""),
                 "batch_name": publish_data.get("jobBatchName") or deadline_task_name,
-                "src_colorspace": publish_data.get("src_colorspace") or "scene_linear",
-                "out_colorspace": publish_data.get("out_colorspace", "")
+                "src_colorspace": publish_data.get("src_colorspace", ""),
+                # We default the output colorspace to out_colorspace if it's not
+                # explicitly set on the publish_data dictionary
+                "out_colorspace": publish_data.get("out_colorspace", out_colorspace)
             }
 
             # Create read path to pass to Nuke task
