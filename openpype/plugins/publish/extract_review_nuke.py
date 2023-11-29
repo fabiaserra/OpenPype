@@ -30,7 +30,7 @@ class ExtractReviewNuke(publish.Extractor):
         context = instance.context
 
         anatomy = context.data["anatomy"]
-        staging_dir = anatomy.fill_root_with_path(
+        staging_dir = anatomy.fill_root(
             instance.data["outputDir"]
         )
 

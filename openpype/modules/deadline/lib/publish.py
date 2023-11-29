@@ -290,7 +290,7 @@ def publish_version(
             if repre["ext"] not in review.GENERATE_REVIEW_EXTENSIONS:
                 continue
 
-            staging_dir = anatomy.fill_root_with_path(
+            staging_dir = anatomy.fill_root(
                 repre["stagingDir"]
             )
 
