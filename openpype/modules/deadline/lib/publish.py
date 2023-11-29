@@ -199,7 +199,9 @@ def publish_version(
         logger.error(msg)
         return msg, False
 
-    asset_doc = get_asset_by_name(project_name, asset_name, fields=["_id", "data", "name"])
+    asset_doc = get_asset_by_name(
+        project_name, asset_name, fields=["_id", "data", "name"]
+    )
     context_data = asset_doc["data"]
 
     # Validate that the version doesn't exist if we choose to not overwrite
@@ -288,18 +290,9 @@ def publish_version(
             if repre["ext"] not in review.GENERATE_REVIEW_EXTENSIONS:
                 continue
 
-            staging_dir = repre["stagingDir"]
-            success, rootless_staging_dir = anatomy.find_root_template_from_path(
-                staging_dir
+            staging_dir = anatomy.fill_root_with_path(
+                repre["stagingDir"]
             )
-            if success:
-                staging_dir = rootless_staging_dir
-            else:
-                logger.warning(
-                    "Could not find root path for remapping '%s'."
-                    " This may cause issues on farm.",
-                    staging_dir
-                )
 
             # Create dictionary with some useful data required to submit
             # Nuke review job to the farm
