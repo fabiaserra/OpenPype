@@ -29,7 +29,19 @@ class ExtractReviewNuke(publish.Extractor):
 
         context = instance.context
 
+        anatomy = context.data["anatomy"]
         staging_dir = instance.data["outputDir"]
+        success, rootless_staging_dir = anatomy.find_root_template_from_path(
+            staging_dir
+        )
+        if success:
+            staging_dir = rootless_staging_dir
+        else:
+            self.log.warning(
+                "Could not find root path for remapping '%s'."
+                " This may cause issues on farm.",
+                staging_dir
+            )
 
         base_path = None
         output_path = None
