@@ -24,12 +24,19 @@ logger = Logger.get_logger(__name__)
 REVIEW_FAMILIES = {
     "render",
     "reference",
+    "plate",
+    "review"
 }
 
 PUBLISH_TO_SG_FAMILIES = {
     "render",
     "review",
     "reference",
+}
+
+IGNORE_LUT_FAMILIES = {
+    "reference",
+    "review",
 }
 
 TASKS_TO_IGNORE_REVIEW = {
@@ -199,7 +206,9 @@ def publish_version(
         logger.error(msg)
         return msg, False
 
-    asset_doc = get_asset_by_name(project_name, asset_name, fields=["_id", "data", "name"])
+    asset_doc = get_asset_by_name(
+        project_name, asset_name, fields=["_id", "data", "name"]
+    )
     context_data = asset_doc["data"]
 
     # Validate that the version doesn't exist if we choose to not overwrite
@@ -288,26 +297,24 @@ def publish_version(
             if repre["ext"] not in review.GENERATE_REVIEW_EXTENSIONS:
                 continue
 
-            staging_dir = repre["stagingDir"]
-            success, rootless_staging_dir = anatomy.find_root_template_from_path(
-                staging_dir
+            staging_dir = anatomy.fill_root(
+                repre["stagingDir"]
             )
-            if success:
-                staging_dir = rootless_staging_dir
-            else:
-                logger.warning(
-                    "Could not find root path for remapping '%s'."
-                    " This may cause issues on farm.",
-                    staging_dir
-                )
+
+            # Set output colorspace default to 'shot_lut' unless it's a review/reference family
+            out_colorspace = "shot_lut"
+            if family_name in IGNORE_LUT_FAMILIES:
+                out_colorspace = ""
 
             # Create dictionary with some useful data required to submit
             # Nuke review job to the farm
             review_data = {
                 "comment": publish_data.get("comment", ""),
                 "batch_name": publish_data.get("jobBatchName") or deadline_task_name,
-                "src_colorspace": publish_data.get("src_colorspace") or "scene_linear",
-                "out_colorspace": publish_data.get("out_colorspace", "")
+                "src_colorspace": publish_data.get("src_colorspace", ""),
+                # We default the output colorspace to out_colorspace if it's not
+                # explicitly set on the publish_data dictionary
+                "out_colorspace": publish_data.get("out_colorspace", out_colorspace)
             }
 
             # Create read path to pass to Nuke task
