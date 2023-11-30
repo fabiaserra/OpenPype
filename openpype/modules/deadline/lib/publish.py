@@ -35,7 +35,8 @@ PUBLISH_TO_SG_FAMILIES = {
 }
 
 IGNORE_LUT_FAMILIES = {
-    "reference"
+    "reference",
+    "review",
 }
 
 TASKS_TO_IGNORE_REVIEW = {
