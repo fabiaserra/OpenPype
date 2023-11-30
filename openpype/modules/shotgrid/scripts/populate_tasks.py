@@ -1,7 +1,11 @@
 import copy
 
 from openpype.lib import Logger
-from openpype.modules.shotgrid.lib import credentials
+from openpype import AYON_SERVER_ENABLED
+if AYON_SERVER_ENABLED:
+    from ayon_shotgrid.lib import credentials
+else:
+    from openpype.modules.shotgrid.lib import credentials
 from openpype.client import get_asset_by_name
 from openpype.client.operations import OperationsSession
 

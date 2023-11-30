@@ -4,14 +4,17 @@ import platform
 import traceback
 from qtpy import QtCore, QtWidgets, QtGui
 
-from openpype import style
+from openpype import style, AYON_SERVER_ENABLED
 from openpype import resources
 from openpype.lib import Logger
 from openpype.client import get_projects
 from openpype.pipeline import AvalonMongoDB
 from openpype.tools.utils import lib as tools_lib
-from openpype.modules.shotgrid.lib import credentials
 from openpype.modules.delivery.scripts import sg_delivery
+if AYON_SERVER_ENABLED:
+    from ayon_shotgrid.lib import credentials
+else:
+    from openpype.modules.shotgrid.lib import credentials
 
 
 logger = Logger.get_logger(__name__)
@@ -45,8 +48,6 @@ class OutsourceDialog(QtWidgets.QDialog):
         )
 
         self.setMinimumSize(QtCore.QSize(self.SIZE_W, self.SIZE_H))
-
-        self.sg = credentials.get_shotgrid_session()
 
         self._first_show = True
         self._initial_refresh = False
@@ -222,7 +223,8 @@ class OutsourceDialog(QtWidgets.QDialog):
 
         self.dbcon.Session["AVALON_PROJECT"] = project_name
 
-        sg_project = self.sg.find_one(
+        sg = credentials.get_shotgrid_session()
+        sg_project = sg.find_one(
             "Project",
             [["name", "is", project_name]],
             ["sg_code"]
@@ -239,7 +241,7 @@ class OutsourceDialog(QtWidgets.QDialog):
         self._current_proj_code = proj_code
 
         # Add existing playlists from project
-        sg_playlists = self.sg.find(
+        sg_playlists = sg.find(
             "Playlist",
             [["project", "is", sg_project]],
             ["id", "code"]

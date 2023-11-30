@@ -3,6 +3,7 @@ import copy
 import collections
 import click
 
+from openpype import AYON_SERVER_ENABLED
 from openpype.client import (
     get_project,
     get_representations,
@@ -14,8 +15,10 @@ from openpype.pipeline.delivery import (
     check_destination_path,
     deliver_single_file,
 )
-from openpype.modules.shotgrid.lib import credentials
-
+if AYON_SERVER_ENABLED:
+    from ayon_shotgrid.lib import credentials
+else:
+    from openpype.modules.shotgrid.lib import credentials
 
 logger = Logger.get_logger(__name__)
 

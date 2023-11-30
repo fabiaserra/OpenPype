@@ -8,13 +8,16 @@ from qtpy import QtCore, QtWidgets, QtGui
 
 from openpype import style
 from openpype import resources
+from openpype import AYON_SERVER_ENABLED
 from openpype.lib import Logger
 from openpype.client import get_projects
 from openpype.pipeline import AvalonMongoDB
 from openpype.tools.utils import lib as tools_lib
-from openpype.modules.shotgrid.lib import delivery, credentials
 from openpype.modules.delivery.scripts import media
-
+if AYON_SERVER_ENABLED:
+    from ayon_shotgrid.lib import delivery, credentials
+else:
+    from openpype.modules.shotgrid.lib import delivery, credentials
 
 logger = Logger.get_logger(__name__)
 
@@ -78,8 +81,6 @@ class DeliveryDialog(QtWidgets.QDialog):
         )
 
         self.setMinimumSize(QtCore.QSize(self.SIZE_W, self.SIZE_H))
-
-        self.sg = credentials.get_shotgrid_session()
 
         self._first_show = True
         self._initial_refresh = False
@@ -407,13 +408,15 @@ class DeliveryDialog(QtWidgets.QDialog):
         self.dbcon.Session["AVALON_PROJECT"] = project_name
 
         delivery_types = ["review", "final"]
-        sg_project = self.sg.find_one(
+
+        sg = credentials.get_shotgrid_session()
+        sg_project = sg.find_one(
             "Project",
             [["name", "is", project_name]],
             delivery.SG_DELIVERY_OUTPUT_FIELDS + ["sg_code"]
         )
         project_overrides = delivery.get_entity_overrides(
-            self.sg,
+            sg,
             sg_project,
             delivery_types,
             query_fields=delivery.SG_DELIVERY_OUTPUT_FIELDS,
@@ -447,7 +450,7 @@ class DeliveryDialog(QtWidgets.QDialog):
         self._current_proj_code = proj_code
 
         # Add existing playlists from project
-        sg_playlists = self.sg.find(
+        sg_playlists = sg.find(
             "Playlist",
             [["project", "is", sg_project]],
             ["id", "code"]

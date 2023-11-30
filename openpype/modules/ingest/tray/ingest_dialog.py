@@ -9,16 +9,21 @@ import qtawesome
 
 from openpype import style
 from openpype import resources
+from openpype import AYON_SERVER_ENABLED
 from openpype.lib import Logger
 from openpype.client import get_projects
 from openpype.pipeline import AvalonMongoDB
 from openpype.tools.utils import lib as tools_lib
-from openpype.modules.shotgrid.lib import credentials
 from openpype.modules.ingest.scripts import ingest
 from openpype.tools.utils.constants import (
     HEADER_NAME_ROLE,
     EDIT_ICON_ROLE,
 )
+if AYON_SERVER_ENABLED:
+    from ayon_shotgrid.lib import credentials
+else:
+    from openpype.modules.shotgrid.lib import credentials
+
 
 logger = Logger.get_logger(__name__)
 
@@ -61,8 +66,6 @@ class IngestDialog(QtWidgets.QDialog):
         )
 
         self.setMinimumSize(QtCore.QSize(self.SIZE_W, self.SIZE_H))
-
-        self.sg = credentials.get_shotgrid_session()
 
         self._first_show = True
         self._initial_refresh = False
@@ -285,7 +288,8 @@ class IngestDialog(QtWidgets.QDialog):
 
         self.dbcon.Session["AVALON_PROJECT"] = project_name
 
-        sg_project = self.sg.find_one(
+        sg = credentials.get_shotgrid_session()
+        sg_project = sg.find_one(
             "Project",
             [["name", "is", project_name]],
             fields=["sg_code"]

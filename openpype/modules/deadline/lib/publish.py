@@ -2,6 +2,7 @@ import os
 import getpass
 import json
 
+from openpype import AYON_SERVER_ENABLED
 from openpype.lib import Logger
 from openpype.pipeline import legacy_io, Anatomy
 from openpype.client import (
@@ -13,9 +14,14 @@ from openpype.client import (
 
 from openpype.modules.deadline import constants as dl_constants
 from openpype.modules.deadline.lib import submit
-from openpype.modules.shotgrid.lib import credentials
-from openpype.modules.shotgrid.scripts import populate_tasks
 from openpype.modules.delivery.scripts import utils, review
+if AYON_SERVER_ENABLED:
+    from ayon_shotgrid.lib import credentials
+    from ayon_shotgrid.scripts import populate_tasks
+else:
+    from openpype.modules.shotgrid.lib import credentials
+    from openpype.modules.shotgrid.scripts import populate_tasks
+
 
 
 logger = Logger.get_logger(__name__)
