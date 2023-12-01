@@ -24,6 +24,10 @@ class ValidateVersion(
     active = True
 
     def process(self, instance):
+
+        if not self.is_active(instance.data):
+            return
+
         version = instance.data.get("version")
         latest_version = instance.data.get("latestVersion")
 
