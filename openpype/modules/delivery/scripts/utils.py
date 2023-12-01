@@ -83,8 +83,6 @@ def get_representations(
         list of representations
 
     """
-    anatomy = Anatomy(instance_data["project"])
-
     representations = []
     for rep_name, file_path in exp_representations.items():
 
@@ -133,19 +131,6 @@ def get_representations(
         if not ext:
             ext = collection.tail.lstrip(".")
 
-        staging = os.path.dirname(list(collection)[0])
-        success, rootless_staging_dir = anatomy.find_root_template_from_path(
-            staging
-        )
-        if success:
-            staging = rootless_staging_dir
-        else:
-            logger.warning(
-                "Could not find root path for remapping '%s'."
-                " This may cause issues on farm.",
-                staging
-            )
-
         if not rep_frame_start or not rep_frame_end:
             rep_frame_start = min(collection.indexes)
             rep_frame_end = max(collection.indexes)
@@ -173,7 +158,7 @@ def get_representations(
             "frameStart": rep_frame_start,
             "frameEnd": rep_frame_end,
             # If expectedFile are absolute, we need only filenames
-            "stagingDir": staging,
+            "stagingDir": os.path.dirname(list(collection)[0]),
             "fps": instance_data.get("fps"),
             "tags": tags,
         }

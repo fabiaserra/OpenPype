@@ -569,7 +569,8 @@ def get_product_from_filepath(
 
 def get_asset_by_name_case_not_sensitive(project_name, asset_name):
     """Get asset by name ignoring case"""
-    asset_name = re.compile(asset_name, re.IGNORECASE)
+    # NOTE: This is not supported yet in Ayon
+    # asset_name = re.compile(asset_name, re.IGNORECASE)
 
     assets = list(
         get_assets(project_name, asset_names=[asset_name], fields=ASSET_FIELDS)

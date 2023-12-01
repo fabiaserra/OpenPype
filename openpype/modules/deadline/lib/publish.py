@@ -5,6 +5,7 @@ import json
 from openpype import AYON_SERVER_ENABLED
 from openpype.lib import Logger
 from openpype.pipeline import legacy_io, Anatomy
+from openpype.pipeline.template_data import get_template_data
 from openpype.client import (
     get_project,
     get_asset_by_name,
@@ -279,7 +280,7 @@ def publish_version(
 
     # Get project code to grab the project code and add it to the task name
     project_doc = get_project(
-        project_name, fields=["data.code"]
+        project_name, fields=["data.code", "config.tasks"]
     )
     project_code = project_doc["data"]["code"]
 
@@ -292,6 +293,12 @@ def publish_version(
         project_name,
         project_code,
     )
+
+    # Fill instance data with anatomyData
+    anatomy_data = get_template_data(
+        project_doc, asset_doc, task_name
+    )
+    instance_data["anatomyData"] = anatomy_data
 
     # If we are generating a review, create a Deadline Nuke task for
     # the representation that is an image extension
