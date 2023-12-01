@@ -913,7 +913,7 @@ def create_metadata_path(instance, anatomy):
     # over and over
     metadata_filename = "{}_{}_{}_metadata.json".format(
         datetime.datetime.now().strftime("%d%m%Y%H%M%S"),
-        ins_data["asset"],
+        ins_data["anatomyData"]["folder"]["name"],
         ins_data["subset"]
     )
     ### Ends Alkemy-X Override ###

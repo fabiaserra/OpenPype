@@ -42,7 +42,7 @@ def create_metadata_path(instance_data):
 
     metadata_filename = "{}_{}_{}_metadata.json".format(
         datetime.datetime.now().strftime("%d%m%Y%H%M%S"),
-        instance_data["asset"],
+        instance_data["anatomyData"]["folder"]["name"],
         instance_data["subset"]
     )
 
