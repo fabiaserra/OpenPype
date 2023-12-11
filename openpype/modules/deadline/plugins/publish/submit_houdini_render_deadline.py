@@ -38,6 +38,7 @@ class MantraRenderDeadlinePluginInfo():
 @attr.s
 class VrayRenderPluginInfo():
     InputFilename = attr.ib(default=None)
+    SeparateFilesPerFrame = attr.ib(default=True)
 
 
 class HoudiniSubmitDeadline(
@@ -75,38 +76,6 @@ class HoudiniSubmitDeadline(
     export_chunk_size = 10
     group = ""
     export_group = ""
-    department = ""
-    limit_groups = {}
-    env_allowed_keys = []
-    env_search_replace_values = {}
-
-    @classmethod
-    def apply_settings(cls, project_settings, system_settings):
-        settings = project_settings["deadline"]["publish"]["HoudiniSubmitDeadline"]  # noqa
-
-        # Take some defaults from settings
-        cls.use_published = settings.get(
-            "use_published", cls.use_published
-        )
-        cls.priority = settings.get(
-            "priority", cls.priority
-        )
-        cls.export_priority = settings.get(
-            "export_priority", cls.export_priority
-        )
-        cls.chunk_size = settings.get("chunk_size", cls.chunk_size)
-        cls.export_chunk_size = settings.get(
-            "export_chunk_size", cls.export_chunk_size
-        )
-        cls.group = settings.get("group", cls.group)
-        cls.export_group = settings.get("export_group", cls.export_group)
-        cls.department = settings.get("department", cls.department)
-        cls.env_allowed_keys = settings.get(
-            "env_allowed_keys", cls.env_allowed_keys
-        )
-        cls.env_search_replace_values = settings.get(
-            "env_search_replace_values", cls.env_allowed_keys
-        )
 
     @classmethod
     def get_attribute_defs(cls):
@@ -174,7 +143,6 @@ class HoudiniSubmitDeadline(
 
         filepath = context.data["currentFile"]
         filename = os.path.basename(filepath)
-
         job_info.Name = "{} - {}".format(filename, instance.name)
         job_info.BatchName = filename
 
@@ -189,8 +157,6 @@ class HoudiniSubmitDeadline(
             job_info.Priority = attribute_values.get(
                 "priority", self.priority
             )
-
-        job_info.Department = self.department
 
         if is_in_tests():
             job_info.BatchName += datetime.now().strftime("%d%m%Y%H%M%S")
@@ -247,6 +213,7 @@ class HoudiniSubmitDeadline(
 
         environment = dict({key: os.environ[key] for key in keys
                             if key in os.environ}, **legacy_io.Session)
+
         for key in keys:
             value = environment.get(key)
             if value:
@@ -274,8 +241,6 @@ class HoudiniSubmitDeadline(
         instance = self._instance
         context = instance.context
 
-        # Output driver to render
-        driver = hou.node(instance.data["instance_node"])
         hou_major_minor = hou.applicationVersionString().rsplit(".", 1)[0]
 
         # Output driver to render

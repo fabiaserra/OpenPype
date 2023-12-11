@@ -95,12 +95,6 @@ def menu_install():
 
     menu.addSeparator()
 
-    publish_action = menu.addAction("Publish...")
-    publish_action.setIcon(QtGui.QIcon("icons:Output.png"))
-    publish_action.triggered.connect(
-        lambda *args: publish(hiero.ui.mainWindow())
-    )
-
     ### Starts Alkemy-x Override ###
     # Remove create menu action
     # creator_action = menu.addAction("Create...")
@@ -108,7 +102,13 @@ def menu_install():
     # creator_action.triggered.connect(
     #     lambda: host_tools.show_creator(parent=main_window)
     # )
-    ### ENds Alkemy-x Override ###
+    ### Ends Alkemy-x Override ###
+
+    publish_action = menu.addAction("Publish...")
+    publish_action.setIcon(QtGui.QIcon("icons:Output.png"))
+    publish_action.triggered.connect(
+        lambda *args: publish(hiero.ui.mainWindow())
+    )
 
     loader_action = menu.addAction("Load...")
     loader_action.setIcon(QtGui.QIcon("icons:CopyRectangle.png"))
