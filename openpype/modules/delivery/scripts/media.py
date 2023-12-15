@@ -321,10 +321,10 @@ def generate_delivery_media_version(
 
     # Grab frame range from version being delivered
     frame_start_handle = int(
-        version_doc["data"]["frameStart"] - version_doc["data"]["handleStart"]
+        version_doc["data"]["frameStart"] - version_doc["data"].get("handleStart", 0)
     )
     frame_end_handle = int(
-        version_doc["data"]["frameEnd"] + version_doc["data"]["handleEnd"]
+        version_doc["data"]["frameEnd"] + version_doc["data"].get("handleEnd", 0)
     )
     logger.debug("Frame start handle: %s", frame_start_handle)
     logger.debug("Frame end handle: %s", frame_end_handle)
