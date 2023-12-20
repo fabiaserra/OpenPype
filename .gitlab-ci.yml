@@ -193,7 +193,7 @@ deploy-to-deadline:
   image: alpine:latest
   tags:
     - mnt-pipe
-  stage: deploy-deadline
+  stage: build
   script:
     - rsync -avh --chmod=777 --chown=nobody:nogroup $CI_PROJECT_DIR/openpype/modules/deadline/repository/custom/plugins/* /deadline-10-2-1-1//custom/plugins/
   rules:
