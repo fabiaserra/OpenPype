@@ -364,12 +364,16 @@ class ProcessSubmittedJobOnFarm(pyblish.api.InstancePlugin,
                 payload["JobInfo"]["JobDependency{}".format(
                     job_index)] = assembly_id  # noqa: E501
                 job_index += 1
-        elif job.get("_id"):
-            ### Starts Alkemy-X Override ###
-            # Make 'jobs' argument a list so we can pass multiple dependency jobs
-            for index, job in enumerate(jobs):
+        ### Starts Alkemy-X Override ###
+        # Make 'jobs' argument a list so we can pass multiple dependency jobs
+        else:
+            index = 0
+            for job in jobs:
+                if not job.get("_id"):
+                    continue
                 payload["JobInfo"][f"JobDependency{index}"] = job["_id"]
-            ### Ends Alkemy-X Override ###
+                index +=1
+        ### Ends Alkemy-X Override ###
 
         for index, (key_, value_) in enumerate(environment.items()):
             payload["JobInfo"].update(

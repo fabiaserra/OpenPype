@@ -92,13 +92,13 @@ class IntegrateShotgridVersion(pyblish.api.InstancePlugin):
         if path_to_movie:
             self.log.info(
                 "Upload review: {} for version shotgrid {}".format(
-                    local_path, version.get("id")
+                    path_to_movie, version.get("id")
                 )
             )
             self.sg.upload(
                 "Version",
                 version.get("id"),
-                local_path,
+                path_to_movie,
                 field_name="sg_uploaded_movie",
             )
 

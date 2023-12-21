@@ -9,6 +9,7 @@ variables:
 stages:
   - build
   - build-op-container
+  - deploy-deadline
   - deploy
   - release
 
@@ -191,13 +192,16 @@ release-patch:
 deploy-to-deadline:
   image: alpine:latest
   tags:
-    - mnt-pipe
-  stage: deploy
+    - mnt-deadline
+  stage: build
   script:
-    - rsync -avh --chmod=777 --chown=nobody:nogroup $CI_PROJECT_DIR/openpype/modules/deadline/repository/custom/plugins/* /deadline-repo/custom/plugins/
+    - apk add rsync
+    - rsync -avh --chmod=777 --chown=995:776523089 $CI_PROJECT_DIR/openpype/modules/deadline/repository/custom/plugins/* /deadline-10-2-1-1//custom/plugins/
   rules:
     - if: $CI_COMMIT_TAG
       when: never
     - if: $CI_COMMIT_BRANCH == "release/alkemyx"
       changes:
         - openpype/modules/deadline/repository/custom/plugins/**/*
+    - if: $CI_COMMIT_BRANCH == "release/alkemyx-develop"
+      when: manual
