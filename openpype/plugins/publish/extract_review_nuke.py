@@ -88,12 +88,13 @@ class ExtractReviewNuke(publish.Extractor):
         # Nuke review job to the farm
         review_data = {
             "comment": instance.data.get("comment", ""),
-            "batch_name": batch_name
+            "batch_name": batch_name,
         }
 
         # Add source colorspace if it's set on the representation
         if src_colorspace:
             review_data["src_colorspace"] = src_colorspace
+            review_data["out_colorspace"] = "shot_lut"
 
         # Submit job to the farm
         response = review.generate_review(
