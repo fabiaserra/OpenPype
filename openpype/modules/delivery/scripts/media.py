@@ -512,7 +512,7 @@ def generate_delivery_media_version(
             frame_range=(out_frame_start, out_frame_end),
             batch_name=f"Delivery media - {package_path}",
             task_name=task_name,
-            group=dl_constants.NUKE_CPU_GROUP,
+            group=dl_constants.NUKE_CPU_GROUP.format("14", "0"),
             extra_env=output_task_env,
         )
         report_items["Submitted delivery media job to Deadline"].append(
