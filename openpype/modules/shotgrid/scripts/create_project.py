@@ -2,7 +2,7 @@ from openpype import client
 from openpype import AYON_SERVER_ENABLED
 from openpype.lib import Logger
 from openpype.pipeline import project_folders
-from openpype.settings import get_project_settings
+from openpype.settings import get_project_settings, lib
 if AYON_SERVER_ENABLED:
     from ayon_shotgrid.lib import credentials
 else:
@@ -40,6 +40,8 @@ def create_project(project_code):
     # Set SG project id on project settings
     project_settings = get_project_settings(project_name)
     project_settings["shotgrid"]["shotgrid_project_id"] = sg_project["id"]
+    settings_handler = lib.create_settings_handler()
+    settings_handler.save_project_settings(project_name, project_settings)
 
     # Create project folders
     project_folders.create_project_folders(project_name)
