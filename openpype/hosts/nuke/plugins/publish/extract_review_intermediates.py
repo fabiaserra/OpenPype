@@ -45,6 +45,10 @@ class ExtractReviewIntermediates(publish.Extractor):
             cls.outputs = current_setting["outputs"]
 
     def process(self, instance):
+
+        # TODO: quick hack until disabling the plugin works
+        return
+
         families = set(instance.data["families"])
 
         # add main family to make sure all families are compared
