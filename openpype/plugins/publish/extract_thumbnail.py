@@ -51,6 +51,12 @@ class ExtractThumbnail(pyblish.api.InstancePlugin):
     ffmpeg_args = None
 
     def process(self, instance):
+
+        if instance.data.get("farm"):
+            self.log.debug(
+                "Instance is marked to be processed on farm. Skipping")
+            return
+
         # run main process
         self._main_process(instance)
 
@@ -376,7 +382,7 @@ class ExtractThumbnail(pyblish.api.InstancePlugin):
                 display=repre_display or oiio_default_display,
                 view=repre_view or oiio_default_view,
                 target_colorspace=oiio_default_colorspace,
-                additional_command_args=resolution_arg,
+                additional_pre_command_args=resolution_arg,
                 logger=self.log,
             )
         except Exception:
