@@ -718,9 +718,9 @@ class ProcessSubmittedJobOnFarm(pyblish.api.InstancePlugin,
                 self._submit_deadline_post_job(instance, render_jobs, instances)
             ### Ends Alkemy-X Override ###
 
-            # Inject deadline url to instances.
-            for inst in instances:
-                inst["deadlineUrl"] = self.deadline_url
+        # Inject deadline url to instances.
+        for inst in instances:
+            inst["deadlineUrl"] = self.deadline_url
 
         # publish job file
         publish_job = {
@@ -745,15 +745,6 @@ class ProcessSubmittedJobOnFarm(pyblish.api.InstancePlugin,
         audio_file = instance.context.data.get("audioFile")
         if audio_file and os.path.isfile(audio_file):
             publish_job.update({"audio": audio_file})
-
-        # pass Ftrack credentials in case of Muster
-        if submission_type == "muster":
-            ftrack = {
-                "FTRACK_API_USER": os.environ.get("FTRACK_API_USER"),
-                "FTRACK_API_KEY": os.environ.get("FTRACK_API_KEY"),
-                "FTRACK_SERVER": os.environ.get("FTRACK_SERVER"),
-            }
-            publish_job.update({"ftrack": ftrack})
 
         ### Starts Alkemy-X Override ###
         # Create metadata path only as we are adding a timestamp up to the
