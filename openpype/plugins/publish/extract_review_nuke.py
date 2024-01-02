@@ -36,7 +36,7 @@ class ExtractReviewNuke(publish.Extractor):
 
         base_path = None
         output_path = None
-        src_colorspace = None
+        src_colorspace = "scene_linear"
 
         # If there's job dependencies it means there's a prior Deadline task that might be
         # generating files that will be used to generate the review (i.e., transcode frames)
@@ -63,7 +63,7 @@ class ExtractReviewNuke(publish.Extractor):
                 colorspace_data = repre.get("colorspaceData")
                 if colorspace_data:
                     self.log.debug(
-                        "Setting src_colorspace to `%s`", colorspace_data["colorspace"]
+                        "Setting 'src_colorspace' to `%s`", colorspace_data["colorspace"]
                     )
                     src_colorspace = colorspace_data["colorspace"]
 
