@@ -86,6 +86,10 @@ class OutsourceDialog(QtWidgets.QDialog):
         input_group.setExclusive(True)
 
         sg_playlist_id_input = QtWidgets.QComboBox()
+        sg_playlist_id_input.setMaxVisibleItems(30)
+        # NOTE: this is required because the stylesheet otherwise doesn't show
+        # the scrollable combobox
+        sg_playlist_id_input.setStyleSheet("combobox-popup: 0;")
         sg_playlist_id_input.setToolTip("Integer id of the SG Playlist (i.e., '3909')")
         playlist_radio_btn = QtWidgets.QRadioButton("SG Playlist Id")
         playlist_radio_btn.setChecked(True)

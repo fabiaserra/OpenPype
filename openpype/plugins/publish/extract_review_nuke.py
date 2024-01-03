@@ -36,7 +36,7 @@ class ExtractReviewNuke(publish.Extractor):
 
         base_path = None
         output_path = None
-        src_colorspace = None
+        src_colorspace = "scene_linear"
 
         # If there's job dependencies it means there's a prior Deadline task that might be
         # generating files that will be used to generate the review (i.e., transcode frames)
@@ -44,7 +44,7 @@ class ExtractReviewNuke(publish.Extractor):
         if job_dependencies:
             base_path = instance.data["expectedFiles"][0]
             output_path = "{}_h264.mov".format(base_path.split(".", 1)[0])
-            src_colorspace = instance.data["colorspace"]
+            src_colorspace = instance.data.get("colorspace")
         # Otherwise we just iterate from the created representations to generate the review from
         else:
             self.log.info("No Deadline job dependencies, checking instance representations.")
@@ -62,6 +62,9 @@ class ExtractReviewNuke(publish.Extractor):
                 # Get source colorspace from representation
                 colorspace_data = repre.get("colorspaceData")
                 if colorspace_data:
+                    self.log.debug(
+                        "Setting 'src_colorspace' to `%s`", colorspace_data["colorspace"]
+                    )
                     src_colorspace = colorspace_data["colorspace"]
 
                 break
@@ -93,8 +96,21 @@ class ExtractReviewNuke(publish.Extractor):
 
         # Add source colorspace if it's set on the representation
         if src_colorspace:
+            self.log.debug(
+                "src_colorspace set to `%s`", src_colorspace
+            )
             review_data["src_colorspace"] = src_colorspace
-            review_data["out_colorspace"] = "shot_lut"
+        else:
+            self.log.debug(
+                "src_colorspace not set, skipping colorspace info."
+            )
+
+        # TODO: Hard-code out_colorspace to `shot_lut` for now but we will want to
+        # control when we want it applied or not
+        self.log.debug(
+            "out_colorspace set to `shot_lut`"
+        )
+        review_data["out_colorspace"] = "shot_lut"
 
         # Submit job to the farm
         response = review.generate_review(

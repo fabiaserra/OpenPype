@@ -24,7 +24,6 @@ else:
     from openpype.modules.shotgrid.scripts import populate_tasks
 
 
-
 logger = Logger.get_logger(__name__)
 
 
@@ -162,7 +161,7 @@ def validate_version(
         "source": source_path,
         "overrideExistingFrame": False,
         "useSequenceForReview": True,
-        "colorspace": publish_data.get("colorspace"),
+        "colorspace": publish_data.get("src_colorspace", "scene_linear"),
         "version": publish_data.get("version"),
         "outputDir": os.path.dirname(source_path),
     }
@@ -253,7 +252,7 @@ def publish_version(
         "source": source_path,
         "overrideExistingFrame": False,
         "useSequenceForReview": True,
-        "colorspace": publish_data.get("src_colorspace"),
+        "colorspace": publish_data.get("src_colorspace", "scene_linear"),
         "version": publish_data.get("version"),
         "outputDir": os.path.dirname(source_path),
     }
@@ -324,7 +323,7 @@ def publish_version(
             review_data = {
                 "comment": publish_data.get("comment", ""),
                 "batch_name": publish_data.get("jobBatchName") or deadline_task_name,
-                "src_colorspace": publish_data.get("src_colorspace", ""),
+                "src_colorspace": publish_data.get("src_colorspace", "scene_linear"),
                 # We default the output colorspace to out_colorspace if it's not
                 # explicitly set on the publish_data dictionary
                 "out_colorspace": publish_data.get("out_colorspace", out_colorspace)
