@@ -84,6 +84,8 @@ class HoudiniHost(HostBase, IWorkfileHost, ILoadHost, IPublishHost):
         #       opening with last workfile.
         _set_context_settings()
 
+        self.create_first_workfile_version()
+
         if not IS_HEADLESS:
             import hdefereval  # noqa, hdefereval is only available in ui mode
             # Defer generation of shelves due to issue on Windows where shelf
@@ -98,6 +100,31 @@ class HoudiniHost(HostBase, IWorkfileHost, ILoadHost, IPublishHost):
 
     def get_workfile_extensions(self):
         return [".hip", ".hiplc", ".hipnc"]
+
+    def create_first_workfile_version(self):
+        """
+        Create first version of workfile.
+
+        Should load the content of template into scene so
+        'populate_scene_placeholders' can be started.
+
+        Args:
+            template_path (str): Fullpath for current task and
+                host's template file.
+        """
+        last_workfile_path = os.environ.get("AVALON_LAST_WORKFILE")
+        self.log.info("__ last_workfile_path: {}".format(last_workfile_path))
+        if os.path.exists(last_workfile_path):
+            # ignore in case workfile existence
+            self.log.info("Workfile already exists, skipping creation.")
+            return False
+
+        # Create first version
+        self.log.info("Creating first version of workfile.")
+        self.save_workfile(last_workfile_path)
+
+        # Confirm creation of first version
+        return last_workfile_path
 
     def save_workfile(self, dst_path=None):
         # Force forwards slashes to avoid segfault
