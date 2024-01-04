@@ -202,7 +202,9 @@ class TranscodeFrames(publish.Extractor):
                     task_name=task_name,
                     frame_range=(out_frame_start, out_frame_end),
                     department="Editorial",
-                    group=dl_constants.NUKE_CPU_GROUP,
+                    group=dl_constants.NUKE_CPU_GROUP.format(
+                        hiero.core.env["VersionMajor"], hiero.core.env["VersionMinor"]
+                    ),
                     comment=context.data.get("comment", ""),
                     extra_env=extra_env,
                 )

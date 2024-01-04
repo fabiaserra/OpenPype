@@ -93,7 +93,7 @@ def generate_review(
         task_name=task_name,
         frame_range=(frame_start, frame_end),
         department="",
-        group=dl_constants.NUKE_CPU_GROUP,
+        group=dl_constants.NUKE_CPU_GROUP.format("14", "0"),
         comment=review_data.get("comment", ""),
         extra_env=task_env,
     )
