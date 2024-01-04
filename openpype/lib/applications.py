@@ -1925,7 +1925,7 @@ def _prepare_last_workfile(data, workdir, modules_manager):
 
     ### Starts Alkemy-X Override ###
     # If last workfile path is found, don't launch workfile tool
-    if last_workfile_path:
+    if start_last_workfile and last_workfile_path:
         data["env"]["OPENPYPE_WORKFILE_TOOL_ON_START"] = "0"
         log.debug(
             "Last workfile path found so workfile tool won't be launched."
