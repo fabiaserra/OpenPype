@@ -110,11 +110,19 @@ class TranscodeFrames(publish.Extractor):
             hiero.core.env["VersionRelease"].replace("v", "")
         )
 
+        # Check what resolutions we are asking to ingest
+        ingest_resolution = instance.data.get("ingest_resolution")
+
         # By default, we only ingest a single resolution (WR) unless
         # we have an ingest_resolution on the data stating a different
         # resolution
-        ingest_resolution = instance.data.get("ingest_resolution")
-        ingest_resolutions = ["fr", "wr"]
+        ingest_resolutions = ["wr"]
+        width = int(ingest_resolution["width"])
+        height = int(ingest_resolution["height"])
+        fr_width = int(ingest_resolution["fr_width"])
+        fr_height = int(ingest_resolution["fr_height"])
+        if width != fr_width and height != fr_height:
+            ingest_resolutions.append("fr")
 
         # Name to use for batch grouping Deadline tasks
         batch_name = "Ingest - {}".format(
