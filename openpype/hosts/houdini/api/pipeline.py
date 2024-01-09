@@ -75,7 +75,13 @@ class HoudiniHost(HostBase, IWorkfileHost, ILoadHost, IPublishHost):
         #       opening with last workfile.
         _set_context_settings()
 
+        ### Starts Alkemy-X Override ###
+        # For now hard-code the creation of the first workfile version if it
+        # doesn't exist
+        # This should be exposed and controlled through a new
+        # Houdini workfile template builder settings
         self.create_first_workfile_version()
+        ### Ends Alkemy-X Override ###
 
         if not IS_HEADLESS:
             import hdefereval  # noqa, hdefereval is only available in ui mode
@@ -92,6 +98,7 @@ class HoudiniHost(HostBase, IWorkfileHost, ILoadHost, IPublishHost):
     def get_workfile_extensions(self):
         return [".hip", ".hiplc", ".hipnc"]
 
+    ### Starts Alkemy-X Override ###
     def create_first_workfile_version(self):
         """
         Create first version of workfile.
@@ -116,6 +123,7 @@ class HoudiniHost(HostBase, IWorkfileHost, ILoadHost, IPublishHost):
 
         # Confirm creation of first version
         return last_workfile_path
+    ### Ends Alkemy-X Override ###
 
     def save_workfile(self, dst_path=None):
         # Force forwards slashes to avoid segfault

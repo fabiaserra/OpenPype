@@ -409,8 +409,8 @@ class IngestResWidget(QComboBox):
 
         if asset_doc:
             asset_data = asset_doc["data"]
-            width = asset_data.get('resolutionWidth', "")
-            height = asset_data.get('resolutionHeight', "")
+            width = asset_data.get("resolutionWidth", "")
+            height = asset_data.get("resolutionHeight", "")
             if width and height:
 
                 return (width, height)
