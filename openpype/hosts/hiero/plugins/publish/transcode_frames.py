@@ -117,22 +117,27 @@ class TranscodeFrames(publish.Extractor):
         # we have an ingest_resolution on the data stating a different
         # resolution
         ingest_resolutions = ["wr"]
-        width = int(ingest_resolution["width"])
-        height = int(ingest_resolution["height"])
-        fr_width = int(ingest_resolution["fr_width"])
-        fr_height = int(ingest_resolution["fr_height"])
-        if width != fr_width and height != fr_height:
-            self.log.debug(
-                "Working resolution %sx%s differs from full resolution %sx%s, "
-                "ingesting as separate representation 'fr'.",
-                width, height, fr_width, fr_height
-            )
-            ingest_resolutions.append("fr")
+        if ingest_resolution:
+            width = int(ingest_resolution["width"])
+            height = int(ingest_resolution["height"])
+            fr_width = int(ingest_resolution["fr_width"])
+            fr_height = int(ingest_resolution["fr_height"])
+            if width != fr_width and height != fr_height:
+                self.log.debug(
+                    "Working resolution %sx%s differs from full resolution %sx%s, "
+                    "ingesting as separate representation 'fr'.",
+                    width, height, fr_width, fr_height
+                )
+                ingest_resolutions.append("fr")
+            else:
+                self.log.debug(
+                    "Working resolution %sx%s matches full resolution %sx%s, "
+                    "ingesting only a single resolution.",
+                    width, height, fr_width, fr_height
+                )
         else:
-            self.log.debug(
-                "Working resolution %sx%s matches full resolution %sx%s, "
-                "ingesting only a single resolution.",
-                width, height, fr_width, fr_height
+            self.log.warning(
+                "No ingest resolution found, ingesting only working resolution"
             )
 
         # Name to use for batch grouping Deadline tasks
