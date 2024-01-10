@@ -117,12 +117,29 @@ class TranscodeFrames(publish.Extractor):
         # we have an ingest_resolution on the data stating a different
         # resolution
         ingest_resolutions = ["wr"]
-        width = int(ingest_resolution["width"])
-        height = int(ingest_resolution["height"])
-        fr_width = int(ingest_resolution["fr_width"])
-        fr_height = int(ingest_resolution["fr_height"])
-        if width != fr_width and height != fr_height:
-            ingest_resolutions.append("fr")
+        if ingest_resolution:
+            width = int(ingest_resolution["width"])
+            height = int(ingest_resolution["height"])
+            fr_width = int(ingest_resolution["fr_width"])
+            fr_height = int(ingest_resolution["fr_height"])
+            if width != fr_width and height != fr_height:
+                self.log.debug(
+                    "Working resolution %sx%s differs from full resolution %sx%s, "
+                    "ingesting as separate representation 'fr'.",
+                    width, height, fr_width, fr_height
+                )
+                ingest_resolutions.append("fr")
+            else:
+                self.log.debug(
+                    "Working resolution %sx%s matches full resolution %sx%s, "
+                    "ingesting only a single resolution.",
+                    width, height, fr_width, fr_height
+                )
+        else:
+            self.log.error(
+                "No ingest resolution found, please set it"
+            )
+            raise AssertionError("Ingest resolution missing")
 
         # Name to use for batch grouping Deadline tasks
         batch_name = "Ingest - {}".format(
@@ -136,6 +153,7 @@ class TranscodeFrames(publish.Extractor):
             nuke_transcode_script = self.get_show_nuke_transcode_script(resolution)
             if not nuke_transcode_script:
                 nuke_transcode_script = self.default_nuke_transcode_script
+                self.log.debug("Show transcode script not found, using default '%s'", nuke_transcode_script)
 
             representation_name = instance.data["name"]
             if resolution == "fr":
@@ -293,9 +311,6 @@ class TranscodeFrames(publish.Extractor):
                 src_frame_start,
                 src_frame_end
             )
-            self.log.debug(
-                "__ expectedFiles: `{}`".format(instance.data["expectedFiles"])
-            )
 
             submission_jobs.append(response)
 
@@ -316,7 +331,6 @@ class TranscodeFrames(publish.Extractor):
             instance.data["representations"].remove(ext_representations[0])
         else:
             self.log.info("No source ext to remove from representation")
-
 
     def expected_files(
         self,
@@ -358,16 +372,22 @@ class TranscodeFrames(publish.Extractor):
         instance.data["frameEndHandle"] = out_frame_end
 
     def get_show_nuke_transcode_script(self, resolution):
-        ingest_template = ""
+        """Get the template Nuke script to use for ingest the given resolution type."""
+        ingest_template = None
         ingest_template_path = os.path.join(
             os.getenv("AX_PROJ_ROOT"),
             os.getenv("SHOW"),
             "resources",
-            "ingest_template"
+            "ingest_template",
             f"{resolution}*"
+        )
+        self.log.debug(
+            "Looking for show ingest template scripts for '%s' at '%s'",
+            resolution, ingest_template_path
         )
         ingest_templates = sorted(glob.glob(ingest_template_path))
         if ingest_templates:
             ingest_template = ingest_templates[-1]
+            self.log.debug("Found show ingest template script at '%s'", ingest_template)
 
         return ingest_template
