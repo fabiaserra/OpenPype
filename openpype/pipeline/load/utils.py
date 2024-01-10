@@ -170,9 +170,22 @@ def get_contexts_for_repre_docs(project_name, repre_docs):
     project_doc = get_project(project_name)
 
     for repre_id, repre_doc in repre_docs_by_id.items():
-        version_doc = version_docs_by_id[repre_doc["parent"]]
-        subset_doc = subset_docs_by_id[version_doc["parent"]]
-        asset_doc = asset_docs_by_id[subset_doc["parent"]]
+        ### Starts Alkemy-X Override ###
+        # Adding a try/except to account for the case where versions are
+        # deleted (through the "Delete versions" menu of the Loader) but
+        # representations don't... (possible OP bug?) and so when this
+        # tries to recreate the hierarchy of the deleted repres it fails
+        # as the parents don't exist
+        try:
+            version_doc = version_docs_by_id[repre_doc["parent"]]
+            subset_doc = subset_docs_by_id[version_doc["parent"]]
+            asset_doc = asset_docs_by_id[subset_doc["parent"]]
+        except KeyError:
+            log.warning(
+                "Couldn't find parent for representation with id '%s'", repre_id
+            )
+            continue
+        ### Ends Alkemy-X Override ###
         context = {
             "project": {
                 "name": project_doc["name"],
