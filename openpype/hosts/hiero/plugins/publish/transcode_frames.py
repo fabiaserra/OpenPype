@@ -136,9 +136,10 @@ class TranscodeFrames(publish.Extractor):
                     width, height, fr_width, fr_height
                 )
         else:
-            self.log.warning(
-                "No ingest resolution found, ingesting only working resolution"
+            self.log.error(
+                "No ingest resolution found, please set it"
             )
+            raise AssertionError("Ingest resolution missing")
 
         # Name to use for batch grouping Deadline tasks
         batch_name = "Ingest - {}".format(
