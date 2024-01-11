@@ -122,7 +122,8 @@ class ExtractReviewNuke(publish.Extractor):
             output_path,
             frame_start,
             frame_end,
-            review_data
+            review_data,
+            job_dependencies
         )
 
         # Adding the review file that will be generated to expected files
