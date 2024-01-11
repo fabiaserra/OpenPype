@@ -26,7 +26,8 @@ def generate_review(
     output_path,
     frame_start,
     frame_end,
-    review_data
+    review_data,
+    job_dependencies=None
 ):
     output_dir, output_filename = os.path.split(output_path)
 
@@ -96,6 +97,7 @@ def generate_review(
         group=dl_constants.NUKE_CPU_GROUP.format("14", "0"),
         comment=review_data.get("comment", ""),
         extra_env=task_env,
+        job_dependencies=job_dependencies
     )
 
     return response
