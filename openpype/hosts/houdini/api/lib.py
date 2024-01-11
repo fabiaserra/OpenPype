@@ -12,7 +12,7 @@ import six
 
 from openpype.lib import StringTemplate, env_value_to_bool
 
-from openpype.client import get_asset_by_name
+from openpype.client import get_project, get_asset_by_name
 from openpype.widgets import popup
 from openpype.tools.utils import host_tools
 from openpype.settings import get_current_project_settings
