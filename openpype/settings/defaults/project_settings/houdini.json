@@ -45,12 +45,6 @@
                 "UCX"
             ]
         },
-        "CreateArnoldRop": {
-            "enabled": true,
-            "default_variants": [
-                "Main"
-            ]
-        },
         "CreateAlembicCamera": {
             "enabled": true,
             "default_variants": [
@@ -76,12 +70,6 @@
             ]
         },
         "CreateRemotePublish": {
-            "enabled": true,
-            "default_variants": [
-                "Main"
-            ]
-        },
-        "CreateReview": {
             "enabled": true,
             "default_variants": [
                 "Main"
