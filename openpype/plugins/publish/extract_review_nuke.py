@@ -82,8 +82,12 @@ class ExtractReviewNuke(publish.Extractor):
             os.path.basename(context.data.get("currentFile")))[0]
 
         # Grab frame start/end
-        frame_start = instance.data["frameStart"]
-        frame_end = instance.data["frameEnd"]
+        if "srcFrameRange" in instance.data:
+            self.log.debug("Grabbed frame range from source media")
+            frame_start, frame_end = instance.data["srcFrameRange"]
+        else:
+            frame_start = instance.data["frameStart"]
+            frame_end = instance.data["frameEnd"]
 
         self.log.debug("Output path: %s", output_path)
 
