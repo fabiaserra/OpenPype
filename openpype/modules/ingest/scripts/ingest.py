@@ -17,13 +17,15 @@ TRACK_2D_TASK = "2dtrack"
 TRACK_3D_TASK = "3dtrack"
 COMP_TASK = "comp"
 EDIT_TASK = "edit"
+GENERIC_TASK = "generic"
 OUTSOURCE_TASKS = [
     ROTO_TASK,
     PAINT_TASK,
     COMP_TASK,
     TRACK_2D_TASK,
     TRACK_3D_TASK,
-    EDIT_TASK
+    EDIT_TASK,
+    GENERIC_TASK,
 ]
 
 # Dictionary that maps the extension name to the representation name
@@ -89,19 +91,19 @@ TASKS_RE = "|".join(OUTSOURCE_TASKS)
 STRICT_FILENAME_RE_STR = (
     r"^(?P<shot_code>({{shot_codes}}))_"
     r"(?P<subset>[a-zA-Z0-9_]+)_"
-    r"(?P<task>({}))_"
+    fr"(?P<task>({TASKS_RE}))?_?"
     r"(?P<variant>[a-zA-Z0-9_\-]*_)?"
     r"(?P<delivery_version>v\d+)"
     r"(?P<frame>\.(\*|%0?\d*d)+)?"
     r"(?P<extension>\.[a-zA-Z]+)$"
-).format(TASKS_RE)
+)
 
 # Less greedy regular expression that matches the generic file name format that we
 # expect from the vendor
 GENERIC_FILENAME_RE = re.compile(
     r"^(?P<shot_code>[a-zA-Z0-9]+_[a-zA-Z0-9]+_\d+)_"
     r"(?P<subset>[a-zA-Z0-9_]+)_"
-    r"(?P<task>[a-zA-Z0-9]+)_"
+    fr"(?P<task>({TASKS_RE}))?_?"
     r"(?P<variant>[a-zA-Z0-9_\-]*_)?"
     r"(?P<delivery_version>v\d+)"
     r"(?P<frame>\.(\*|%0?\d*d)+)?"
@@ -320,15 +322,15 @@ def get_products_from_filepath(package_path, project_name, project_code):
         asset_doc["name"] for asset_doc in get_assets(project_name, fields=["name"])
     ]
     assets_re = "|".join(asset_names)
+    # Remove asset names that don't contain underscores as those are very short and easy
+    # to get false positives
+    asset_names = [asset_name for asset_name in asset_names if "_" in asset_name]
+
     strict_regex_str = STRICT_FILENAME_RE_STR.format(shot_codes=assets_re)
     strict_regex = re.compile(
         strict_regex_str, re.IGNORECASE
     )
     logger.debug("Strict regular expression: %s", strict_regex_str)
-
-    # Remove asset names that don't contain underscores as those are very short and easy
-    # to get false positives
-    asset_names = [asset_name for asset_name in asset_names if "_" in asset_name]
 
     # Recursively find all paths on folder and check if it's a product we can ingest
     products = {}
