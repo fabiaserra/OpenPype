@@ -119,8 +119,8 @@ def get_project(project_name, active=True, inactive=True, fields=None):
 
     # Add filter to keep only active
     elif active:
-        query_filter["$or"] = [
-            {"data.active": {"$exists": False}},
+        query_filter["$and"] = [
+            {"data.active": {"$exists": True}},
             {"data.active": True},
         ]
 
