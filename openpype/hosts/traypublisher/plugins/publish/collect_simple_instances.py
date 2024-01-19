@@ -4,7 +4,6 @@ from pathlib import Path
 
 import clique
 import pyblish.api
-from openpype.pipeline import legacy_io
 
 
 class CollectSettingsSimpleInstances(pyblish.api.InstancePlugin):
