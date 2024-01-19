@@ -17,13 +17,15 @@ TRACK_2D_TASK = "2dtrack"
 TRACK_3D_TASK = "3dtrack"
 COMP_TASK = "comp"
 EDIT_TASK = "edit"
+GENERIC_TASK = "generic"
 OUTSOURCE_TASKS = [
     ROTO_TASK,
     PAINT_TASK,
     COMP_TASK,
     TRACK_2D_TASK,
     TRACK_3D_TASK,
-    EDIT_TASK
+    EDIT_TASK,
+    GENERIC_TASK,
 ]
 
 # Dictionary that maps the extension name to the representation name
@@ -89,10 +91,10 @@ TASKS_RE = "|".join(OUTSOURCE_TASKS)
 STRICT_FILENAME_RE_STR = (
     r"^(?P<shot_code>({{shot_codes}}))_"
     r"(?P<subset>[a-zA-Z0-9_]+)_"
-    r"(?P<task>({}))_"
+    r"(?P<task>({}))?_?"
     r"(?P<variant>[a-zA-Z0-9_\-]*_)?"
     r"(?P<delivery_version>v\d+)"
-    r"(?P<frame>\.(\*|%0?\d*d)+)?"
+    r"(?:\.(?P<frame>%0?\d*d|\d+))?"
     r"(?P<extension>\.[a-zA-Z]+)$"
 ).format(TASKS_RE)
 
@@ -101,10 +103,10 @@ STRICT_FILENAME_RE_STR = (
 GENERIC_FILENAME_RE = re.compile(
     r"^(?P<shot_code>[a-zA-Z0-9]+_[a-zA-Z0-9]+_\d+)_"
     r"(?P<subset>[a-zA-Z0-9_]+)_"
-    r"(?P<task>[a-zA-Z0-9]+)_"
+    fr"(?P<task>({TASKS_RE}))?_?"
     r"(?P<variant>[a-zA-Z0-9_\-]*_)?"
     r"(?P<delivery_version>v\d+)"
-    r"(?P<frame>\.(\*|%0?\d*d)+)?"
+    r"(?:\.(?P<frame>%0?\d*d|\d+))?"
     r"(?P<extension>\.[a-zA-Z]+)$",
     re.IGNORECASE
 )
@@ -116,8 +118,20 @@ FALLBACK_FILENAME_RE = re.compile(
     r"(?P<subset>\w+)_"
     r"(?P<delivery_version>v\d+)"
     r"_?(?P<suffix>[a-zA-Z0-9_\-]*)"
-    r"(?P<frame>\.(\*|%0?\d*d)+)?"
+    r"(?:\.(?P<frame>%0?\d*d|\d+))?"
     r"(?P<extension>\.[a-zA-Z]+)$",
+    re.IGNORECASE
+)
+
+# Words to remove from subset if they exist
+SUBSET_NAMES_TO_IGNORE = {
+    "camerafbx",
+    "cameraabc",
+    "geoabc",
+    "geofbx",
+}
+SUBSET_NAMES_TO_IGNORE_RE = re.compile(
+    f"_?({'|'.join(re.escape(word) for word in SUBSET_NAMES_TO_IGNORE)})_?",
     re.IGNORECASE
 )
 
@@ -309,9 +323,9 @@ def get_products_from_filepath(package_path, project_name, project_code):
         """Split camel case name into words separated by underscores"""
         result = ""
         for i, c in enumerate(name):
-            # If letter is capital and it's not after a "_"
-            # we add a lowercase
-            if i > 0 and c.isupper() and name[i-1] != "_":
+            # If letter is capital, it's not after a "_", and the previous character is
+            # not uppercase we add a lowercase
+            if i > 0 and c.isupper() and name[i-1] != "_" and not name[i-1].isupper():
                 result += "_"
             result += c.lower()
         return result
@@ -319,16 +333,15 @@ def get_products_from_filepath(package_path, project_name, project_code):
     asset_names = [
         asset_doc["name"] for asset_doc in get_assets(project_name, fields=["name"])
     ]
+    # Remove asset names that don't contain underscores as those are very short and easy
+    # to get false positives
+    asset_names = [asset_name for asset_name in asset_names if "_" in asset_name]
     assets_re = "|".join(asset_names)
     strict_regex_str = STRICT_FILENAME_RE_STR.format(shot_codes=assets_re)
     strict_regex = re.compile(
         strict_regex_str, re.IGNORECASE
     )
     logger.debug("Strict regular expression: %s", strict_regex_str)
-
-    # Remove asset names that don't contain underscores as those are very short and easy
-    # to get false positives
-    asset_names = [asset_name for asset_name in asset_names if "_" in asset_name]
 
     # Recursively find all paths on folder and check if it's a product we can ingest
     products = {}
@@ -458,6 +471,8 @@ def get_product_from_filepath(
                     subset_name = fallback_re.group("subset")
                     delivery_version = fallback_re.group("delivery_version")
                     extension = fallback_re.group("extension")
+                else:
+                    logger.debug("Fallback filename regex didn't match")
 
             if not task_name:
                 task_name = TASK_NAME_FALLBACK
@@ -551,6 +566,14 @@ def get_product_from_filepath(
             OUTSOURCE_TASKS
         )
         publish_data["task_name"] = None
+
+    # Remove tokens that can be ignored from subset name
+    if publish_data["subset_name"]:
+        publish_data["subset_name"], count = SUBSET_NAMES_TO_IGNORE_RE.subn(
+            "", publish_data["subset_name"]
+        )
+        if count:
+            logger.debug("Removed some common tokens from subset we can ignore")
 
     # Add variant name to subset name if we have one
     if publish_data["variant_name"] and publish_data["subset_name"]:
