@@ -336,8 +336,7 @@
                 "setdress",
                 "layout",
                 "mayaScene"
-            ],
-            "template_name_profiles": []
+            ]
         },
         "CleanUp": {
             "enabled": true,
