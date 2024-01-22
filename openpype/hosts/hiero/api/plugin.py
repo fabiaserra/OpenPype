@@ -8,11 +8,12 @@ import hiero
 from qtpy import QtWidgets, QtCore
 import qargparse
 
+from openpype import AYON_SERVER_ENABLED
 from openpype.settings import get_current_project_settings
 from openpype.lib import Logger
 from openpype.client import get_asset_by_name
 from openpype.pipeline import LoaderPlugin, LegacyCreator
-from openpype.pipeline.context_tools import get_current_project_asset, get_current_project_name
+from openpype.pipeline.context_tools import get_current_project_name
 from openpype.pipeline.load import get_representation_path_from_context
 from . import lib
 
@@ -662,7 +663,9 @@ class PublishClip:
 
     # default templates for non-ui use
     rename_default = False
-    hierarchy_default = "{_folder_}/{_sequence_}/{_track_}"
+    hierarchy_default = "{_sequence_}/{_track_}"
+    if not AYON_SERVER_ENABLED:
+        hierarchy_default = "{_folder_}/{_sequence_}/{_track_}"
     clip_name_default = "shot_{_trackIndex_:0>3}_{_clipIndex_:0>4}"
     subset_name_default = "<track_name>"
     review_track_default = "< none >"
@@ -798,16 +801,22 @@ class PublishClip:
         episode = ""
         sequence = ""
         parents = self.get_asset_parents()
-        # Parents will always start with shots or assets
-        folder = parents[0]
         shot = self.ti_name
-        if folder == "shots":
-            if len(parents) > 1:
+        # Parents will always start with shots or assets (in OpenPype)
+        if not AYON_SERVER_ENABLED:
+            folder = parents[0]
+            if folder == "shots":
+                if len(parents) > 1:
+                    sequence = parents[-1]
+                if len(parents) > 2:
+                    episode = parents[-2]
+        # Otherwise if we are using Ayon the parent should already be the
+        # sequence and episode
+        else:
+            if parents:
                 sequence = parents[-1]
-            if len(parents) > 2:
-                episode = parents[-2]
-            if len(parents) == 4:
-                season = parents[-3]
+            if len(parents) > 1:
+                episode = parents[0]
 
         self.shot_path_tokens = {"folder": folder, "episode": episode, "sequence": sequence, "shot": shot}
         for key in self.shot_path_tokens:
@@ -816,14 +825,26 @@ class PublishClip:
     def solve_path_token_hierarchy(self):
         """Override self.hierarchy with new inferred path tokens."""
         # Don't change ui_inputs - this is needed for next iterations
-        if self.shot_path_tokens.get("season"):
-            new_subpath = "{folder}/{season}/{episode}/{sequence}"
-        elif self.shot_path_tokens.get("episode"):
-            new_subpath = "{folder}/{episode}/{sequence}"
-        elif self.shot_path_tokens.get("sequence"):
-            new_subpath = "{folder}/{sequence}"
+
+        # If we are using Ayon, ignore {folder} as it's no longer used
+        if AYON_SERVER_ENABLED:
+            if self.shot_path_tokens.get("season"):
+                new_subpath = "{season}/{episode}/{sequence}"
+            elif self.shot_path_tokens.get("episode"):
+                new_subpath = "{episode}/{sequence}"
+            elif self.shot_path_tokens.get("sequence"):
+                new_subpath = "{sequence}"
+            else:
+                new_subpath = ""
         else:
-            new_subpath = "{folder}"
+            if self.shot_path_tokens.get("season"):
+                new_subpath = "{folder}/{season}/{episode}/{sequence}"
+            elif self.shot_path_tokens.get("episode"):
+                new_subpath = "{folder}/{episode}/{sequence}"
+            elif self.shot_path_tokens.get("sequence"):
+                new_subpath = "{folder}/{sequence}"
+            else:
+                new_subpath = "{folder}"
 
         self.hierarchy = self.hierarchy.replace("{path}", new_subpath)
     ### Ends Alkemy-X Override ###

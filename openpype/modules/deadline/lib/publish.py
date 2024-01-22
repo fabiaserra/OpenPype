@@ -415,20 +415,20 @@ def publish_version(
         "AVALON_TASK": task_name,
         "OPENPYPE_USERNAME": username,
         "AVALON_WORKDIR": os.path.dirname(source_path),
-        "OPENPYPE_PUBLISH_JOB": "1",
-        "OPENPYPE_RENDER_JOB": "0",
-        "OPENPYPE_REMOTE_JOB": "0",
+        "AYON_SG_USER" if AYON_SERVER_ENABLED else "OPENPYPE_SG_USER": username,
+        "AYON_PUBLISH_JOB" if AYON_SERVER_ENABLED else "OPENPYPE_PUBLISH_JOB": "1",
+        "AYON_RENDER_JOB" if AYON_SERVER_ENABLED else "OPENPYPE_RENDER_JOB":  "0",
+        "AYON_REMOTE_JOB" if AYON_SERVER_ENABLED else "OPENPYPE_REMOTE_JOB":  "0",
         "OPENPYPE_LOG_NO_COLORS": "1",
-        "OPENPYPE_SG_USER": username,
     }
 
     logger.debug("Submitting payload...")
     response = submit.payload_submit(
-        plugin="OpenPype",
+        plugin="Ayon" if AYON_SERVER_ENABLED else "OpenPype",
         plugin_data=plugin_data,
         batch_name=publish_data.get("jobBatchName") or deadline_task_name,
         task_name=deadline_task_name,
-        group=dl_constants.OP_GROUP,
+        group=dl_constants.AYON_GROUP if AYON_SERVER_ENABLED else dl_constants.OP_GROUP,
         extra_env=extra_env,
         job_dependencies=job_submissions
     )
