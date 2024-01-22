@@ -396,8 +396,12 @@ def generate_delivery_media_version(
         "AVALON_PROJECT": project_name,
         "AVALON_APP": "nuke",
         "AVALON_APP_NAME": "nuke/14-03",
-        "OPENPYPE_RENDER_JOB": "1",
+        "AYON_RENDER_JOB" if AYON_SERVER_ENABLED else "OPENPYPE_RENDER_JOB":  "1",
     }
+    # Also add bundle name to submission
+    if AYON_SERVER_ENABLED:
+        task_env["AYON_BUNDLE_NAME"] = os.getenv("AYON_BUNDLE_NAME")
+
     if thumbnail_repre_doc:
         task_env["_AX_DELIVERY_THUMBNAIL_PATH"] = thumbnail_repre_doc["data"]["path"]
 

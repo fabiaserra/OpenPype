@@ -13,6 +13,7 @@ import getpass
 import os
 import requests
 
+from openpype import AYON_SERVER_ENABLED
 from openpype.lib import Logger, is_running_from_build
 from openpype.pipeline import Anatomy
 from openpype.pipeline.colorspace import get_imageio_config
@@ -309,15 +310,19 @@ def submit_deadline_post_job(
         "AVALON_ASSET": instance_data["asset"],
         "AVALON_TASK": instance_data["task"],
         "OPENPYPE_USERNAME": username,
-        "OPENPYPE_PUBLISH_JOB": "1",
-        "OPENPYPE_RENDER_JOB": "0",
-        "OPENPYPE_REMOTE_JOB": "0",
+        "AYON_SG_USER" if AYON_SERVER_ENABLED else "OPENPYPE_SG_USER": username,
+        "AYON_PUBLISH_JOB" if AYON_SERVER_ENABLED else "OPENPYPE_PUBLISH_JOB": "1",
+        "AYON_RENDER_JOB" if AYON_SERVER_ENABLED else "OPENPYPE_RENDER_JOB":  "0",
+        "AYON_REMOTE_JOB" if AYON_SERVER_ENABLED else "OPENPYPE_REMOTE_JOB":  "0",
         "OPENPYPE_LOG_NO_COLORS": "1",
-        "OPENPYPE_SG_USER": username,
     }
 
+    # Also add bundle name to submission
+    if AYON_SERVER_ENABLED:
+        environment["AYON_BUNDLE_NAME"] = os.getenv("AYON_BUNDLE_NAME")
+
     # Add OpenPype version if we are running from build.
-    if is_running_from_build():
+    elif is_running_from_build():
         environment["OPENPYPE_VERSION"] = os.getenv("OPENPYPE_VERSION")
 
     args = [

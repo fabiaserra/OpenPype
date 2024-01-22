@@ -421,6 +421,9 @@ def publish_version(
         "AYON_REMOTE_JOB" if AYON_SERVER_ENABLED else "OPENPYPE_REMOTE_JOB":  "0",
         "OPENPYPE_LOG_NO_COLORS": "1",
     }
+    # Also add bundle name to submission
+    if AYON_SERVER_ENABLED:
+        extra_env["AYON_BUNDLE_NAME"] = os.getenv("AYON_BUNDLE_NAME")
 
     logger.debug("Submitting payload...")
     response = submit.payload_submit(
