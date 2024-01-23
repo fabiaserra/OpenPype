@@ -96,7 +96,8 @@ class NukeRenderLocal(publish.Extractor,
                 'name': ext,
                 'ext': ext,
                 'files': filenames[0],
-                "stagingDir": out_dir
+                "stagingDir": out_dir,
+                "tags": ["shotgridreview", "review"],
             }
         else:
             repre = {
