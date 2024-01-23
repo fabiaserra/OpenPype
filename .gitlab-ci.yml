@@ -9,7 +9,7 @@ variables:
 stages:
   - build
   - build-op-container
-  - deploy-deadline
+  - deploy-to-deadline
   - deploy
   - release
 
