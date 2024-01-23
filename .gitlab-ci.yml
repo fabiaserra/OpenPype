@@ -193,7 +193,7 @@ deploy-to-deadline:
   image: alpine:latest
   tags:
     - mnt-deadline
-  stage: build
+  stage: deploy-to-deadline
   script:
     - apk add rsync
     - rsync -avh --chmod=777 --chown=995:776523089 $CI_PROJECT_DIR/openpype/modules/deadline/repository/custom/plugins/* /deadline-10-2-1-1//custom/plugins/
