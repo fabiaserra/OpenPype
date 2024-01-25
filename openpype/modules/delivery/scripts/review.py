@@ -47,6 +47,14 @@ def generate_review(
             nuke_review_script
         )
 
+    # Check if Review was submitted from Nuke host so we use the same
+    # version of Nuke as the submission
+    host_is_nuke = "nuke" in os.getenv("AVALON_APP_NAME")
+    nuke_version = "15.0"
+    if host_is_nuke:
+        app_name = os.getenv("AVALON_APP_NAME")
+        nuke_version = app_name.rsplit("/")[-1].replace("-", ".")
+
     # Add environment variables required to run Nuke script
     task_env = {
         "_AX_REVIEW_NUKESCRIPT": nuke_review_script,
@@ -66,7 +74,7 @@ def generate_review(
         "AVALON_ASSET": asset_name,
         "AVALON_PROJECT": project_name,
         "AVALON_APP": "nuke",
-        "AVALON_APP_NAME": "nuke/14-03",
+        "AVALON_APP_NAME": "nuke/15-03" if "nuke" not in os.getenv("AVALON_APP_NAME") else os.getenv("AVALON_APP_NAME"),
         "AYON_RENDER_JOB" if AYON_SERVER_ENABLED else "OPENPYPE_RENDER_JOB":  "1",
     }
     # Also add bundle name to submission
@@ -78,7 +86,7 @@ def generate_review(
         "ScriptJob": True,
         "SceneFile": NUKE_REVIEW_PY,
         "ScriptFilename": NUKE_REVIEW_PY,
-        "Version": "14.0",
+        "Version": nuke_version,
         "UseGpu": False,
         "OutputFilePath": output_dir,
     }
