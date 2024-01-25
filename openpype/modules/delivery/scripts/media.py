@@ -395,7 +395,7 @@ def generate_delivery_media_version(
         "AVALON_TASK": anatomy_data["task"]["name"],
         "AVALON_PROJECT": project_name,
         "AVALON_APP": "nuke",
-        "AVALON_APP_NAME": "nuke/14-03",
+        "AVALON_APP_NAME": "nuke/15-03",
         "AYON_RENDER_JOB" if AYON_SERVER_ENABLED else "OPENPYPE_RENDER_JOB":  "1",
     }
     # Also add bundle name to submission
@@ -502,7 +502,7 @@ def generate_delivery_media_version(
             "ScriptFilename": NUKE_DELIVERY_PY_DEFAULT,
             # the Version entry is kind of irrelevant as our Deadline workers only
             # contain a single DCC version at the time of writing this
-            "Version": "14.0",
+            "Version": "15.0",
             "UseGpu": False,
             "OutputFilePath": dest_path,
         }
@@ -520,7 +520,7 @@ def generate_delivery_media_version(
             frame_range=(out_frame_start, out_frame_end),
             batch_name=f"Delivery media - {package_path}",
             task_name=task_name,
-            group=dl_constants.NUKE_CPU_GROUP.format("14", "0"),
+            group=dl_constants.NUKE_CPU_GROUP.format("15", "0"),
             extra_env=output_task_env,
         )
         report_items["Submitted delivery media job to Deadline"].append(
