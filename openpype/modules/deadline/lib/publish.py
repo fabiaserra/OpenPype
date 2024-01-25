@@ -46,8 +46,7 @@ IGNORE_LUT_FAMILIES = {
 }
 
 TASKS_TO_IGNORE_REVIEW = {
-    "3dtrack",
-    "roto",
+    "3dtrack"
 }
 
 

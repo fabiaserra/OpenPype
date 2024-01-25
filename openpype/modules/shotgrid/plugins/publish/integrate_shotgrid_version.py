@@ -109,8 +109,8 @@ class IntegrateShotgridVersion(pyblish.api.InstancePlugin):
         ### Starts Alkemy-X Override ###
         frame_start = instance.data.get("frameStart", context.data.get("frameStart"))
         frame_end = instance.data.get("frameEnd", context.data.get("frameEnd"))
-        handle_start = instance.data.get("handleStart", context.data.get("handleStart"))
-        handle_end = instance.data.get("handleEnd", context.data.get("handleEnd"))
+        handle_start = instance.data.get("handleStart", 0)
+        handle_end = instance.data.get("handleEnd", 0)
         if frame_start != None and handle_start != None:
             frame_start = int(frame_start)
             handle_start = int(handle_start)
