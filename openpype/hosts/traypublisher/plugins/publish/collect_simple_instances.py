@@ -4,7 +4,6 @@ from pathlib import Path
 
 import clique
 import pyblish.api
-from openpype.pipeline import legacy_io
 
 
 class CollectSettingsSimpleInstances(pyblish.api.InstancePlugin):
@@ -132,6 +131,10 @@ class CollectSettingsSimpleInstances(pyblish.api.InstancePlugin):
                 instance.data["task"],
             )
             self.log.info("Farm rendering ON ...")
+        else:
+            # Add local_publish custom tag so we can use for output filtering
+            for representation in instance.data["representations"]:
+                representation["custom_tags"] = ["local_publish"]
 
     def _fill_version(self, instance, instance_label):
         """Fill instance version under which will be instance integrated.
