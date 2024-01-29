@@ -27,7 +27,8 @@ class AddLastWorkfileToLaunchArgs(PreLaunchHook):
         "tvpaint",
         "substancepainter",
         "aftereffects",
-        "wrap"
+        "wrap",
+        "mrv2"
     }
     launch_types = {LaunchTypes.local}
 
