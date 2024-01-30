@@ -161,7 +161,46 @@ class SidePanelWidget(QtWidgets.QWidget):
                 "<b>User:</b>",
                 username,
             )
+
+        dcc_version = self.get_dcc_version(filepath)
+        if dcc_version:
+            lines += (
+                "<b>DCC:</b>",
+                dcc_version,
+            )
+
         self._details_input.appendHtml("<br>".join(lines))
+
+    def get_nuke_version_from_file(filepath):
+        with open(filepath, "r") as file:
+            # First line is just the shebang i.e. "#! /sw/nuke/14.0v3/libnuke-14.0.3.so -nx"
+            file.readline().strip()
+            # Second line includes the version 14.0 v3 ("version 14.0 v3")
+            version_line = file.readline().strip()
+            prefix = "version "
+            if version_line.startswith(prefix):
+                return version_line[len(prefix):]
+
+        return "<version not found>"
+
+    def get_houdini_version_from_file(filepath):
+        with open(filepath, "r") as file:
+            file_content = file.readlines()
+
+        for line in file_content:
+            # Find the line that contains the HIP version
+            # i.e. "set -g _HIP_SAVEVERSION = '19.5.640'"
+            prefix = "set -g _HIP_SAVEVERSION = "
+            if line.startswith(prefix):
+                return line[len(prefix):].replace("'", "")
+
+        return "<version not found>"
+
+    def get_dcc_version(self, filepath):
+        if filepath.endswith(".nk"):
+            return f"Nuke {self.get_nuke_version_from_file(filepath)}"
+        elif filepath.endswith(".hip"):
+            return f"Houdini {self.get_houdini_version_from_file(filepath)}"
 
     def get_workfile_data(self):
         data = {
