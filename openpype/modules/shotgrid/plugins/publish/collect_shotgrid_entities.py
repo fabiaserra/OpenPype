@@ -54,24 +54,6 @@ class CollectShotgridEntities(pyblish.api.InstancePlugin):
                 "Collected corresponding shotgrid entity : {}".format(sg_entity)
             )
 
-        ### Starts Alkemy-X Override ###
-        # Collect relevant data for review/delivery purposes
-        hierarchy_overrides = delivery.get_entity_hierarchy_overrides(
-            context.data.get("shotgridSession"),
-            instance.data["shotgridEntity"]["id"],
-            instance.data["shotgridEntity"]["type"],
-            delivery_types=["review", "final"],
-            query_extra_delivery_fields=True,
-            query_delivery_names=True,
-            query_ffmpeg_args=True,
-            query_slate_fields=True,
-        )
-        self.log.debug(
-            "Collected SG hierarchy overrides : {}".format(hierarchy_overrides)
-        )
-        context.data["shotgridOverrides"] = hierarchy_overrides
-        ### Ends Alkemy-X Override ###
-
 
 def _get_shotgrid_collection(project):
     client = OpenPypeMongoConnection.get_mongo_client()
