@@ -171,7 +171,7 @@ class SidePanelWidget(QtWidgets.QWidget):
 
         self._details_input.appendHtml("<br>".join(lines))
 
-    def get_nuke_version_from_file(filepath):
+    def get_nuke_version_from_file(self, filepath):
         with open(filepath, "r") as file:
             # First line is just the shebang i.e. "#! /sw/nuke/14.0v3/libnuke-14.0.3.so -nx"
             file.readline().strip()
@@ -183,7 +183,7 @@ class SidePanelWidget(QtWidgets.QWidget):
 
         return "<version not found>"
 
-    def get_houdini_version_from_file(filepath):
+    def get_houdini_version_from_file(self, filepath):
         with open(filepath, "r") as file:
             file_content = file.readlines()
 
