@@ -109,9 +109,6 @@ class CollectSettingsSimpleInstances(pyblish.api.InstancePlugin):
             instance.data["toBeRenderedOn"] = "deadline"
             instance.data["transfer"] = False
             instance.data["farm"] = True # to skip integrate
-            if "review" in instance.data["families"]:
-                # to skip ExtractReview locally
-                instance.data["families"].remove("review")
 
             if "expectedFiles" not in instance.data:
                 instance.data["expectedFiles"] = list()
