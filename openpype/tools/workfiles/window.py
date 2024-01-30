@@ -173,13 +173,14 @@ class SidePanelWidget(QtWidgets.QWidget):
 
     def get_nuke_version_from_file(self, filepath):
         with open(filepath, "r") as file:
-            # First line is just the shebang i.e. "#! /sw/nuke/14.0v3/libnuke-14.0.3.so -nx"
-            file.readline().strip()
-            # Second line includes the version 14.0 v3 ("version 14.0 v3")
-            version_line = file.readline().strip()
-            prefix = "version "
-            if version_line.startswith(prefix):
-                return version_line[len(prefix):]
+            file_content = file.readlines()
+
+        # Find the line that includes the version
+        # i.e "version 14.0 v3")
+        prefix = "version "
+        for line in file_content:
+            if line.startswith(prefix):
+                return line[len(prefix):]
 
         return "<version not found>"
 
@@ -187,10 +188,10 @@ class SidePanelWidget(QtWidgets.QWidget):
         with open(filepath, "r") as file:
             file_content = file.readlines()
 
+        # Find the line that contains the HIP version
+        # i.e. "set -g _HIP_SAVEVERSION = '19.5.640'"
+        prefix = "set -g _HIP_SAVEVERSION = "
         for line in file_content:
-            # Find the line that contains the HIP version
-            # i.e. "set -g _HIP_SAVEVERSION = '19.5.640'"
-            prefix = "set -g _HIP_SAVEVERSION = "
             if line.startswith(prefix):
                 return line[len(prefix):].replace("'", "")
 
