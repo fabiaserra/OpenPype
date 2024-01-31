@@ -185,7 +185,7 @@ class SidePanelWidget(QtWidgets.QWidget):
         return "<version not found>"
 
     def get_houdini_version_from_file(self, filepath):
-        with open(filepath, "r") as file:
+        with open(filepath, "rb") as file:
             file_content = file.readlines()
 
         # Find the line that contains the HIP version
