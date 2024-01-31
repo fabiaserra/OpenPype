@@ -40,10 +40,11 @@ def create_metadata_path(instance_data):
         # directory is not available
         logger.warning("Path is unreachable: `{}`".format(output_dir))
 
-    metadata_filename = "{}_{}_{}_metadata.json".format(
+    metadata_filename = "{}_{}_{}_{}_metadata.json".format(
         datetime.datetime.now().strftime("%d%m%Y%H%M%S"),
-        instance_data["asset"],
-        instance_data["subset"]
+        instance_data["anatomyData"]["folder"]["name"],
+        instance_data["subset"],
+        instance_data["family"],
     )
 
     return os.path.join(output_dir, metadata_filename)
