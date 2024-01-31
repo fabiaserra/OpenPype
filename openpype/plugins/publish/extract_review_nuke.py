@@ -3,7 +3,9 @@ import pyblish.api
 
 from openpype.pipeline import publish
 from openpype.modules.delivery.scripts import utils, review
-
+from openpype.lib.transcoding import (
+    VIDEO_EXTENSIONS
+)
 
 class ExtractReviewNuke(publish.Extractor):
     """Generate review media through a Nuke deadline task"""
@@ -24,6 +26,19 @@ class ExtractReviewNuke(publish.Extractor):
                 "Extract review in Nuke only works when publishing in the farm."
             )
             return
+
+        # Skip review generation if there's already a video representation
+        for repre in instance.data["representations"]:
+            input_ext = repre["ext"]
+            if input_ext.startswith("."):
+                input_ext = input_ext[1:]
+
+            if input_ext in review.VIDEO_EXTENSIONS:
+                self.log.info(
+                    "There's already a video representation with extension '%s', skipping generation of review.",
+                        input_ext
+                    )
+                return
 
         instance.data["toBeRenderedOn"] = "deadline"
 
@@ -179,7 +194,7 @@ class ExtractReviewNuke(publish.Extractor):
 
             if input_ext not in review.GENERATE_REVIEW_EXTENSIONS:
                 self.log.info(
-                    "Representation is not an image extension and doesn't need a revieww generated \"{}\"".format(
+                    "Representation is not an image extension and doesn't need a review generated \"{}\"".format(
                         input_ext
                     )
                 )

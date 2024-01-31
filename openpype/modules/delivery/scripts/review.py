@@ -15,6 +15,14 @@ REVIEW_REPRESENTATION_NAME = "h264"
 
 GENERATE_REVIEW_EXTENSIONS = {"exr", "jpg", "jpeg", "png", "dpx", "tif", "tiff"}
 
+VIDEO_EXTENSIONS = {
+    "3g2", "3gp", "amv", "asf", "avi", "drc", "f4a", "f4b",
+    "f4p", "f4v", "flv", "gif", "gifv", "m2v", "m4p", "m4v",
+    "mkv", "mng", "mov", "mp2", "mp4", "mpe", "mpeg", "mpg",
+    "mpv", "mxf", "nsv", "ogg", "ogv", "qt", "rm", "rmvb",
+    "roq", "svi", "vob", "webm", "wmv", "yuv"
+}
+
 logger = Logger.get_logger(__name__)
 
 
