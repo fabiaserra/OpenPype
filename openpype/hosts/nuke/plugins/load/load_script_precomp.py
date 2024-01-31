@@ -59,7 +59,11 @@ class LinkAsGroup(load.LoaderPlugin):
                 "version": vname
         }
         for k in add_keys:
-            data_imprint.update({k: context["version"]['data'][k]})
+            ### Starts Alkemy-X Override ###
+            # Fallback to 0 value in case handle attrs don't exist on ingest
+            data_imprint.update({k: context["version"]['data'].get(k, 0)})
+            ### Ends Alkemy-X Override ###
+        data_imprint.update({"objectName": precomp_name})
 
         # group context is set to precomp, so back up one level.
         nuke.endGroup()
