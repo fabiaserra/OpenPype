@@ -52,7 +52,7 @@ def generate_review(
     else:
         logger.warning(
             "Project Nuke template for reviews not found at '%s'",
-            nuke_review_script
+            proj_review_script
         )
 
     # Add environment variables required to run Nuke script
