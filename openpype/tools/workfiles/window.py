@@ -192,8 +192,15 @@ class SidePanelWidget(QtWidgets.QWidget):
         # i.e. "set -g _HIP_SAVEVERSION = '19.5.640'"
         prefix = "set -g _HIP_SAVEVERSION = "
         for line in file_content:
-            if line.startswith(prefix):
-                return line[len(prefix):].replace("'", "")
+            # .hip files need to be read as bytes strings
+            # but not all lines can be decoded so we just catch
+            # the exception and ignore
+            try:
+                line_str = line.decode("utf-8")
+            except UnicodeDecodeError:
+                continue
+            if line_str.startswith(prefix):
+                return line_str[len(prefix):].replace("'", "")
 
         return "<version not found>"
 
