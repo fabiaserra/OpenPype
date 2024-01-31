@@ -275,7 +275,7 @@ class NukeSubmitDeadline(pyblish.api.InstancePlugin,
                 "SecondaryPool": instance.data.get("secondaryPool"),
                 "Group": self.group,
 
-                "Plugin": "Nuke",
+                "Plugin": "AxNuke",
                 "Frames": "{start}-{end}".format(
                     start=start_frame,
                     end=end_frame
