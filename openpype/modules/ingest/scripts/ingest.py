@@ -125,10 +125,8 @@ FALLBACK_FILENAME_RE = re.compile(
 
 # Words to remove from subset if they exist
 SUBSET_NAMES_TO_IGNORE = {
-    "camerafbx",
-    "cameraabc",
-    "geoabc",
-    "geofbx",
+    "abc",
+    "fbx",
 }
 SUBSET_NAMES_TO_IGNORE_RE = re.compile(
     f"_?({'|'.join(re.escape(word) for word in SUBSET_NAMES_TO_IGNORE)})_?",
