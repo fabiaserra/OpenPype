@@ -59,20 +59,14 @@ class ProcessSubmittedJobOnFarm(pyblish.api.InstancePlugin,
                                 publish.ColormanagedPyblishPluginMixin):
     """Process Job submitted on farm.
 
-    These jobs are dependent on a deadline or muster job
+    These jobs are dependent on a deadline job
     submission prior to this plug-in.
 
-    - In case of Deadline, it creates dependent job on farm publishing
-      rendered image sequence.
-
-    - In case of Muster, there is no need for such thing as dependent job,
-      post action will be executed and rendered sequence will be published.
+    It creates dependent job on farm publishing rendered image sequence.
 
     Options in instance.data:
         - deadlineSubmissionJob (dict, Required): The returned .json
           data from the job submission to deadline.
-
-        - musterSubmissionJob (dict, Required): same as deadline.
 
         - outputDir (str, Required): The output directory where the metadata
             file should be generated. It's assumed that this will also be
@@ -195,15 +189,12 @@ class ProcessSubmittedJobOnFarm(pyblish.api.InstancePlugin,
     ### Ends Alkemy-X Override ###
         """Submit publish job to Deadline.
 
-        Deadline specific code separated from :meth:`process` for sake of
-        more universal code. Muster post job is sent directly by Muster
-        submitter, so this type of code isn't necessary for it.
-
         Returns:
             (str): deadline_publish_job_id
         """
         data = instance.data.copy()
         subset = data["subset"]
+        job_name = "Publish - {subset}".format(subset=subset)
 
         anatomy = instance.context.data['anatomy']
 
@@ -654,25 +645,13 @@ class ProcessSubmittedJobOnFarm(pyblish.api.InstancePlugin,
         '''
         ### Starts Alkemy-X Override ###
         # Make 'jobs' argument a list so we can pass multiple dependency jobs
-        render_jobs = None
-        submission_type = ""
-        if instance.data.get("toBeRenderedOn") == "deadline":
-            # If we have multiple submission jobs, we grab that key instead
-            if "deadlineSubmissionJobs" in instance.data:
+        # If we have multiple submission jobs, we grab that key instead
+        if "deadlineSubmissionJobs" in instance.data:
                 render_jobs = instance.data.pop("deadlineSubmissionJobs", [])
-            else:
+        else:
                 render_job = instance.data.pop("deadlineSubmissionJob", None)
                 if render_job:
                     render_jobs = [render_job]
-            submission_type = "deadline"
-
-        if instance.data.get("toBeRenderedOn") == "muster":
-            render_jobs = [instance.data.pop("musterSubmissionJob", None)]
-            submission_type = "muster"
-
-        if not render_jobs and instance.data.get("tileRendering") is False:
-            raise AssertionError(("Cannot continue without valid Deadline "
-                                  "or Muster submission."))
 
         if not render_jobs:
             import getpass
@@ -704,21 +683,18 @@ class ProcessSubmittedJobOnFarm(pyblish.api.InstancePlugin,
             render_jobs = [render_job]
         ### Ends Alkemy-X Override ###
 
-        deadline_publish_job_id = None
-        metadata_path = ""
-        if submission_type == "deadline":
-            # get default deadline webservice url from deadline module
-            self.deadline_url = instance.context.data["defaultDeadline"]
-            # if custom one is set in instance, use that
-            if instance.data.get("deadlineUrl"):
-                self.deadline_url = instance.data.get("deadlineUrl")
-            assert self.deadline_url, "Requires Deadline Webservice URL"
+        # get default deadline webservice url from deadline module
+        self.deadline_url = instance.context.data["defaultDeadline"]
+        # if custom one is set in instance, use that
+        if instance.data.get("deadlineUrl"):
+            self.deadline_url = instance.data.get("deadlineUrl")
+        assert self.deadline_url, "Requires Deadline Webservice URL"
 
-            ### Starts Alkemy-X Override ###
-            # Make 'jobs' argument a list so we can pass multiple dependency jobs
-            deadline_publish_job_id, metadata_path = \
-                self._submit_deadline_post_job(instance, render_jobs, instances)
-            ### Ends Alkemy-X Override ###
+        ### Starts Alkemy-X Override ###
+        # Make 'jobs' argument a list so we can pass multiple dependency jobs
+        deadline_publish_job_id, metadata_path = \
+            self._submit_deadline_post_job(instance, render_jobs, instances)
+        ### Ends Alkemy-X Override ###
 
         # Inject deadline url to instances.
         for inst in instances:

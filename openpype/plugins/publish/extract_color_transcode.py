@@ -93,31 +93,9 @@ class ExtractOIIOTranscode(publish.Extractor):
         new_representations = []
         repres = instance.data["representations"]
         for idx, repre in enumerate(list(repres)):
-            repre_name = repre["name"]
-            self.log.debug("repre ({}): `{}`".format(idx + 1, repre_name))
-
+            self.log.debug("repre ({}): `{}`".format(idx + 1, repre["name"]))
             if not self._repre_is_valid(repre):
                 continue
-
-            ### Starts Alkemy-X Override ###
-            # Filter out full resolution exr from getting transcodes
-            if repre_name == "exr_fr":
-                self.log.debug("Full resolution representation, skipping.")
-                continue
-
-            tags = repre.get("tags") or []
-            if "thumbnail" in tags:
-                self.log.debug((
-                    "Repre: {} - Found \"thumbnail\" in tags. Skipping"
-                ).format(repre_name))
-                continue
-
-            if "passing" in tags:
-                self.log.debug((
-                    "Repre: {} - Found \"passing\" in tags. Skipping"
-                ).format(repre_name))
-                continue
-            ### Ends Alkemy-X Override ###
 
             added_representations = False
             added_review = False
@@ -130,8 +108,6 @@ class ExtractOIIOTranscode(publish.Extractor):
                 continue
 
             for output_name, output_def in profile.get("outputs", {}).items():
-                self.log.debug("Generating output: {}".format(output_name))
-
                 new_repre = copy.deepcopy(repre)
 
                 original_staging_dir = new_repre["stagingDir"]
@@ -171,12 +147,8 @@ class ExtractOIIOTranscode(publish.Extractor):
                     new_repre["colorspaceData"]["colorspace"] = \
                         target_colorspace
 
-                additional_pre_command_args = (output_def["oiiotool_args"]
-                                           ["additional_pre_command_args"])
-
-                additional_post_command_args = (output_def["oiiotool_args"]
-                                           ["additional_post_command_args"])
-
+                additional_command_args = (output_def["oiiotool_args"]
+                                           ["additional_command_args"])
 
                 files_to_convert = self._translate_to_sequence(
                     files_to_convert)
@@ -194,16 +166,8 @@ class ExtractOIIOTranscode(publish.Extractor):
                         target_colorspace,
                         view,
                         display,
-                        additional_pre_command_args,
-                        additional_post_command_args,
+                        additional_command_args,
                         self.log
-                    )
-                    self.log.info(
-                        "Converted '%s' from colorspace '%s' to colorspace '%s' and saved to '%s'",
-                        input_path,
-                        source_colorspace,
-                        target_colorspace,
-                        output_path,
                     )
 
                 # cleanup temporary transcoded files
@@ -222,16 +186,6 @@ class ExtractOIIOTranscode(publish.Extractor):
                 # Add additional tags from output definition to representation
                 if new_repre.get("tags") is None:
                     new_repre["tags"] = []
-
-                # Remove shotgridreview from tags of new representations
-                if "shotgridreview" in new_repre["tags"]:
-                    new_repre["tags"].remove("shotgridreview")
-
-                # Removing 'review' from new representations as we only want
-                # to generate review from the original representation
-                # if "review" in new_repre["tags"]:
-                    # new_repre["tags"].remove("review")
-
                 for tag in output_def["tags"]:
                     if tag not in new_repre["tags"]:
                         new_repre["tags"].append(tag)
@@ -243,10 +197,6 @@ class ExtractOIIOTranscode(publish.Extractor):
                 # string, cause that'll indicate that its not a sequence.
                 if len(new_repre["files"]) == 1:
                     new_repre["files"] = new_repre["files"][0]
-
-                self.log.info(
-                    "Added new representation: %s - %s", new_repre["name"], new_repre
-                )
 
                 new_representations.append(new_repre)
                 added_representations = True
