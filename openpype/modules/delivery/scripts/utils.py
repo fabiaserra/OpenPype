@@ -24,7 +24,7 @@ logger = Logger.get_logger(__name__)
 # Regular expression that allows us to replace the frame numbers of a file path
 # with any string token
 RE_FRAME_NUMBER = re.compile(
-    r"(?P<prefix>\w+)\.(?P<frame>(\*|%0?\d*d|\d)+)\.(?P<extension>\w+\.?(sc|gz)?$)"
+    r"(?P<prefix>\w+[\._])(?P<frame>(\*|%0?\d*d|\d)+)\.(?P<extension>\w+\.?(sc|gz)?$)"
 )
 
 
@@ -54,7 +54,7 @@ def create_metadata_path(instance_data):
 def replace_frame_number_with_token(path, token):
     root, filename = os.path.split(path)
     filename = RE_FRAME_NUMBER.sub(
-        r"\g<prefix>.{}.\g<extension>".format(token), filename
+        r"\g<prefix>{}.\g<extension>".format(token), filename
     )
     return os.path.join(root, filename)
 
