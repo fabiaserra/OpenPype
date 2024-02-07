@@ -528,7 +528,8 @@
             "node_name_template": "{class_name}_{ext}",
             "options_defaults": {
                 "start_at_workfile": true,
-                "add_retime": true
+                "add_retime": true,
+                "load_deep": false
             }
         }
     },

@@ -55,6 +55,11 @@
                             "type": "boolean",
                             "key": "add_retime",
                             "label": "Add retime"
+                        },
+                        {
+                            "type": "boolean",
+                            "key": "load_deep",
+                            "label": "Load using DeepRead"
                         }
                     ]
                 }
