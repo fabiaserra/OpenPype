@@ -2,8 +2,9 @@ FROM ubuntu:jammy-20230816
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV QT_QPA_PLATFORM=offscreen
-ARG PYTHON_VERSION=3.9.16
+ARG PYTHON_VERSION=3.9.17
 ARG OPENPYPE_VERSION=3.16
+ARG CW_GROUP_CI_TOKEN
 
 # Install dependencies
 RUN apt-get update \
@@ -41,7 +42,7 @@ COPY ./init.sh /init
 RUN chmod +x /init
 
 # Install OpenPype
-RUN curl "https://bin:glpat-uesWRQu8aqN9aWG7zwyz@gitlab.alkemy-x.com/api/v4/projects/58/packages/generic/openpype/$OPENPYPE_VERSION/openpype-$OPENPYPE_VERSION-ubuntu22.04.tar.gz" --output openpype-exe.linux-x86_64-3.9.tar.gz \
+RUN curl "https://bin:${CW_GROUP_CI_TOKEN}@gitlab.alkemy-x.com/api/v4/projects/58/packages/generic/openpype/$OPENPYPE_VERSION/openpype-$OPENPYPE_VERSION-ubuntu22.04.tar.gz" --output openpype-exe.linux-x86_64-3.9.tar.gz \
     && tar -xvzf openpype-exe.linux-x86_64-3.9.tar.gz \
     && rm openpype-exe.linux-x86_64-3.9.tar.gz  \
     && mkdir -p /usr/openpype  \
