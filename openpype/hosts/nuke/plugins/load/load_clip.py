@@ -29,7 +29,6 @@ from openpype.lib.transcoding import (
     IMAGE_EXTENSIONS
 )
 from openpype.hosts.nuke.api import plugin
-from openpype.hosts.nuke.api.constants import VIDEO_FILE_EXTENSIONS
 
 
 class LoadClip(plugin.NukeLoader):
@@ -87,7 +86,7 @@ class LoadClip(plugin.NukeLoader):
             qargparse.Boolean(
                 "load_deep",
                 help="Load with DeepRead",
-                default=cls.options_defaults["load_deep"]
+                default=cls.options_defaults.get("load_deep", False)
             ),
         ]
 
@@ -578,9 +577,12 @@ class LoadClip(plugin.NukeLoader):
             "representation": representation["name"],
             "ext": repre_cont["representation"],
             "id": representation["_id"],
-            "class_name": self.__class__.__name__
+            "class_name": self.__class__.__name__,
+            "product": {
+                "name": repre_cont["subset"],
+                "type": repre_cont["family"],
+            },
         }
-
         return self.node_name_template.format(**name_data)
 
     def _set_colorspace(self, node, version_data, repre_data, path):
