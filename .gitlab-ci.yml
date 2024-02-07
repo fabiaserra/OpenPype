@@ -125,7 +125,8 @@ build-op-container:
     - mkdir -p /kaniko/.docker
     - echo "{\"auths\":{\"$CI_REGISTRY\":{\"auth\":\"$(echo -n ci:$CW_GROUP_CI_TOKEN | base64)\"}}}" > /kaniko/.docker/config.json
     - >
-      /kaniko/executor      --context "${CI_PROJECT_DIR}/op-container"
+      /kaniko/executor
+      --context "${CI_PROJECT_DIR}/op-container"
       --dockerfile "${CI_PROJECT_DIR}/op-container/Dockerfile"
       --destination "${CI_REGISTRY_IMAGE}/${CI_COMMIT_BRANCH}/${IMAGE_NAME}:ubuntu22-${VERSION}-${CI_COMMIT_SHORT_SHA}"
       --cache=true --cache-copy-layers=true --cache-repo "${CI_REGISTRY_IMAGE}/cache/${IMAGE_NAME}" --cache-dir=/cache
