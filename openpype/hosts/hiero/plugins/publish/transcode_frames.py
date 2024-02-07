@@ -4,6 +4,7 @@ import pyblish.api
 
 import hiero
 
+from openpype import AYON_SERVER_ENABLED
 from openpype.pipeline import publish, legacy_io
 from openpype.hosts.hiero.api import work_root
 from openpype.modules.deadline.lib import submit
@@ -104,11 +105,14 @@ class TranscodeFrames(publish.Extractor):
         hiero_version = "{}.{}".format(
             hiero.core.env["VersionMajor"], hiero.core.env["VersionMinor"]
         )
-        app_name = "hiero/{}-{}{}".format(
-            hiero.core.env["VersionMajor"],
-            hiero.core.env["VersionMinor"],
-            hiero.core.env["VersionRelease"].replace("v", "")
-        )
+        if AYON_SERVER_ENABLED:
+            app_name = hiero_version
+        else:
+            app_name = "hiero/{}-{}{}".format(
+                hiero.core.env["VersionMajor"],
+                hiero.core.env["VersionMinor"],
+                hiero.core.env["VersionRelease"].replace("v", "")
+            )
 
         # Check what resolutions we are asking to ingest
         ingest_resolution = instance.data.get("ingest_resolution")
