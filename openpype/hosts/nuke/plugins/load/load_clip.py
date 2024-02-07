@@ -65,7 +65,8 @@ class LoadClip(plugin.NukeLoader):
     # option gui
     options_defaults = {
         "start_at_workfile": True,
-        "add_retime": True
+        "add_retime": True,
+        "load_deep": False
     }
 
     node_name_template = "{class_name}_{ext}"
@@ -82,7 +83,12 @@ class LoadClip(plugin.NukeLoader):
                 "add_retime",
                 help="Load with retime",
                 default=cls.options_defaults["add_retime"]
-            )
+            ),
+            qargparse.Boolean(
+                "load_deep",
+                help="Load with DeepRead",
+                default=cls.options_defaults["load_deep"]
+            ),
         ]
 
     @classmethod
@@ -163,7 +169,7 @@ class LoadClip(plugin.NukeLoader):
         nuke.updateUI()
         # Create the Loader with the filename path set
         read_node = nuke.createNode(
-            "Read",
+            "DeepRead" if options.get("load_deep", False) else "Read",
             "name {}".format(read_name),
             inpanel=False
         )
