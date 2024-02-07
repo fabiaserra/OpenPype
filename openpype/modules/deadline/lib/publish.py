@@ -412,7 +412,6 @@ def publish_version(
         "AVALON_PROJECT": project_name,
         "AVALON_ASSET": asset_name,
         "AVALON_TASK": task_name,
-        "OPENPYPE_USERNAME": username,
         "AVALON_WORKDIR": os.path.dirname(source_path),
         "AYON_SG_USER" if AYON_SERVER_ENABLED else "OPENPYPE_SG_USER": username,
         "AYON_PUBLISH_JOB" if AYON_SERVER_ENABLED else "OPENPYPE_PUBLISH_JOB": "1",
