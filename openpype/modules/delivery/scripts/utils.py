@@ -310,6 +310,7 @@ def submit_deadline_post_job(
         "AVALON_PROJECT": instance_data["project"],
         "AVALON_ASSET": instance_data["asset"],
         "AVALON_TASK": instance_data["task"],
+        "OPENPYPE_USERNAME": username,
         "AYON_SG_USER" if AYON_SERVER_ENABLED else "OPENPYPE_SG_USER": username,
         "AYON_PUBLISH_JOB" if AYON_SERVER_ENABLED else "OPENPYPE_PUBLISH_JOB": "1",
         "AYON_RENDER_JOB" if AYON_SERVER_ENABLED else "OPENPYPE_RENDER_JOB":  "0",
