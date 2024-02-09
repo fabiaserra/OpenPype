@@ -28,6 +28,14 @@ class ValidateVersion(
         if not self.is_active(instance.data):
             return
 
+        ### Starts Alkemy-X Override ###
+        # Ignore workfile versions for now due to our
+        # setup in Nuke where we publish workfiles as the same version (prerender)
+        # quite often and this would throw warnings on every publish
+        if instance.data.get("family") == "workfile":
+            return
+        ### Ends Alkemy-X Override ###
+
         version = instance.data.get("version")
         latest_version = instance.data.get("latestVersion")
 
