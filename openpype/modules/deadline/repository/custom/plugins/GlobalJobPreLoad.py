@@ -23,6 +23,12 @@ VERSION_REGEX = re.compile(
     r"(?:\+(?P<buildmetadata>[a-zA-Z\d\-.]*))?"
 )
 
+# Env vars to ignore when injecting environment in the farm
+FARM_ENVS_TO_IGNORE = [
+    "SESI_LMHOST",
+    "ADSKFLEX_LICENSE_FILE",
+]
+
 
 class OpenPypeVersion:
     """Fake semver version class for OpenPype version purposes.
@@ -383,6 +389,9 @@ def inject_openpype_environment(deadlinePlugin):
             contents = json.load(fp)
 
         for key, value in contents.items():
+            if key in FARM_ENVS_TO_IGNORE:
+                print(">>> Skipping license server env var: {}".format(key))
+                continue
             deadlinePlugin.SetProcessEnvironmentVariable(key, value)
 
         script_url = job.GetJobPluginInfoKeyValue("ScriptFilename")
@@ -507,6 +516,9 @@ def inject_ayon_environment(deadlinePlugin):
             contents = json.load(fp)
 
         for key, value in contents.items():
+            if key in FARM_ENVS_TO_IGNORE:
+                print(">>> Skipping license server env var: {}".format(key))
+                continue
             deadlinePlugin.SetProcessEnvironmentVariable(key, value)
 
         script_url = job.GetJobPluginInfoKeyValue("ScriptFilename")
