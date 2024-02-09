@@ -432,7 +432,7 @@ def inject_ayon_environment(deadlinePlugin):
                "separated list \"{}\"."
                "The path to the render executable can be configured"
                " from the Plugin Configuration in the Deadline Monitor."
-            ).format(";".join(exe_list)))
+            ).format(exe_list))
 
         print("--- Ayon executable: {}".format(exe))
 
@@ -498,7 +498,10 @@ def inject_ayon_environment(deadlinePlugin):
             "AYON_BUNDLE_NAME": ayon_bundle_name,
         }
         for env, val in environment.items():
+            # Add the env var for the Render Plugin that is about to render
             deadlinePlugin.SetEnvironmentVariable(env, val)
+            # Add the env var for current calls to `DeadlinePlugin.RunProcess`
+            deadlinePlugin.SetProcessEnvironmentVariable(env, val)
 
         args_str = subprocess.list2cmdline(args)
         print(">>> Executing: {} {}".format(exe, args_str))
@@ -560,14 +563,15 @@ def get_ayon_executable():
     if platform.system().lower() == "darwin":
         exe_list = exe_list.replace("\\ ", " ")
 
-    # Expand user paths
-    expanded_paths = []
-    for path in exe_list.split(";"):
-        if path.startswith("~"):
-            path = os.path.expanduser(path)
-        expanded_paths.append(path)
-    return ";".join(expanded_paths)
+    # # Expand user paths
+    # expanded_paths = []
+    # for path in exe_list.split(";"):
+    #     if path.startswith("~"):
+    #         path = os.path.expanduser(path)
+    #     expanded_paths.append(path)
+    # return ";".join(expanded_paths)
 
+    return exe_list
 
 def inject_render_job_id(deadlinePlugin):
     """Inject dependency ids to publish process as env var for validation."""
