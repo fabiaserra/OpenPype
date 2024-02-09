@@ -164,7 +164,8 @@ def get_transferable_representations(instance):
 
 
 def create_skeleton_instance(
-        instance, families_transfer=None, instance_transfer=None):
+    instance, families_transfer=None, instance_transfer=None, log=None
+):
     # type: (pyblish.api.Instance, list, dict) -> dict
     """Create skeleton instance from original instance data.
 
@@ -186,7 +187,9 @@ def create_skeleton_instance(
         dict: Dictionary with skeleton instance data.
 
     """
-    # list of family names to transfer to new family if present
+    if not log:
+        # `rootless_path` is not set to `source` if none of roots match
+        log = Logger.get_logger("farm_publishing")
 
     context = instance.context
     data = instance.data.copy()
@@ -210,10 +213,10 @@ def create_skeleton_instance(
     if success:
         source = rootless_path
     else:
-        # `rootless_path` is not set to `source` if none of roots match
-        log = Logger.get_logger("farm_publishing")
-        log.warning(("Could not find root path for remapping \"{}\". "
-                     "This may cause issues.").format(source))
+        log.warning(
+            "Could not find root path for remapping \"{}\". "
+            "This may cause issues.".format(source)
+        )
 
     # family = ("render"
     #           if "prerender" not in instance.data["families"]
@@ -230,6 +233,7 @@ def create_skeleton_instance(
         "subset": data["subset"],
         "families": families,
         "asset": data["asset"],
+        "task": data["task"],
         "frameStart": time_data.start,
         "frameEnd": time_data.end,
         "handleStart": time_data.handle_start,
@@ -301,7 +305,7 @@ def prepare_representations(skeleton_data, exp_files, anatomy, aov_filter,
                             skip_integration_repre_list,
                             do_not_add_review,
                             context,
-                            color_managed_plugin):
+                            color_managed_plugin, log=None):
     """Create representations for file sequences.
 
     This will return representations of expected files if they are not
@@ -325,7 +329,8 @@ def prepare_representations(skeleton_data, exp_files, anatomy, aov_filter,
     host_name = os.environ.get("AVALON_APP", "")
     collections, remainders = clique.assemble(exp_files)
 
-    log = Logger.get_logger("farm_publishing")
+    if not log:
+        log = Logger.get_logger("farm_publishing")
 
     # create representation for every collected sequence
     for collection in collections:
@@ -489,7 +494,7 @@ def prepare_representations(skeleton_data, exp_files, anatomy, aov_filter,
 
 def create_instances_for_aov(instance, skeleton, aov_filter,
                              skip_integration_repre_list,
-                             do_not_add_review):
+                             do_not_add_review, log=None):
     """Create instances from AOVs.
 
     This will create new pyblish.api.Instances by going over expected
@@ -507,8 +512,8 @@ def create_instances_for_aov(instance, skeleton, aov_filter,
     """
     # we cannot attach AOVs to other subsets as we consider every
     # AOV subset of its own.
-
-    log = Logger.get_logger("farm_publishing")
+    if not log:
+        log = Logger.get_logger("farm_publishing")
     additional_color_data = {
         "renderProducts": instance.data["renderProducts"],
         "colorspaceConfig": instance.data["colorspaceConfig"],
@@ -573,9 +578,6 @@ def _create_instances_for_aov(instance, skeleton, aov_filter, additional_data,
         ValueError:
 
     """
-    # TODO: this needs to be taking the task from context or instance
-    task = os.environ["AVALON_TASK"]
-
     anatomy = instance.context.data["anatomy"]
     subset = skeleton["subset"]
     cameras = instance.data.get("cameras", [])
@@ -1126,13 +1128,14 @@ def attach_instances_to_subset(attach_to, instances):
     return new_instances
 
 
-def create_metadata_path(instance, anatomy):
+def create_metadata_path(instance, anatomy, log=None):
     ins_data = instance.data
     # Ensure output dir exists
     output_dir = ins_data.get(
         "publishRenderMetadataFolder", ins_data["outputDir"])
 
-    log = Logger.get_logger("farm_publishing")
+    if not log:
+        log = Logger.get_logger("farm_publishing")
 
     try:
         if not os.path.isdir(output_dir):
