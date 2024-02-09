@@ -13,7 +13,7 @@ class IncrementScriptVersion(pyblish.api.ContextPlugin):
     # Add other families as well so script version gets incremented also
     # when doing a publish of those
     families = [
-        "workfile",
+        # "workfile", # commenting it out for now as we don't want to bump it if publishing prerender + workfile
         "render",
         "render.farm",
         "render.frames_farm",
