@@ -641,7 +641,7 @@ def get_hierarchy_env(project_doc, asset_doc, skip_empty=True):
 
     # For each entity on the hierarchy, we set its environment variable
     for parent in visual_hierarchy:
-        sg_entity_type = parent["data"].get("sgEntityType")
+        sg_entity_type = parent["data"].get("shotgridType" if AYON_SERVER_ENABLED else "sgEntityType")
         env_key = sg_to_env_map.get(sg_entity_type)
         if env_key:
             env[env_key] = parent["name"]
