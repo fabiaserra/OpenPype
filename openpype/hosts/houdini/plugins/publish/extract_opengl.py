@@ -43,7 +43,8 @@ class ExtractOpenGL(publish.Extractor):
             "frameEnd": instance.data["frameEndHandle"],
             "tags": tags,
             "preview": True,
-            "camera_name": instance.data.get("review_camera")
+            "camera_name": instance.data.get("review_camera"),
+            "custom_tags": ["local_publish"]
         }
 
         if "representations" not in instance.data:
