@@ -122,7 +122,7 @@ def get_time_data_from_instance_or_context(instance):
     )
 
 
-def get_transferable_representations(instance):
+def get_transferable_representations(instance, log=None):
     """Transfer representations from original instance.
 
     This will get all representations on the original instance that
@@ -136,6 +136,9 @@ def get_transferable_representations(instance):
         list of dicts: List of transferable representations.
 
     """
+    if log is None:
+        log = Logger.getLogger(__name__)
+
     anatomy = instance.context.data["anatomy"]  # type: Anatomy
     to_transfer = []
 
@@ -154,7 +157,6 @@ def get_transferable_representations(instance):
             try:
                 trans_rep["stagingDir"] = remap_source(staging_dir, anatomy)
             except ValueError:
-                log = Logger.get_logger("farm_publishing")
                 log.warning(
                     ("Could not find root path for remapping \"{}\". "
                      "This may cause issues on farm.").format(staging_dir))
@@ -188,8 +190,7 @@ def create_skeleton_instance(
 
     """
     if not log:
-        # `rootless_path` is not set to `source` if none of roots match
-        log = Logger.get_logger("farm_publishing")
+        log = Logger.getLogger(__name__)
 
     context = instance.context
     data = instance.data.copy()
@@ -330,7 +331,7 @@ def prepare_representations(skeleton_data, exp_files, anatomy, aov_filter,
     collections, remainders = clique.assemble(exp_files)
 
     if not log:
-        log = Logger.get_logger("farm_publishing")
+        log = Logger.getLogger(__name__)
 
     # create representation for every collected sequence
     for collection in collections:
@@ -510,10 +511,11 @@ def create_instances_for_aov(instance, skeleton, aov_filter,
             expected files.
 
     """
+    if not log:
+        log = Logger.getLogger(__name__)
+
     # we cannot attach AOVs to other subsets as we consider every
     # AOV subset of its own.
-    if not log:
-        log = Logger.get_logger("farm_publishing")
     additional_color_data = {
         "renderProducts": instance.data["renderProducts"],
         "colorspaceConfig": instance.data["colorspaceConfig"],
@@ -554,8 +556,10 @@ def create_instances_for_aov(instance, skeleton, aov_filter,
     )
 
 
-def _create_instances_for_aov(instance, skeleton, aov_filter, additional_data,
-                              skip_integration_repre_list, do_not_add_review):
+def _create_instances_for_aov(
+    instance, skeleton, aov_filter, additional_data,
+    skip_integration_repre_list, do_not_add_review, log=None
+):
     """Create instance for each AOV found.
 
     This will create new instance for every AOV it can detect in expected
@@ -582,7 +586,9 @@ def _create_instances_for_aov(instance, skeleton, aov_filter, additional_data,
     subset = skeleton["subset"]
     cameras = instance.data.get("cameras", [])
     exp_files = instance.data["expectedFiles"]
-    log = Logger.get_logger("farm_publishing")
+
+    if not log:
+        log = Logger.getLogger(__name__)
 
     instances = []
     # go through AOVs in expected files
@@ -784,7 +790,7 @@ def get_resources(project_name, version, extension=None):
     return resources
 
 
-def create_skeleton_instance_cache(instance):
+def create_skeleton_instance_cache(instance, log=None):
     # type: (pyblish.api.Instance, list, dict) -> dict
     """Create skeleton instance from original instance data.
 
@@ -807,6 +813,9 @@ def create_skeleton_instance_cache(instance):
     data = instance.data.copy()
     anatomy = instance.context.data["anatomy"]  # type: Anatomy
 
+    if not log:
+        log = Logger.getLogger(__name__)
+
     # get time related data from instance (or context)
     time_data = get_time_data_from_instance_or_context(instance)
 
@@ -826,7 +835,6 @@ def create_skeleton_instance_cache(instance):
         source = rootless_path
     else:
         # `rootless_path` is not set to `source` if none of roots match
-        log = Logger.get_logger("farm_publishing")
         log.warning(("Could not find root path for remapping \"{}\". "
                      "This may cause issues.").format(source))
 
@@ -841,6 +849,7 @@ def create_skeleton_instance_cache(instance):
         "subset": data["subset"],
         "families": families,
         "asset": data["asset"],
+        "task": data["task"],
         "frameStart": time_data.start,
         "frameEnd": time_data.end,
         "handleStart": time_data.handle_start,
@@ -871,7 +880,7 @@ def create_skeleton_instance_cache(instance):
     return instance_skeleton_data
 
 
-def prepare_cache_representations(skeleton_data, exp_files, anatomy):
+def prepare_cache_representations(skeleton_data, exp_files, anatomy, log=None):
     """Create representations for file sequences.
 
     This will return representations of expected files if they are not
@@ -888,9 +897,10 @@ def prepare_cache_representations(skeleton_data, exp_files, anatomy):
 
     """
     representations = []
-    collections, remainders = clique.assemble(exp_files)
+    collections, _ = clique.assemble(exp_files)
 
-    log = Logger.get_logger("farm_publishing")
+    if not log:
+        log = Logger.getLogger(__name__)
 
     # create representation for every collected sequence
     for collection in collections:
@@ -925,7 +935,7 @@ def prepare_cache_representations(skeleton_data, exp_files, anatomy):
     return representations
 
 
-def create_instances_for_cache(instance, skeleton):
+def create_instances_for_cache(instance, skeleton, logger=None):
     """Create instance for cache.
 
     This will create new instance for every AOV it can detect in expected
@@ -948,7 +958,9 @@ def create_instances_for_cache(instance, skeleton):
     subset = skeleton["subset"]
     family = skeleton["family"]
     exp_files = instance.data["expectedFiles"]
-    log = Logger.get_logger("farm_publishing")
+
+    if not log:
+        log = Logger.getLogger(__name__)
 
     instances = []
     # go through AOVs in expected files
