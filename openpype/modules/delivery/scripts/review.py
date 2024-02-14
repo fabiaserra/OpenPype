@@ -52,6 +52,7 @@ def generate_review(
         "_AX_REVIEW_FRAMES": "{0}_{1}".format(
             int(frame_start), int(frame_end)
         ),
+        "_AX_FRAME_OFFSET": review_data.get("frame_offset", "0"),
         "_AX_REVIEW_READPATH": read_path,
         "_AX_REVIEW_WRITEPATH": output_path,
         "_AX_REVIEW_FILENAME": os.path.splitext(output_filename)[0],
