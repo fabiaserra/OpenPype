@@ -22,7 +22,11 @@ from glob import glob
 from . import utils
 from . import const
 
-from openpype.modules.shotgrid.lib import credentials
+from openpype import AYON_SERVER_ENABLED
+if AYON_SERVER_ENABLED:
+    from ayon_shotgrid.lib import credentials
+else:
+    from openpype.modules.shotgrid.lib import credentials
 from openpype.lib import Logger
 
 
@@ -271,7 +275,7 @@ class Expunge:
     def check_shotgrid(self):
         logger.info(" - Getting Final list from Shotgrid")
         # Authenticate Shotgrid
-        sg = credentials.get_credentials()
+        sg = credentials.get_shotgrid_session()
 
         # Find if project is restricted from clean up
         if sg.find(
