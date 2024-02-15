@@ -96,22 +96,24 @@ class ExtractReviewNuke(publish.Extractor):
         batch_name = instance.data.get("deadlineBatchName") or os.path.splitext(
             os.path.basename(context.data.get("currentFile")))[0]
 
-        # Grab frame start/end
-        if "srcFrameRange" in instance.data:
-            self.log.debug("Grabbed frame range from source media")
-            frame_start, frame_end = instance.data["srcFrameRange"]
-        else:
-            frame_start = instance.data["frameStart"]
-            frame_end = instance.data["frameEnd"]
-
-        self.log.debug("Output path: %s", output_path)
-
         # Create dictionary with other useful data required to submit
         # Nuke review job to the farm
         review_data = {
             "comment": instance.data.get("comment", ""),
             "batch_name": batch_name,
         }
+
+        # Grab frame start/end
+        if "srcFrameRange" in instance.data:
+            self.log.debug("Grabbed frame range from source media")
+            frame_start, frame_end = instance.data["srcFrameRange"]
+            # Calculate the frame offset from source range to destination range
+            review_data["frame_offset"] = instance.data["frameStart"] - frame_start
+        else:
+            frame_start = instance.data["frameStart"]
+            frame_end = instance.data["frameEnd"]
+
+        self.log.debug("Output path: %s", output_path)
 
         # Add source colorspace if it's set on the representation
         if src_colorspace:

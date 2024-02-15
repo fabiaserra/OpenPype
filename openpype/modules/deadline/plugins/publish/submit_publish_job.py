@@ -179,12 +179,16 @@ class ProcessSubmittedJobOnFarm(pyblish.api.InstancePlugin,
             override_version = instance_version
 
         ### Starts Alkemy-X Override ###
+        # Collect task from instance if not set in the context
+        # due to TrayPublisher not collecting it
+        task_name = instance.context.data["task"] or instance.data.get("task", os.getenv("AVALON_TASK"))
+
         # Add 'asset' to publish job label for extra clarity
         job_name = "Publish {} - {}{} - {} - {} - {} ({})".format(
             instances[0]["family"],
             instances[0]["subset"],
             " v{0:03d}".format(override_version) if override_version else "",
-            instance.context.data["task"],
+            task_name,
             instance.data["asset"],
             instance.context.data["projectName"],
             os.getenv("SHOW")
@@ -217,8 +221,8 @@ class ProcessSubmittedJobOnFarm(pyblish.api.InstancePlugin,
             # to the final destination context)
             # "AVALON_ASSET": instance.context.data["asset"],
             "AVALON_ASSET": instance.data["asset"],
+            "AVALON_TASK": task_name,
             ### Ends Alkemy-X Override ###
-            "AVALON_TASK": instance.context.data["task"],
             "OPENPYPE_USERNAME": instance.context.data["user"],
             "OPENPYPE_LOG_NO_COLORS": "1",
             "IS_TEST": str(int(is_in_tests()))
