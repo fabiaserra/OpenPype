@@ -18,7 +18,7 @@ import time
 import fnmatch
 import logging
 import glob
-import datetime
+from datetime import datetime, timedelta
 
 from . import utils
 from . import const
@@ -42,10 +42,10 @@ from openpype.modules.delivery.scripts.media import (
 logger = Logger.get_logger(__name__)
 
 # Threshold to warn about files that are older than this time to be marked for deletion
-WARNING_THRESHOLD = datetime.today() - datetime.timedelta(days=7)
+WARNING_THRESHOLD = datetime.today() - timedelta(days=7)
 
 # Threshold to keep files marked for deletion before they get deleted
-DELETE_THRESHOLD = datetime.timedelta(days=7)
+DELETE_THRESHOLD = timedelta(days=7)
 
 # Prefix to use for files that are marked for deletion
 DELETE_PREFIX = "__DELETE__"
