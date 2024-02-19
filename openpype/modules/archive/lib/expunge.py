@@ -386,7 +386,7 @@ def clean_published_files(project_name, calculate_size=False, force_delete=False
                 )
                 continue
             if subset_doc["data"]["family"] == "workfile":
-                return
+                continue
             asset_doc = op_cli.get_asset_by_id(
                 project_name, asset_id=subset_doc["parent"]
             )
