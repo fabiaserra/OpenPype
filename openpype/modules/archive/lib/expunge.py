@@ -569,6 +569,11 @@ def clean_work_files(target_root, calculate_size=False, force_delete=False):
                         total_size += size
 
                     # Remove from dirnames to prevent further exploration
+                    logger.debug(
+                        "Clearing folder '%s' from dirnames '%s'",
+                        folder_path,
+                        dirnames
+                    )
                     dirnames.remove(folder)
 
             # Delete all files that match the patterns that we have decided
