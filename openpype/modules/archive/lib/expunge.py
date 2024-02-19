@@ -357,7 +357,7 @@ def clean_published_files(project_name, calculate_size=False, force_delete=False
         # to the workfile to store the transcodes before publish
         if source_path.endswith(".hrox") and "/work" in source_path:
             subset_doc = op_cli.get_subsets(
-                project_name, version_ids=[version_doc["parent"]]
+                project_name, subset_ids=[version_doc["parent"]]
             )
             # Hard-code the path to the temp_transcode folder
             source_files = glob.glob(os.path.join(
@@ -370,7 +370,7 @@ def clean_published_files(project_name, calculate_size=False, force_delete=False
         # folder called 'renders' next to the Nuke file
         elif source_path.endswith(".nk") and "/work" in source_path:
             subset_doc = op_cli.get_subsets(
-                project_name, version_ids=[version_doc["parent"]]
+                project_name, subset_ids=[version_doc["parent"]]
             )
             # Hard-code the path to the renders for Nuke files
             source_files = os.path.join(
