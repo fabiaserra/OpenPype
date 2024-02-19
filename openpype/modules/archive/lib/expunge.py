@@ -119,7 +119,7 @@ def clean_project(proj_code, calculate_size=False, archive=False):
     # )
 
     total_size = 0
-    total_size += clean_published_files(project_name, calculate_size, force_delete=archive)
+    # total_size += clean_published_files(project_name, calculate_size, force_delete=archive)
     total_size += clean_work_files(target_root, calculate_size, force_delete=archive)
     total_size += clean_io_files(target_root, calculate_size, force_delete=archive)
 
@@ -225,6 +225,7 @@ def get_shotgrid_data(proj_code):
 
     return finaled_shots, sent_versions, breakdown_shots
 
+
 def delete_filepath(filepath):
     """Delete a file or directory"""
     try:
@@ -311,11 +312,15 @@ def clean_published_files(project_name, calculate_size=False, force_delete=False
             file_deleted, size = consider_file_for_deletion(
                 filepath, force_delete
             )
-            if file_deleted and calculate_size:
-                total_size += size
+            if file_deleted:
+                # logger.info(" - Published file in '%s'", version[""])
+                if calculate_size:
+                    total_size += size
 
     if calculate_size:
         logger.info("\n\nRemoved {0:,.3f} GB".format(utils.to_unit(total_size)))
+
+    return total_size
 
 
 def clean_io_files(target_root, calculate_size=False, force_delete=False):
@@ -402,6 +407,7 @@ def clean_work_files(target_root, calculate_size=False, force_delete=False):
         "ifds",
         "img",
         "render",
+        "renders",
         "temp_transcode",
     }
     file_patterns_to_remove = {
