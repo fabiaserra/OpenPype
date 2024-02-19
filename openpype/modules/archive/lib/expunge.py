@@ -16,7 +16,7 @@ import shutil
 import time
 import fnmatch
 import logging
-from glob import glob
+import glob
 
 from . import utils
 from . import const
@@ -74,8 +74,7 @@ def clean_all():
 
     logger.info("======= CLEAN ALL PROJECTS =======")
 
-    for proj in sorted(glob(const.PROJECTS_DIR + "/*")):
-        proj = os.path.basename(proj)
+    for proj in sorted(os.listdir(const.PROJECTS_DIR)):
         total_size += clean_project(proj, calculate_size=True, archive=False)
 
     elapsed_time = time.time() - scan_start
@@ -327,7 +326,16 @@ def clean_published_files(project_name, calculate_size=False, force_delete=False
         rootless_source_path = version_doc["data"].get("source")
         source_path = anatomy.fill_root(rootless_source_path)
 
-        if source_path.endswith(".nk") and "/work" in source_path:
+        # Skip Hiero publishes for now
+        if source_path.endswith(".hrox") and "/work" in source_path:
+            subset_doc = op_cli.get_subset(version_doc["parent"])
+            # Hard-code the path to the temp_transcode folder
+            source_files = glob.glob(os.path.join(
+                os.path.dirname(source_path),
+                "temp_transcode",
+                f"subset_doc['name']*",
+            ))
+        elif source_path.endswith(".nk") and "/work" in source_path:
             subset_doc = op_cli.get_subset(version_doc["parent"])
             # Hard-code the path to the renders for Nuke files
             source_files = os.path.join(
