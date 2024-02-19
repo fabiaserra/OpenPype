@@ -352,17 +352,26 @@ def clean_published_files(project_name, calculate_size=False, force_delete=False
         rootless_source_path = version_doc["data"].get("source")
         source_path = anatomy.fill_root(rootless_source_path)
 
-        # Skip Hiero publishes for now
+        # If source path is a Hiero workfile, we can infer that the publish
+        # was a plate publish and a 'temp_transcode' folder was created next
+        # to the workfile to store the transcodes before publish
         if source_path.endswith(".hrox") and "/work" in source_path:
-            subset_doc = op_cli.get_subset(version_doc["parent"])
+            subset_doc = op_cli.get_subsets(
+                project_name, version_ids=[version_doc["parent"]]
+            )
             # Hard-code the path to the temp_transcode folder
             source_files = glob.glob(os.path.join(
                 os.path.dirname(source_path),
                 "temp_transcode",
                 f"subset_doc['name']*",
             ))
+        # If source path is a Nuke file, we can infer that the publish is
+        # likely to be a render publish and the renders are stored in a
+        # folder called 'renders' next to the Nuke file
         elif source_path.endswith(".nk") and "/work" in source_path:
-            subset_doc = op_cli.get_subset(version_doc["parent"])
+            subset_doc = op_cli.get_subsets(
+                project_name, version_ids=[version_doc["parent"]]
+            )
             # Hard-code the path to the renders for Nuke files
             source_files = os.path.join(
                 os.path.dirname(source_path),
@@ -371,6 +380,8 @@ def clean_published_files(project_name, calculate_size=False, force_delete=False
                 subset_doc["name"],
                 "v{:03}".format(version_doc["name"])
             )
+        # Otherwise, we just check the 'source' directly assuming that's
+        # directly the source of the publish
         else:
             source_files, _, _, _ = path_utils.convert_to_sequence(source_path)
             if not source_files:
