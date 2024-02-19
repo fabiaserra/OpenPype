@@ -280,7 +280,7 @@ def consider_filepaths_for_deletion(filepaths, calculate_size=False, force_delet
 
     for remainder in remainders:
         deleted_, marked_, size_ = consider_file_for_deletion(
-            remainder, force_delete
+            remainder, calculate_size, force_delete
         )
         if size_:
             total_size += size_
@@ -344,7 +344,7 @@ def consider_file_for_deletion(filepath, calculate_size=False, force_delete=Fals
         delete_filepath(filepath, silent=silent)
         if calculate_size:
             size = filepath_stat.st_size
-        return True, size
+        return True, False, size
 
     # Extract the directory path and the original name
     dir_path, original_name = os.path.split(filepath)
