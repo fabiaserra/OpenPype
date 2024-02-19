@@ -373,13 +373,13 @@ def clean_published_files(project_name, calculate_size=False, force_delete=False
                 project_name, subset_id=version_doc["parent"]
             )
             # Hard-code the path to the renders for Nuke files
-            source_files = os.path.join(
+            source_files = [os.path.join(
                 os.path.dirname(source_path),
                 "renders",
                 "nuke",
                 subset_doc["name"],
-                "v{:03}".format(version_doc["name"])
-            )
+                "v{:03}".format(version_doc["name"]),
+            )]
         # Otherwise, we just check the 'source' directly assuming that's
         # directly the source of the publish
         else:
