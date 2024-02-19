@@ -309,9 +309,9 @@ def consider_collection_for_deletion(collection, calculate_size=False, force_del
             marked = True
 
     if deleted:
-        logger.info(f"Deleted collection '{collection.path}'\n")
+        logger.info(f"Deleted collection '{collection}'\n")
     elif marked:
-        logger.info(f"Marked collection for deletion: '{collection.path}'\n")
+        logger.info(f"Marked collection for deletion: '{collection}'\n")
 
     return deleted, marked, size
 
