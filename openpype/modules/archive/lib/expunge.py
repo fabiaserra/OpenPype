@@ -489,28 +489,14 @@ def clean_published_files(project_name, calculate_size=False, force_delete=False
                 continue
 
         # If we found files, we consider them for deletion
-        one_file_deleted = False
-        collections, remainders = clique.assemble(source_files)
-        for collection in collections:
-            deleted, _, size = consider_collection_for_deletion(
-                collection, calculate_size, force_delete
-            )
-            if deleted and calculate_size:
-                total_size += size
-
-        for remainder in remainders:
-            deleted, _, size = consider_file_for_deletion(
-                remainder, force_delete
-            )
-            if deleted:
-                one_file_deleted = True
-                if calculate_size:
-                    total_size += size
+        deleted, _, size = consider_filepaths_for_deletion(source_files)
 
         # If any file gets deleted, try to infer the path where the
         # version was published so it's easier to find the corresponding
         # publish in the future
-        if one_file_deleted:
+        if deleted:
+            if calculate_size:
+                total_size += size
             repre_docs = op_cli.get_representations(
                 project_name, version_ids=[version_doc["_id"]]
             )
