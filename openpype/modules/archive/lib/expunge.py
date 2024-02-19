@@ -11,12 +11,14 @@ Only three functions should be called externally.
     - purge_project(proj_code)
         Performs a deep cleaning of the project and preps if for archival
 """
+import re
 import os
 import shutil
 import time
 import fnmatch
 import logging
 import glob
+import datetime
 
 from . import utils
 from . import const
@@ -41,11 +43,15 @@ logger = Logger.get_logger(__name__)
 
 NOW = time.time()
 
-WARNING_THRESHOLD = NOW - 7 * 24 * 60 * 60  # 7 days ago
+# threshold to warn about files that are older than this time to be marked for deletion
+WARNING_THRESHOLD = datetime.now() - datetime.timedelta(days=7)
 
-DELETE_THRESHOLD = NOW - 14 * 24 * 60 * 60  # 14 days ago
+# threshold to keep files marked for deletion before they get deleted
+DELETE_THRESHOLD = datetime.timedelta(days=7)
 
-DELETE_PREFIX = "__MARKED_FOR_DELETION__"
+DELETE_PREFIX = f"__DELETE__"
+
+TIME_DELETE_PREFIX = DELETE_PREFIX + f"({datetime.now().strftime('%Y-%m-%d')})"
 
 if const._debug:
     logger.info("<!>Running in Developer Mode<!>\n")
@@ -242,6 +248,14 @@ def delete_filepath(filepath):
         logger.error(f"Error deleting '{filepath}': {e}")
 
 
+def parse_date_from_filename(filename):
+    """Parse the date from the filename if it has the DELETE_PREFIX in it."""
+    match = re.search(rf'{DELETE_PREFIX}\((.*?)\).*', filename)
+    if match:
+        date_string = match.group(1)
+        return datetime.strptime(date_string, '%Y-%m-%d')
+
+
 def consider_file_for_deletion(filepath, calculate_size=False, force_delete=False):
     """Consider a file for deletion based on its age"""
     size = 0
@@ -258,21 +272,24 @@ def consider_file_for_deletion(filepath, calculate_size=False, force_delete=Fals
             size = filepath_stat.st_size
         return True, size
 
-    # If file is newer than warning, ignore
-    if filepath_stat.st_mtime > WARNING_THRESHOLD:
-        return False, size
-
     # Extract the directory path and the original name
     dir_path, original_name = os.path.split(filepath)
 
-    if DELETE_PREFIX in original_name and filepath_stat.st_mtime < DELETE_THRESHOLD:
-        delete_filepath(filepath)
-        if calculate_size:
-            size = filepath_stat.st_size
+    if DELETE_PREFIX in original_name:
+        date_marked_for_delete = parse_date_from_filename(original_name)
+        # if the file has been marked for deletion more than 7 days, delete it
+        if datetime.now() - date_marked_for_delete > datetime.timedelta(days=7):
+            delete_filepath(filepath)
+            if calculate_size:
+                size = filepath_stat.st_size
         return True, size
 
+    # If file is newer than warning, ignore
+    elif filepath_stat.st_mtime > WARNING_THRESHOLD.timestamp():
+        return False, size
+
     # Create the new name with the prefix
-    new_name = f"{DELETE_PREFIX}{original_name}"
+    new_name = f"{TIME_DELETE_PREFIX}{original_name}"
 
     # Construct the full path for the new name
     new_filepath = os.path.join(dir_path, new_name)
@@ -313,6 +330,7 @@ def clean_published_files(project_name, calculate_size=False, force_delete=False
     #     staging_dir = repre_doc["data"].get("stagingDir")
     #     if staging_dir:
     #         staging_dir = anatomy.fill_root(staging_dir)
+    #         # TODO: make sure to check if the staging dir is older than the publish!
     #         file_deleted, size = consider_file_for_deletion(
     #             staging_dir, force_delete
     #         )
