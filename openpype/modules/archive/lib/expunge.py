@@ -439,9 +439,9 @@ def clean_work_files(target_root, calculate_size=False, force_delete=False):
                 if folder not in dirnames:
                     continue
                 folder_path = os.path.join(dirpath, folder)
-                for filepath in os.listdir(folder_path):
+                for filename in os.listdir(folder_path):
                     file_deleted, size = consider_file_for_deletion(
-                        filepath, force_delete
+                        os.path.join(folder_path, filename), force_delete
                     )
                     if file_deleted and calculate_size:
                         total_size += size
