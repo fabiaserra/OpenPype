@@ -355,7 +355,7 @@ def clean_published_files(project_name, calculate_size=False, force_delete=False
         # If source path is a Hiero workfile, we can infer that the publish
         # was a plate publish and a 'temp_transcode' folder was created next
         # to the workfile to store the transcodes before publish
-        if source_path.endswith(".hrox") and "/work" in source_path:
+        if source_path.endswith(".hrox"):
             subset_doc = op_cli.get_subset_by_id(
                 project_name, subset_id=version_doc["parent"]
             )
@@ -371,10 +371,11 @@ def clean_published_files(project_name, calculate_size=False, force_delete=False
                 "temp_transcode",
                 f"{subset_doc['name']}*",
             ))
-        # If source path is a Nuke file, we can infer that the publish is
+        # If source path is a Nuke work file, we can infer that the publish is
         # likely to be a render publish and the renders are stored in a
         # folder called 'renders' next to the Nuke file
-        elif source_path.endswith(".nk") and "/work" in source_path:
+        # NOTE: ignore the 'io' folder as it's used for the I/O of the project
+        elif source_path.endswith(".nk") and "/io/" not in source_path:
             subset_doc = op_cli.get_subset_by_id(
                 project_name, subset_id=version_doc["parent"]
             )
