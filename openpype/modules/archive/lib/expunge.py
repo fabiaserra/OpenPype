@@ -361,8 +361,8 @@ def clean_published_files(project_name, calculate_size=False, force_delete=False
             )
             if not subset_doc:
                 logger.warning(
-                    "Couldn't find subset for version '%s' with id '%s",
-                    version_doc["name"], version_doc["parent"]
+                    "Couldn't find subset for version '%s' with id '%s for source path '%s'",
+                    version_doc["name"], version_doc["parent"], source_path
                 )
                 continue
             # Hard-code the path to the temp_transcode folder
@@ -381,8 +381,8 @@ def clean_published_files(project_name, calculate_size=False, force_delete=False
             )
             if not subset_doc:
                 logger.warning(
-                    "Couldn't find subset for version '%s' with id '%s",
-                    version_doc["name"], version_doc["parent"]
+                    "Couldn't find subset for version '%s' with id '%s for source path '%s'",
+                    version_doc["name"], version_doc["parent"], source_path
                 )
                 continue
             if subset_doc["data"]["family"] == "workfile":
