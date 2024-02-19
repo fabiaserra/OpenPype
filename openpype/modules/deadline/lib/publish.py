@@ -11,6 +11,7 @@ from openpype.client import (
     get_version_by_name
 )
 
+from openpype.tools.utils import paths as path_utils
 from openpype.modules.deadline import constants as dl_constants
 from openpype.modules.deadline.lib import submit
 from openpype.modules.shotgrid.lib import credentials
@@ -318,7 +319,7 @@ def publish_version(
             # Create read path to pass to Nuke task
             basename = repre["files"][0] if isinstance(repre["files"], list) else repre["files"]
             read_path = os.path.join(staging_dir, basename)
-            read_path = utils.replace_frame_number_with_token(read_path, "####")
+            read_path = path_utils.replace_frame_number_with_token(read_path, "####")
             logger.debug("Review read path: %s", read_path)
 
             # Create review output path
