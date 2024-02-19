@@ -491,7 +491,9 @@ def clean_published_files(project_name, calculate_size=False, force_delete=False
                 continue
 
         # If we found files, we consider them for deletion
-        deleted, _, size = consider_filepaths_for_deletion(source_files)
+        deleted, _, size = consider_filepaths_for_deletion(
+            source_files, calculate_size, force_delete
+        )
 
         # If any file gets deleted, try to infer the path where the
         # version was published so it's easier to find the corresponding
@@ -633,7 +635,7 @@ def clean_work_files(target_root, calculate_size=False, force_delete=False):
 
                 filepaths = glob.glob(os.path.join(dirpath, folder, "*"))
                 deleted, _, size = consider_filepaths_for_deletion(
-                    filepaths, force_delete
+                    filepaths, calculate_size, force_delete
                 )
                 if deleted and calculate_size:
                     total_size += size
