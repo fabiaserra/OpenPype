@@ -114,9 +114,9 @@ def clean_project(proj_code, calculate_size=False, archive=False):
     scan_start = time.time()
 
     # Prep
-    finaled_shots, sent_versions, breakdown_shots, breakdown_assets = get_shotgrid_data(
-        proj_code
-    )
+    # finaled_shots, sent_versions, breakdown_shots, breakdown_assets = get_shotgrid_data(
+    #     proj_code
+    # )
 
     total_size = 0
     total_size += clean_published_files(project_name, calculate_size, force_delete=archive)
@@ -168,7 +168,7 @@ def get_shotgrid_data(proj_code):
         "Project",
         [["sg_code", "is", proj_code], ["sg_auto_cleanup", "is", False]],
     ):
-        return
+        return False
 
     breakdown_shots = {}
     finaled_shots = {}
@@ -185,7 +185,7 @@ def get_shotgrid_data(proj_code):
     ):
         breakdown_shots.append(shot["code"])
 
-    # Find Shots that have been finaled
+    # Find all entities that have been finaled
     filters = [
         ["project.Project.sg_code", "is", proj_code],
         ["sg_status_list", "in", ["snt", "fin"]],
@@ -196,7 +196,6 @@ def get_shotgrid_data(proj_code):
         "sg_final_version",
         "entity",
         "entity.Shot.sg_delivery_name",
-        # "entity.Shot.sg_shots_breakdown",
         "sg_status_list",
         SG_FIELD_MEDIA_GENERATED,
         SG_FIELD_MEDIA_PATH,
@@ -224,6 +223,7 @@ def get_shotgrid_data(proj_code):
                 sent_versions[shot_name] = []
             sent_versions[shot_name].append(version["code"])
 
+    return finaled_shots, sent_versions, breakdown_shots
 
 def delete_filepath(filepath):
     """Delete a file or directory"""
