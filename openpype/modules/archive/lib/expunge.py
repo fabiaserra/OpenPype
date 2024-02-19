@@ -13,6 +13,7 @@ Only three functions should be called externally.
 """
 import re
 import os
+import clique
 import shutil
 import time
 import fnmatch
@@ -240,15 +241,15 @@ def delete_filepath(filepath):
         if os.path.isfile(filepath):
             if not const._debug:
                 os.remove(filepath)  # Remove the file
-            logger.info(f"Deleted file: '{filepath}'.")
+            logger.info(f"Deleted file: '{filepath}'.\n")
         elif os.path.isdir(filepath):
             if not const._debug:
                 shutil.rmtree(filepath)  # Remove the dir and all its contents
-            logger.info(f"Deleted directory: '{filepath}'.")
+            logger.info(f"Deleted directory: '{filepath}'.\n")
         else:
-            logger.info(f"'{filepath}' is not a valid file or directory.")
+            logger.info(f"'{filepath}' is not a valid file or directory.\n")
     except Exception as e:
-        logger.error(f"Error deleting '{filepath}': {e}")
+        logger.error(f"Error deleting '{filepath}': {e}\n")
 
 
 def parse_date_from_filename(filename):
@@ -259,18 +260,88 @@ def parse_date_from_filename(filename):
         return datetime.strptime(date_string, DATE_FORMAT)
 
 
-def consider_file_for_deletion(filepath, calculate_size=False, force_delete=False):
-    """Consider a file for deletion based on its age"""
+def consider_filepaths_for_deletion(filepaths, calculate_size=False, force_delete=False):
+    """Consider a clique.filepaths for deletion based on its age"""
+    total_size = 0
+    deleted = False
+    marked = False
+
+    collections, remainders = clique.assemble(filepaths)
+    for collection in collections:
+        deleted_, marked_, size_ = consider_collection_for_deletion(
+            collection, calculate_size, force_delete
+        )
+        if size_:
+            total_size += size_
+        if deleted_:
+            deleted = True
+        if marked_:
+            marked = True
+
+    for remainder in remainders:
+        deleted_, marked_, size_ = consider_file_for_deletion(
+            remainder, force_delete
+        )
+        if size_:
+            total_size += size_
+        if deleted_:
+            deleted = True
+        if marked_:
+            marked = True
+
+    return deleted, marked, total_size
+
+
+def consider_collection_for_deletion(collection, calculate_size=False, force_delete=False):
+    """Consider a clique.collection for deletion based on its age"""
+    size = 0
+    deleted = False
+    marked = False
+    for filepath in collection:
+        deleted_, marked_, size_ = consider_file_for_deletion(
+            filepath, calculate_size=calculate_size, force_delete=force_delete, silent=True
+        )
+        if size_:
+            size += size_
+        if deleted_:
+            deleted = True
+        if marked_:
+            marked = True
+
+    if deleted:
+        logger.info(f"Deleted collection '{collection.path}'\n")
+    elif marked:
+        logger.info(f"Marked collection for deletion: '{collection.path}'\n")
+
+    return deleted, marked, size
+
+
+def consider_file_for_deletion(filepath, calculate_size=False, force_delete=False, silent=False):
+    """Consider a file for deletion based on its age
+
+    Args:
+        filepath (str): The path to the file
+        calculate_size (bool, optional): Whether to calculate the size of the deleted
+            files. Defaults to False.
+        force_delete (bool, optional): Whether to force delete the files.
+            Defaults to False.
+        silent (bool, optional): Whether to suppress the log messages. Defaults to False.
+
+    Returns:
+        bool: Whether the file was deleted
+        bool: Whether the file was marked for deletion
+        float: The size of the deleted file
+    """
     size = 0
 
     try:
         filepath_stat = os.stat(filepath)
     except FileNotFoundError:
         logger.warning(f"File not found: '{filepath}'")
-        return False, size
+        return False, False, size
 
     if force_delete:
-        delete_filepath(filepath)
+        delete_filepath(filepath, silent=silent)
         if calculate_size:
             size = filepath_stat.st_size
         return True, size
@@ -286,11 +357,12 @@ def consider_file_for_deletion(filepath, calculate_size=False, force_delete=Fals
         )
         logger.debug("Current date is '%s'", datetime.today())
         if datetime.today() - date_marked_for_delete < DELETE_THRESHOLD:
-            logger.debug("File has been marked for deletion enough time to be deleted")
-            delete_filepath(filepath)
+            if silent:
+                logger.debug("File has been marked for deletion enough time to be deleted")
+            delete_filepath(filepath, silent=silent)
             if calculate_size:
                 size = filepath_stat.st_size
-        return True, size
+        return True, False, size
 
     # If file is newer than warning, ignore
     elif filepath_stat.st_mtime > WARNING_THRESHOLD.timestamp():
@@ -306,9 +378,10 @@ def consider_file_for_deletion(filepath, calculate_size=False, force_delete=Fals
     if not const._debug:
         os.rename(filepath, new_filepath)
 
-    logger.info(f"Marked for deletion: '{filepath}' -> '{new_name}'")
+    if not silent:
+        logger.info(f"Marked for deletion: '{filepath}' -> '{new_name}'\n")
 
-    return True, size
+    return False, True, size
 
 
 def clean_published_files(project_name, calculate_size=False, force_delete=False):
@@ -339,10 +412,10 @@ def clean_published_files(project_name, calculate_size=False, force_delete=False
     #     if staging_dir:
     #         staging_dir = anatomy.fill_root(staging_dir)
     #         # TODO: make sure to check if the staging dir is older than the publish!
-    #         file_deleted, size = consider_file_for_deletion(
+    #         deleted, _, size = consider_file_for_deletion(
     #             staging_dir, force_delete
     #         )
-    #         if file_deleted:
+    #         if deleted:
     #             logger.info(" - Published file in '%s'", )
     #             if calculate_size:
     #                 total_size += size
@@ -417,11 +490,19 @@ def clean_published_files(project_name, calculate_size=False, force_delete=False
 
         # If we found files, we consider them for deletion
         one_file_deleted = False
-        for source_file in source_files:
-            file_deleted, size = consider_file_for_deletion(
-                source_file, force_delete
+        collections, remainders = clique.assemble(source_files)
+        for collection in collections:
+            deleted, _, size = consider_collection_for_deletion(
+                collection, calculate_size, force_delete
             )
-            if file_deleted:
+            if deleted and calculate_size:
+                total_size += size
+
+        for remainder in remainders:
+            deleted, _, size = consider_file_for_deletion(
+                remainder, force_delete
+            )
+            if deleted:
                 one_file_deleted = True
                 if calculate_size:
                     total_size += size
@@ -437,7 +518,8 @@ def clean_published_files(project_name, calculate_size=False, force_delete=False
                 repre_docs[0]["data"].get("path")
             )
             version_path = os.path.dirname(repre_name_path)
-            logger.info(" - Published files in '%s'", version_path)
+            logger.info("Published files in '%s'", version_path)
+            logger.info("\n")
 
     if calculate_size:
         logger.info("\n\nRemoved {0:,.3f} GB".format(utils.to_unit(total_size)))
@@ -471,13 +553,13 @@ def clean_io_files(target_root, calculate_size=False, force_delete=False):
 
         if force_delete:
             # Add entire folder
-            file_deleted, size = consider_file_for_deletion(target, force_delete)
-            if file_deleted and calculate_size:
+            deleted, _, size = consider_file_for_deletion(target, force_delete)
+            if deleted and calculate_size:
                 total_size += os.path.getsize(target)
         else:
             for dirpath, dirnames, filenames in os.walk(target, topdown=True):
-                file_deleted, size = consider_file_for_deletion(dirpath, force_delete)
-                if file_deleted:
+                deleted, _, size = consider_file_for_deletion(dirpath, force_delete)
+                if deleted:
                     # Prevent further exploration of this directory
                     dirnames.clear()
                     if calculate_size:
@@ -486,10 +568,10 @@ def clean_io_files(target_root, calculate_size=False, force_delete=False):
                 # Check each file in the current directory
                 for filename in filenames:
                     filepath = os.path.join(dirpath, filename)
-                    file_deleted, size = consider_file_for_deletion(
+                    deleted, _, size = consider_file_for_deletion(
                         filepath, force_delete
                     )
-                    if file_deleted and calculate_size:
+                    if deleted and calculate_size:
                         total_size += size
 
                 # Check each subdirectory in the current directory
@@ -497,10 +579,10 @@ def clean_io_files(target_root, calculate_size=False, force_delete=False):
                     dirnames
                 ):  # Use a copy of the list for safe modification
                     subdirpath = os.path.join(dirpath, dirname)
-                    file_deleted, size = consider_file_for_deletion(
+                    deleted, _, size = consider_file_for_deletion(
                         subdirpath, force_delete
                     )
-                    if file_deleted:
+                    if deleted:
                         # Remove from dirnames to prevent further exploration
                         dirnames.remove(dirname)
                         if calculate_size:
@@ -560,31 +642,26 @@ def clean_work_files(target_root, calculate_size=False, force_delete=False):
             for folder in folders_to_clean:
                 if folder not in dirnames:
                     continue
-                folder_path = os.path.join(dirpath, folder)
-                for filename in os.listdir(folder_path):
-                    file_deleted, size = consider_file_for_deletion(
-                        os.path.join(folder_path, filename), force_delete
-                    )
-                    if file_deleted and calculate_size:
-                        total_size += size
 
-                    # Remove from dirnames to prevent further exploration
-                    logger.debug(
-                        "Clearing folder '%s' from dirnames '%s'",
-                        folder_path,
-                        dirnames
-                    )
-                    dirnames.remove(folder)
+                filepaths = glob.glob(os.path.join(dirpath, folder, "*"))
+                deleted, _, size = consider_filepaths_for_deletion(
+                    filepaths, force_delete
+                )
+                if deleted and calculate_size:
+                    total_size += size
+
+                # Remove from dirnames to prevent further exploration
+                dirnames.remove(folder)
 
             # Delete all files that match the patterns that we have decided
             # we should delete
             for pattern in file_patterns_to_remove:
                 for filename in fnmatch.filter(filenames, pattern):
                     filepath = os.path.join(dirpath, filename)
-                    file_deleted, size = consider_file_for_deletion(
+                    deleted, _, size = consider_file_for_deletion(
                         filepath, force_delete
                     )
-                    if file_deleted and calculate_size:
+                    if deleted and calculate_size:
                         total_size += size
 
         if calculate_size:
