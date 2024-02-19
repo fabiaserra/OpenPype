@@ -245,8 +245,13 @@ def delete_filepath(filepath):
 
 def consider_file_for_deletion(filepath, calculate_size=False, force_delete=False):
     """Consider a file for deletion based on its age"""
-    filepath_stat = os.stat(filepath)
     size = 0
+
+    try:
+        filepath_stat = os.stat(filepath)
+    except FileNotFoundError:
+        logger.warning(f"File not found: '{filepath}'")
+        return False, size
 
     if force_delete:
         delete_filepath(filepath)
