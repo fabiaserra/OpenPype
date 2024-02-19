@@ -384,12 +384,21 @@ def clean_published_files(project_name, calculate_size=False, force_delete=False
                     version_doc["name"], version_doc["parent"]
                 )
                 continue
+            asset_doc = op_cli.get_asset_by_id(
+                project_name, asset_id=subset_doc["parent"]
+            )
+            if not asset_doc:
+                logger.warning(
+                    "Couldn't find asset for subset '%s' with id '%s",
+                    subset_doc["name"], subset_doc["parent"]
+                )
+                continue
             # Hard-code the path to the renders for Nuke files
             source_files = [os.path.join(
                 os.path.dirname(source_path),
                 "renders",
                 "nuke",
-                subset_doc["name"],
+                f"{asset_doc['name']}_{subset_doc['name']}",
                 "v{:03}".format(version_doc["name"]),
             )]
         # Otherwise, we just check the 'source' directly assuming that's
