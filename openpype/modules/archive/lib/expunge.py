@@ -306,7 +306,7 @@ def consider_file_for_deletion(filepath, calculate_size=False, force_delete=Fals
     if not const._debug:
         os.rename(filepath, new_filepath)
 
-    logger.info(f"Marked for deletion: '{filepath}' -> '{new_filepath}'")
+    logger.info(f"Marked for deletion: '{filepath}' -> '{new_name}'")
 
     return True, size
 
@@ -413,24 +413,29 @@ def clean_published_files(project_name, calculate_size=False, force_delete=False
                 )
                 continue
 
+        # If we found files, we consider them for deletion
+        one_file_deleted = False
         for source_file in source_files:
             file_deleted, size = consider_file_for_deletion(
                 source_file, force_delete
             )
             if file_deleted:
-                # If file gets deleted, try to infer the path where the
-                # version was published so it's easier to find the corresponding
-                # publish in the future
-                repre_docs = op_cli.get_representations(
-                    project_name, version_ids=[version_doc["_id"]]
-                )
-                repre_name_path = os.path.dirname(
-                    repre_docs[0]["data"].get("path")
-                )
-                version_path = os.path.dirname(repre_name_path)
-                logger.info(" - Published file in '%s'", version_path)
+                one_file_deleted = True
                 if calculate_size:
                     total_size += size
+
+        # If any file gets deleted, try to infer the path where the
+        # version was published so it's easier to find the corresponding
+        # publish in the future
+        if one_file_deleted:
+            repre_docs = op_cli.get_representations(
+                project_name, version_ids=[version_doc["_id"]]
+            )
+            repre_name_path = os.path.dirname(
+                repre_docs[0]["data"].get("path")
+            )
+            version_path = os.path.dirname(repre_name_path)
+            logger.info(" - Published files in '%s'", version_path)
 
     if calculate_size:
         logger.info("\n\nRemoved {0:,.3f} GB".format(utils.to_unit(total_size)))
