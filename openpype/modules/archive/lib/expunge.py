@@ -402,6 +402,7 @@ def clean_work_files(target_root, calculate_size=False, force_delete=False):
         "ifds",
         "img",
         "render",
+        "temp_transcode",
     }
     file_patterns_to_remove = {
         ".*.nk~",
