@@ -54,7 +54,7 @@ DELETE_PREFIX = "__DELETE__"
 DATE_FORMAT = "%Y-%m-%d"
 
 # Prefix to use for files that are marked for deletion with the current time
-TIME_DELETE_PREFIX = DELETE_PREFIX + "({})".format(datetime.today().strftime(DATE_FORMAT))"
+TIME_DELETE_PREFIX = f"{DELETE_PREFIX}({datetime.today().strftime(DATE_FORMAT)})"
 
 if const._debug:
     logger.info("<!>Running in Developer Mode<!>\n")
