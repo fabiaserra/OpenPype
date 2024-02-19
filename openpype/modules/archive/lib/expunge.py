@@ -41,17 +41,20 @@ from openpype.modules.delivery.scripts.media import (
 
 logger = Logger.get_logger(__name__)
 
-NOW = time.time()
+# Threshold to warn about files that are older than this time to be marked for deletion
+WARNING_THRESHOLD = datetime.today() - datetime.timedelta(days=7)
 
-# threshold to warn about files that are older than this time to be marked for deletion
-WARNING_THRESHOLD = datetime.now() - datetime.timedelta(days=7)
-
-# threshold to keep files marked for deletion before they get deleted
+# Threshold to keep files marked for deletion before they get deleted
 DELETE_THRESHOLD = datetime.timedelta(days=7)
 
-DELETE_PREFIX = f"__DELETE__"
+# Prefix to use for files that are marked for deletion
+DELETE_PREFIX = "__DELETE__"
 
-TIME_DELETE_PREFIX = DELETE_PREFIX + f"({datetime.now().strftime('%Y-%m-%d')})"
+# Format to use for the date in the delete prefix
+DATE_FORMAT = "%Y-%m-%d"
+
+# Prefix to use for files that are marked for deletion with the current time
+TIME_DELETE_PREFIX = DELETE_PREFIX + "({})".format(datetime.today().strftime(DATE_FORMAT))"
 
 if const._debug:
     logger.info("<!>Running in Developer Mode<!>\n")
@@ -253,7 +256,7 @@ def parse_date_from_filename(filename):
     match = re.search(rf'{DELETE_PREFIX}\((.*?)\).*', filename)
     if match:
         date_string = match.group(1)
-        return datetime.strptime(date_string, '%Y-%m-%d')
+        return datetime.strptime(date_string, DATE_FORMAT)
 
 
 def consider_file_for_deletion(filepath, calculate_size=False, force_delete=False):
@@ -278,7 +281,12 @@ def consider_file_for_deletion(filepath, calculate_size=False, force_delete=Fals
     if DELETE_PREFIX in original_name:
         date_marked_for_delete = parse_date_from_filename(original_name)
         # if the file has been marked for deletion more than 7 days, delete it
-        if datetime.now() - date_marked_for_delete > datetime.timedelta(days=7):
+        logger.debug(
+            "Found date marked for deletion to be '%s'", date_marked_for_delete
+        )
+        logger.debug("Current date is '%s'", datetime.today())
+        if datetime.today() - date_marked_for_delete < DELETE_THRESHOLD:
+            logger.debug("File has been marked for deletion enough time to be deleted")
             delete_filepath(filepath)
             if calculate_size:
                 size = filepath_stat.st_size
