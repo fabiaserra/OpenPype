@@ -12,8 +12,6 @@ Only three functions should be called externally.
         Performs a deep cleaning of the project and preps if for archival
 """
 import os
-import re
-import datetime
 import shutil
 import time
 import fnmatch
@@ -27,6 +25,8 @@ from openpype import AYON_SERVER_ENABLED
 from openpype import client as op_cli
 from openpype.lib import Logger
 from openpype.pipeline import Anatomy
+from openpype.tools.utils import paths as path_utils
+
 if AYON_SERVER_ENABLED:
     from ayon_shotgrid.lib import credentials
 else:
@@ -34,7 +34,7 @@ else:
 from openpype.modules.delivery.scripts.media import (
     SG_FIELD_OP_INSTANCE_ID,
     SG_FIELD_MEDIA_GENERATED,
-    SG_FIELD_MEDIA_PATH
+    SG_FIELD_MEDIA_PATH,
 )
 
 logger = Logger.get_logger(__name__)
@@ -47,59 +47,9 @@ DELETE_THRESHOLD = NOW - 14 * 24 * 60 * 60  # 14 days ago
 
 DELETE_PREFIX = "__MARKED_FOR_DELETION__"
 
-# "{root[work]}": {
-#     "{project[code]}": {
-#         "production": {},
-#         "config": {
-#             "ocio": {}
-#         },
-#         "resources": {
-#             "footage": {
-#                 "plates": {},
-#                 "offline": {}
-#             },
-#             "audio": {},
-#             "art_dept": {}
-#         },
-#         "editorial": {},
-#         "io": {
-#             "incoming": {},
-#             "outgoing": {}
-#         },
-#         "assets": {
-#             "characters": {},
-#             "prop": {},
-#             "locations": {}
-#         },
-#         "shots": {},
-#         "data": {
-#             "nuke": {
-#                 "untitled_autosaves": {}
-#             }
-#         },
-#         "tools": {
-#             "maya": {
-#                 "all": {},
-#                 "2023": {},
-#                 "2024": {}
-#             },
-#             "houdini": {
-#                 "all": {},
-#                 "20.0": {},
-#                 "19.5": {},
-#                 "19.0": {}
-#             },
-#             "nuke": {
-#                 "all": {},
-#                 "14.0": {},
-#                 "15.0": {}
-#             }
-#         }
-#     }
-# }
-
 if const._debug:
     logger.info("<!>Running in Developer Mode<!>\n")
+
 
 # ------------// Callable Functions //------------
 def clean_all():
@@ -110,13 +60,15 @@ def clean_all():
     if not os.path.exists(summary_dir):
         os.makedirs(summary_dir)
 
-    timestamp = time.strftime('%Y%m%d%H%M')
+    timestamp = time.strftime("%Y%m%d%H%M")
     summary_file = os.path.join(summary_dir, f"{timestamp}.txt")
 
     # Create a file handler which logs even debug messages
     file_handler = logging.FileHandler(summary_file)
     file_handler.setLevel(logging.info)
-    file_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
+    file_handler.setFormatter(
+        logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
+    )
 
     logger.addHandler(file_handler)
 
@@ -124,18 +76,14 @@ def clean_all():
 
     for proj in sorted(glob(const.PROJECTS_DIR + "/*")):
         proj = os.path.basename(proj)
-        total_size += clean_project(proj, calculate_size=True, force_delete=False)
+        total_size += clean_project(proj, calculate_size=True, archive=False)
 
     elapsed_time = time.time() - scan_start
     logger.info("Total Clean Time %s", utils.time_elapsed(elapsed_time))
 
 
-def clean_project(proj_code, calculate_size=False, force_delete=False):
-    """
-    Performs a routine cleaning of an active project. Removes finaled shots from the
-    outgoing, review, and final folders. Removes rendered publishes older than 5
-    versions.
-    """
+def clean_project(proj_code, calculate_size=False, archive=False):
+    """Performs a routine cleaning of an active project"""
     target_root = "{0}/{1}".format(const.PROJECTS_DIR, proj_code)
 
     sg = credentials.get_shotgrid_session()
@@ -148,13 +96,15 @@ def clean_project(proj_code, calculate_size=False, force_delete=False):
     if not os.path.exists(summary_dir):
         os.makedirs(summary_dir)
 
-    timestamp = time.strftime('%Y%m%d%H%M')
+    timestamp = time.strftime("%Y%m%d%H%M")
     summary_file = os.path.join(summary_dir, f"{timestamp}.txt")
 
     # Create a file handler which logs even debug messages
     file_handler = logging.FileHandler(summary_file)
     file_handler.setLevel(logging.DEBUG)
-    file_handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
+    file_handler.setFormatter(
+        logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
+    )
 
     logger.addHandler(file_handler)
 
@@ -164,32 +114,50 @@ def clean_project(proj_code, calculate_size=False, force_delete=False):
     scan_start = time.time()
 
     # Prep
-    # finaled_shots, sent_versions, breakdown_shots, breakdown_assets = get_shotgrid_data(proj_code)
+    finaled_shots, sent_versions, breakdown_shots, breakdown_assets = get_shotgrid_data(
+        proj_code
+    )
+
     total_size = 0
-    total_size += clean_published_files(project_name, calculate_size, force_delete)
-    total_size += clean_work_files(target_root, calculate_size, force_delete)
-    total_size += clean_io_files(target_root, calculate_size, force_delete)
+    total_size += clean_published_files(project_name, calculate_size, force_delete=archive)
+    total_size += clean_work_files(target_root, calculate_size, force_delete=archive)
+    total_size += clean_io_files(target_root, calculate_size, force_delete=archive)
 
     elapsed_time = time.time() - scan_start
     logger.info("Clean Time %s", utils.time_elapsed(elapsed_time))
     logger.info("More logging details at '%s'", summary_file)
 
+    if archive:
+        compress_workfiles(target_root)
+
     logger.removeHandler(file_handler)
     return total_size
 
+
 def purge_project(proj_code):
     """
-    Performs a deep cleaning of the project and preps if for archival by moving to
-    staging area ('ol03/For_Archive/Ready_To_Send'). This should only be executed
-    after a project has been finaled and no one is actively working on it.
+    Performs a deep cleaning of the project and preps if for archival by deleting
+    all the unnecessary files and compressing the work directories. This should only
+    be executed after a project has been finaled and no one is actively working on it.
     """
-    clean_project(proj_code, force_delete=True)
+    clean_project(proj_code, archive=True)
 
 
 # ------------// Common Functions //------------
-
 def get_shotgrid_data(proj_code):
+    """Get the necessary data from Shotgrid for getting more info about how to
+    clean the project.
 
+    Args:
+        proj_code (str): The project code
+
+    Returns:
+        dict: A dictionary with the following keys:
+            - finaled_shots: A dictionary with the finaled shots and their final versions
+            - sent_versions: A dictionary with the sent versions
+            - breakdown_shots: A list of shots marked for breakdown
+            - breakdown_assets: A list of assets marked for breakdown
+    """
     logger.info(" - Getting Final list from Shotgrid")
 
     # Authenticate Shotgrid
@@ -232,7 +200,7 @@ def get_shotgrid_data(proj_code):
         "sg_status_list",
         SG_FIELD_MEDIA_GENERATED,
         SG_FIELD_MEDIA_PATH,
-        SG_FIELD_OP_INSTANCE_ID
+        SG_FIELD_OP_INSTANCE_ID,
     ]
     finished_versions = sg.find("Version", filters, fields)
 
@@ -250,18 +218,15 @@ def get_shotgrid_data(proj_code):
                     "op_id": [],
                     "delivery_name": delivery_name,
                 }
-            finaled_shots[shot_name]["final"].append(
-                version["code"]
-            )
+            finaled_shots[shot_name]["final"].append(version["code"])
         elif version["sg_status_list"] == "snt":
             if shot_name not in sent_versions:
                 sent_versions[shot_name] = []
-            sent_versions[shot_name].append(
-                version["code"]
-            )
+            sent_versions[shot_name].append(version["code"])
 
 
 def delete_filepath(filepath):
+    """Delete a file or directory"""
     try:
         if os.path.isfile(filepath):
             if not const._debug:
@@ -278,7 +243,7 @@ def delete_filepath(filepath):
 
 
 def consider_file_for_deletion(filepath, calculate_size=False, force_delete=False):
-
+    """Consider a file for deletion based on its age"""
     filepath_stat = os.stat(filepath)
     size = 0
 
@@ -317,7 +282,15 @@ def consider_file_for_deletion(filepath, calculate_size=False, force_delete=Fals
 
 
 def clean_published_files(project_name, calculate_size=False, force_delete=False):
+    """Cleans the source of the published files of the project.
 
+    Args:
+        project_name (str): The name of the project
+        calculate_size (bool, optional): Whether to calculate the size of the deleted
+            files. Defaults to False.
+        force_delete (bool, optional): Whether to force delete the files.
+            Defaults to False.
+    """
     logger.info(" - Finding already published files")
     total_size = 0
 
@@ -327,16 +300,37 @@ def clean_published_files(project_name, calculate_size=False, force_delete=False
     for version in versions:
         rootless_source_path = version["data"].get("source")
         source_path = anatomy.fill_root(rootless_source_path)
-        file_deleted, size = consider_file_for_deletion(source_path, force_delete)
-        if file_deleted and calculate_size:
-            total_size += size
+        files, _, _, _ = path_utils.convert_to_sequence(source_path)
+        if not files:
+            logger.warning(
+                "Couldn't find files for file pattern '%s'.",
+                source_path
+            )
+            continue
+        for filepath in files:
+            file_deleted, size = consider_file_for_deletion(
+                filepath, force_delete
+            )
+            if file_deleted and calculate_size:
+                total_size += size
 
     if calculate_size:
         logger.info("\n\nRemoved {0:,.3f} GB".format(utils.to_unit(total_size)))
 
 
 def clean_io_files(target_root, calculate_size=False, force_delete=False):
+    """Cleans the I/O directories of the project.
 
+    Args:
+        target_root (str): The root directory of the project
+        calculate_size (bool, optional): Whether to calculate the size of the deleted
+            files. Defaults to False.
+        force_delete (bool, optional): Whether to force delete the files.
+            Defaults to False.
+
+    Returns:
+        float: The total size of the deleted files in bytes.
+    """
     logger.info(" - Finding old files in I/O")
     total_size = 0
 
@@ -365,14 +359,20 @@ def clean_io_files(target_root, calculate_size=False, force_delete=False):
                 # Check each file in the current directory
                 for filename in filenames:
                     filepath = os.path.join(dirpath, filename)
-                    file_deleted, size = consider_file_for_deletion(filepath, force_delete)
+                    file_deleted, size = consider_file_for_deletion(
+                        filepath, force_delete
+                    )
                     if file_deleted and calculate_size:
                         total_size += size
 
                 # Check each subdirectory in the current directory
-                for dirname in list(dirnames):  # Use a copy of the list for safe modification
+                for dirname in list(
+                    dirnames
+                ):  # Use a copy of the list for safe modification
                     subdirpath = os.path.join(dirpath, dirname)
-                    file_deleted, size = consider_file_for_deletion(subdirpath, force_delete)
+                    file_deleted, size = consider_file_for_deletion(
+                        subdirpath, force_delete
+                    )
                     if file_deleted:
                         # Remove from dirnames to prevent further exploration
                         dirnames.remove(dirname)
@@ -386,7 +386,10 @@ def clean_io_files(target_root, calculate_size=False, force_delete=False):
 
 
 def clean_work_files(target_root, calculate_size=False, force_delete=False):
+    """Cleans the work directories of the project by removing old files and folders
+    that we consider not relevant to keep for a long time.
 
+    """
     logger.info(" - Cleaning work files")
 
     # Folders that we want to clear all the files from inside them
@@ -406,7 +409,7 @@ def clean_work_files(target_root, calculate_size=False, force_delete=False):
         ".*nk.autosave.*",
         "*_auto*.hip",
         "*_bak*.hip",
-        "*.hrox.autosave"
+        "*.hrox.autosave",
     }
     total_size = 0
 
@@ -430,7 +433,9 @@ def clean_work_files(target_root, calculate_size=False, force_delete=False):
                     continue
                 folder_path = os.path.join(dirpath, folder)
                 for filepath in os.listdir(folder_path):
-                    file_deleted, size = consider_file_for_deletion(filepath, force_delete)
+                    file_deleted, size = consider_file_for_deletion(
+                        filepath, force_delete
+                    )
                     if file_deleted and calculate_size:
                         total_size += size
 
@@ -442,7 +447,9 @@ def clean_work_files(target_root, calculate_size=False, force_delete=False):
             for pattern in file_patterns_to_remove:
                 for filename in fnmatch.filter(filenames, pattern):
                     filepath = os.path.join(dirpath, filename)
-                    file_deleted, size = consider_file_for_deletion(filepath, force_delete)
+                    file_deleted, size = consider_file_for_deletion(
+                        filepath, force_delete
+                    )
                     if file_deleted and calculate_size:
                         total_size += size
 
@@ -451,65 +458,17 @@ def clean_work_files(target_root, calculate_size=False, force_delete=False):
 
     return total_size
 
+
 # ------------// Archival Functions //------------
-# def move_for_archive():
-#     logger.info(" - Moving Shots to Archive Directory")
-#     target = "{0}/{1}".format(const.PROJECTS_DIR, target_project)
-#     shot_regex = "[0-9, a-z, A-Z]*/[0-9, a-z, A-Z]*/[0-9, a-z, A-Z, _]*"
-#     asset_regex = "_assets/[0-9, a-z, A-Z]*/[0-9, a-z, A-Z]*"
+def compress_workfiles(target_root):
+    """Compresses the work directories for a project."""
 
-#     # Shots
-#     for path in glob("{0}/{1}".format(target, shot_regex)):
-#         archive_path(path)
-
-#     # Assets
-#     for path in glob("{0}/{1}".format(target, asset_regex)):
-#         archive_path(path)
-
-#     # Move remaining sequence folders
-#     for path in glob("{0}/[0-9, a-z, A-Z]*/_*".format(target)):
-#         archive_path(path)
-
-#     # Move project base folders
-#     for path in glob("{0}/_*".format(target)):
-#         archive_path(path)
-
-#     # Rsync the entire project to ensure everything is copied
-#     archive_path(target, rsync=True)
-
-#     # Remove empty sequence level folders
-#     for path in glob("{0}/[0-9, a-z, A-Z]*/[0-9, a-z, A-Z, _]*/".format(target)):
-#         if not os.listdir(path) and not const._debug:
-#             shutil.rmtree(path)
-#             logger.info("Remove {0}".format(path))
-#     # Remove empty sequence level folders
-#     for path in glob("{0}/[0-9, a-z, A-Z]*/".format(target)):
-#         if not os.listdir(path) and not const._debug:
-#             shutil.rmtree(path)
-#             logger.info("Remove {0}".format(path))
-
-# def compress_workfiles(proj_code):
-
-#     target = os.path.join(const.ARCHIVE_DIR, proj_code)
-
-#     # Shots
-#     logger.info(" - Compressing shot work files")
-#     render_regex = (
-#         "[0-9, a-z, A-Z]*/[0-9, a-z, A-Z]*/[0-9, a-z, A-Z]*/[0-9, a-z, A-Z]*"  # JAP
-#     )
-#     for path in sorted(glob("{0}/{1}/work".format(target, render_regex))):
-#         if const._debug:
-#             logger.info(" + Dry compress --{0}".format("/".join(path.split("/")[-5:-1])))
-#         else:
-#             logger.info(" + {0}".format("/".join(path.split("/")[-5:-1])))
-#             os.system("cd {0} &&zip -0rmT work work".format(os.path.dirname(path)))
-
-#     # Assets
-#     logger.info(" - Compressing asset work files")
-#     render_regex = "[0-9, a-z, A-Z]*/[0-9, a-z, A-Z]*/[0-9, a-z, A-Z]*"
-#     for path in glob("{0}/_assets/{1}/work".format(target, render_regex)):
-#         if const._debug:
-#             logger.info(" + Dry compress --{0}".format("/".join(path.split("/")[-5:-1])))
-#         else:
-#             logger.info(" + {0}".format("/".join(path.split("/")[-3:-1])))
-#             os.system("cd {0} &&zip -0rmT work work".format(os.path.dirname(path)))
+    logger.info(" - Compressing work files")
+    for dirpath, dirnames, filenames in os.walk(target_root):
+        if "work" in dirnames:
+            work_dir = os.path.join(dirpath, "work")
+            if const._debug:
+                logger.info(f" + Dry compress -- {work_dir}")
+            else:
+                logger.info(f" + {work_dir}")
+                os.system(f"cd {os.path.dirname(work_dir)} && zip -rmT work work")
