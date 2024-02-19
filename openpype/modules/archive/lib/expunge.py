@@ -376,6 +376,8 @@ def clean_published_files(project_name, calculate_size=False, force_delete=False
         # folder called 'renders' next to the Nuke file
         # NOTE: ignore the 'io' folder as it's used for the I/O of the project
         elif source_path.endswith(".nk") and "/io/" not in source_path:
+            if version_doc["family"] == "workfile":
+                return
             subset_doc = op_cli.get_subset_by_id(
                 project_name, subset_id=version_doc["parent"]
             )
