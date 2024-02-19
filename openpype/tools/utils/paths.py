@@ -35,6 +35,10 @@ def convert_to_sequence(file_path):
     representation_files = glob.glob(file_pattern)
     collections, remainder = clique.assemble(representation_files)
 
+    ext = None
+    frame_start = None
+    frame_end = None
+
     # If file path is in remainder it means it was a single file
     if file_path in remainder:
         collections = [remainder]
