@@ -359,6 +359,12 @@ def clean_published_files(project_name, calculate_size=False, force_delete=False
             subset_doc = op_cli.get_subset_by_id(
                 project_name, subset_id=version_doc["parent"]
             )
+            if not subset_doc:
+                logger.warning(
+                    "Couldn't find subset for version '%s' with id '%s",
+                    version_doc["name"], version_doc["parent"]
+                )
+                continue
             # Hard-code the path to the temp_transcode folder
             source_files = glob.glob(os.path.join(
                 os.path.dirname(source_path),
@@ -372,6 +378,12 @@ def clean_published_files(project_name, calculate_size=False, force_delete=False
             subset_doc = op_cli.get_subset_by_id(
                 project_name, subset_id=version_doc["parent"]
             )
+            if not subset_doc:
+                logger.warning(
+                    "Couldn't find subset for version '%s' with id '%s",
+                    version_doc["name"], version_doc["parent"]
+                )
+                continue
             # Hard-code the path to the renders for Nuke files
             source_files = [os.path.join(
                 os.path.dirname(source_path),
