@@ -356,21 +356,21 @@ def clean_published_files(project_name, calculate_size=False, force_delete=False
         # was a plate publish and a 'temp_transcode' folder was created next
         # to the workfile to store the transcodes before publish
         if source_path.endswith(".hrox") and "/work" in source_path:
-            subset_doc = op_cli.get_subsets(
-                project_name, subset_ids=[version_doc["parent"]]
+            subset_doc = op_cli.get_subset_by_id(
+                project_name, subset_id=version_doc["parent"]
             )
             # Hard-code the path to the temp_transcode folder
             source_files = glob.glob(os.path.join(
                 os.path.dirname(source_path),
                 "temp_transcode",
-                f"subset_doc['name']*",
+                f"{subset_doc['name']}*",
             ))
         # If source path is a Nuke file, we can infer that the publish is
         # likely to be a render publish and the renders are stored in a
         # folder called 'renders' next to the Nuke file
         elif source_path.endswith(".nk") and "/work" in source_path:
-            subset_doc = op_cli.get_subsets(
-                project_name, subset_ids=[version_doc["parent"]]
+            subset_doc = op_cli.get_subset_by_id(
+                project_name, subset_id=version_doc["parent"]
             )
             # Hard-code the path to the renders for Nuke files
             source_files = os.path.join(
