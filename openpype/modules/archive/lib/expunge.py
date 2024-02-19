@@ -134,13 +134,13 @@ def clean_project(proj_code, calculate_size=False, archive=False):
     return total_size
 
 
-def purge_project(proj_code):
+def purge_project(proj_code, calculate_size=False):
     """
     Performs a deep cleaning of the project and preps if for archival by deleting
     all the unnecessary files and compressing the work directories. This should only
     be executed after a project has been finaled and no one is actively working on it.
     """
-    clean_project(proj_code, archive=True)
+    clean_project(proj_code, calculate_size=calculate_size, archive=True)
 
 
 # ------------// Common Functions //------------
