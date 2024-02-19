@@ -119,7 +119,7 @@ def clean_project(proj_code, calculate_size=False, archive=False):
     # )
 
     total_size = 0
-    # total_size += clean_published_files(project_name, calculate_size, force_delete=archive)
+    total_size += clean_published_files(project_name, calculate_size, force_delete=archive)
     total_size += clean_work_files(target_root, calculate_size, force_delete=archive)
     total_size += clean_io_files(target_root, calculate_size, force_delete=archive)
 
@@ -297,23 +297,66 @@ def clean_published_files(project_name, calculate_size=False, force_delete=False
 
     anatomy = Anatomy(project_name)
 
-    versions = op_cli.get_versions(project_name)
-    for version in versions:
-        rootless_source_path = version["data"].get("source")
+    # TODO: enable after a while since `stagingDir` integrate on the
+    # representations was just added recently
+    # repre_docs = op_cli.get_representations(
+    #     project_name
+    # )
+    # # Iterate over all representations in the project and check if
+    # # stagingDir is stored in its data and consider it for deletion
+    # # if it's old enough
+    # for repre_doc in repre_docs:
+    #     staging_dir = repre_doc["data"].get("stagingDir")
+    #     if staging_dir:
+    #         staging_dir = anatomy.fill_root(staging_dir)
+    #         file_deleted, size = consider_file_for_deletion(
+    #             staging_dir, force_delete
+    #         )
+    #         if file_deleted:
+    #             logger.info(" - Published file in '%s'", )
+    #             if calculate_size:
+    #                 total_size += size
+
+    version_docs = op_cli.get_versions(project_name)
+    for version_doc in version_docs:
+        rootless_source_path = version_doc["data"].get("source")
         source_path = anatomy.fill_root(rootless_source_path)
-        files, _, _, _ = path_utils.convert_to_sequence(source_path)
-        if not files:
-            logger.warning(
-                "Couldn't find files for file pattern '%s'.",
-                source_path
+
+        if source_path.endswith(".nk") and "/work" in source_path:
+            subset_doc = op_cli.get_subset(version_doc["parent"])
+            # Hard-code the path to the renders for Nuke files
+            source_files = os.path.join(
+                os.path.dirname(source_path),
+                "renders",
+                "nuke",
+                subset_doc["name"],
+                "v{:03}".format(version_doc["name"])
             )
-            continue
-        for filepath in files:
+        else:
+            source_files, _, _, _ = path_utils.convert_to_sequence(source_path)
+            if not source_files:
+                logger.warning(
+                    "Couldn't find files for file pattern '%s'.",
+                    source_path
+                )
+                continue
+
+        for source_file in source_files:
             file_deleted, size = consider_file_for_deletion(
-                filepath, force_delete
+                source_file, force_delete
             )
             if file_deleted:
-                # logger.info(" - Published file in '%s'", version[""])
+                # If file gets deleted, try to infer the path where the
+                # version was published so it's easier to find the corresponding
+                # publish in the future
+                repre_docs = op_cli.get_representations(
+                    project_name, version_ids=[version_doc["_id"]]
+                )
+                repre_name_path = os.path.dirname(
+                    repre_docs[0]["data"].get("path")
+                )
+                version_path = os.path.dirname(repre_name_path)
+                logger.info(" - Published file in '%s'", version_path)
                 if calculate_size:
                     total_size += size
 
