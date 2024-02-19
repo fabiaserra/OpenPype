@@ -118,7 +118,7 @@ def clean_project(proj_code, calculate_size=False, archive=False):
     logger.addHandler(file_handler)
 
     project_name = sg_project["name"]
-    logger.info("======= Cleaning project '%s' (%s) =======", project_name, proj_code)
+    logger.info("======= Cleaning project '%s' (%s) ======= \n\n\n", project_name, proj_code)
 
     scan_start = time.time()
 
@@ -337,7 +337,7 @@ def consider_file_for_deletion(filepath, calculate_size=False, force_delete=Fals
     try:
         filepath_stat = os.stat(filepath)
     except FileNotFoundError:
-        logger.warning(f"File not found: '{filepath}'")
+        logger.warning(f"File not found: '{filepath}'\n")
         return False, False, size
 
     if force_delete:
@@ -357,8 +357,10 @@ def consider_file_for_deletion(filepath, calculate_size=False, force_delete=Fals
         )
         logger.debug("Current date is '%s'", datetime.today())
         if datetime.today() - date_marked_for_delete < DELETE_THRESHOLD:
-            if silent:
-                logger.debug("File has been marked for deletion enough time to be deleted")
+            if not silent:
+                logger.debug(
+                    "File has been marked for deletion enough time to be deleted\n"
+                )
             delete_filepath(filepath, silent=silent)
             if calculate_size:
                 size = filepath_stat.st_size
@@ -394,7 +396,7 @@ def clean_published_files(project_name, calculate_size=False, force_delete=False
         force_delete (bool, optional): Whether to force delete the files.
             Defaults to False.
     """
-    logger.info(" - Finding already published files")
+    logger.info(" ---- Finding already published files ---- \n\n")
     total_size = 0
 
     anatomy = Anatomy(project_name)
@@ -434,7 +436,7 @@ def clean_published_files(project_name, calculate_size=False, force_delete=False
             )
             if not subset_doc:
                 logger.warning(
-                    "Couldn't find subset for version '%s' with id '%s for source path '%s'",
+                    "Couldn't find subset for version '%s' with id '%s for source path '%s'\n",
                     version_doc["name"], version_doc["parent"], source_path
                 )
                 continue
@@ -454,7 +456,7 @@ def clean_published_files(project_name, calculate_size=False, force_delete=False
             )
             if not subset_doc:
                 logger.warning(
-                    "Couldn't find subset for version '%s' with id '%s for source path '%s'",
+                    "Couldn't find subset for version '%s' with id '%s for source path '%s'\n",
                     version_doc["name"], version_doc["parent"], source_path
                 )
                 continue
@@ -474,7 +476,7 @@ def clean_published_files(project_name, calculate_size=False, force_delete=False
                 os.path.dirname(source_path),
                 "renders",
                 "nuke",
-                f"{asset_doc['name']}_{subset_doc['name']}",
+                f"{asset_doc['name']}_{subset_doc['name'].replace(' ', '_')}",
                 "v{:03}".format(version_doc["name"]),
             )]
         # Otherwise, we just check the 'source' directly assuming that's
@@ -526,15 +528,15 @@ def clean_io_files(target_root, calculate_size=False, force_delete=False):
     Returns:
         float: The total size of the deleted files in bytes.
     """
-    logger.info(" - Finding old files in I/O")
+    logger.info(" ---- Finding old files in I/O ----\n\n")
     total_size = 0
 
     for folder in ["incoming", "outgoing", "delivery", "outsource"]:
         target = os.path.join(target_root, "io", folder)
         if os.path.exists(target):
-            logger.debug(f"Scanning {target} folder")
+            logger.debug(f"Scanning {target} folder\n")
         else:
-            logger.debug(f"{target} folder does not exist")
+            logger.warning(f"{target} folder does not exist\n")
             continue
 
         if force_delete:
@@ -585,7 +587,7 @@ def clean_work_files(target_root, calculate_size=False, force_delete=False):
     that we consider not relevant to keep for a long time.
 
     """
-    logger.info(" - Cleaning work files")
+    logger.info(" ---- Cleaning work files ----\n\n")
 
     # Folders that we want to clear all the files from inside them
     # that are older than our threshold
@@ -613,9 +615,9 @@ def clean_work_files(target_root, calculate_size=False, force_delete=False):
     for folder in ["assets", "shots"]:
         target = os.path.join(target_root, folder)
         if os.path.exists(target):
-            logger.debug(f" - Scanning {target} folder")
+            logger.debug(f" - Scanning {target} folder\n\n")
         else:
-            logger.debug(f" - {target} folder does not exist")
+            logger.warning(f" - {target} folder does not exist\n")
             continue
 
         for dirpath, dirnames, filenames in os.walk(target, topdown=True):
@@ -660,7 +662,7 @@ def clean_work_files(target_root, calculate_size=False, force_delete=False):
 def compress_workfiles(target_root):
     """Compresses the work directories for a project."""
 
-    logger.info(" - Compressing work files")
+    logger.info(" ---- Compressing work files ----\n\n")
     for dirpath, dirnames, filenames in os.walk(target_root):
         if "work" in dirnames:
             work_dir = os.path.join(dirpath, "work")
