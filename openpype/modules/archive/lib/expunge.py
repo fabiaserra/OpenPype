@@ -649,7 +649,7 @@ def clean_work_files(target_root, calculate_size=False, force_delete=False):
                 for filename in fnmatch.filter(filenames, pattern):
                     filepath = os.path.join(dirpath, filename)
                     deleted, _, size = consider_file_for_deletion(
-                        filepath, force_delete
+                        filepath, calculate_size, force_delete
                     )
                     if deleted and calculate_size:
                         total_size += size
