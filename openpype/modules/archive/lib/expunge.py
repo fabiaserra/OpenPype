@@ -29,7 +29,7 @@ from openpype import client as op_cli
 from openpype.lib import Logger
 from openpype.pipeline import Anatomy
 from openpype.tools.utils import paths as path_utils
-
+from openpype.client.operations import OperationsSession
 if AYON_SERVER_ENABLED:
     from ayon_shotgrid.lib import credentials
 else:
@@ -364,7 +364,9 @@ def consider_file_for_deletion(filepath, calculate_size=False, force_delete=Fals
             delete_filepath(filepath, silent=silent)
             if calculate_size:
                 size = filepath_stat.st_size
-        return True, False, size
+            return True, False, size
+
+        return False, True, size
 
     # If file is newer than warning, ignore
     elif filepath_stat.st_mtime > WARNING_THRESHOLD.timestamp():
@@ -424,6 +426,12 @@ def clean_published_files(project_name, calculate_size=False, force_delete=False
 
     version_docs = op_cli.get_versions(project_name)
     for version_doc in version_docs:
+        if version_doc["data"].get("source_deleted"):
+            logger.debug(
+                "Skipping version '%s' as 'source_deleted' is True\n",
+                version_doc["_id"]
+            )
+            continue
         rootless_source_path = version_doc["data"].get("source")
         source_path = anatomy.fill_root(rootless_source_path)
 
@@ -511,6 +519,16 @@ def clean_published_files(project_name, calculate_size=False, force_delete=False
             logger.info("Published files in '%s'", version_path)
             logger.info("\n")
 
+            # Add metadata to version so we can skip from inspecting it
+            # in the future
+            session = OperationsSession()
+            update_data = version_doc["data"].deepcopy()
+            update_data["source_deleted"] = True
+            session.update_entity(
+                project_name, "version", version_doc["_id"], update_data
+            )
+            session.commit()
+
     if calculate_size:
         logger.info("\n\nRemoved {0:,.3f} GB".format(utils.to_unit(total_size)))
 
@@ -543,23 +561,28 @@ def clean_io_files(target_root, calculate_size=False, force_delete=False):
 
         if force_delete:
             # Add entire folder
-            deleted, _, size = consider_file_for_deletion(target, force_delete)
+            deleted, _, size = consider_file_for_deletion(
+                target, calculate_size, force_delete
+            )
             if deleted and calculate_size:
                 total_size += os.path.getsize(target)
         else:
             for dirpath, dirnames, filenames in os.walk(target, topdown=True):
-                deleted, _, size = consider_file_for_deletion(dirpath, force_delete)
-                if deleted:
+                deleted, marked, size = consider_file_for_deletion(
+                    dirpath, calculate_size, force_delete
+                )
+                if deleted or marked:
                     # Prevent further exploration of this directory
                     dirnames.clear()
+                    filenames.clear()
                     if calculate_size:
                         total_size += size
 
                 # Check each file in the current directory
                 for filename in filenames:
                     filepath = os.path.join(dirpath, filename)
-                    deleted, _, size = consider_file_for_deletion(
-                        filepath, force_delete
+                    deleted, marked, size = consider_file_for_deletion(
+                        filepath, calculate_size, force_delete
                     )
                     if deleted and calculate_size:
                         total_size += size
@@ -570,7 +593,7 @@ def clean_io_files(target_root, calculate_size=False, force_delete=False):
                 ):  # Use a copy of the list for safe modification
                     subdirpath = os.path.join(dirpath, dirname)
                     deleted, _, size = consider_file_for_deletion(
-                        subdirpath, force_delete
+                        subdirpath, calculate_size, force_delete
                     )
                     if deleted:
                         # Remove from dirnames to prevent further exploration
@@ -634,14 +657,14 @@ def clean_work_files(target_root, calculate_size=False, force_delete=False):
                     continue
 
                 filepaths = glob.glob(os.path.join(dirpath, folder, "*"))
-                deleted, _, size = consider_filepaths_for_deletion(
+                deleted, marked, size = consider_filepaths_for_deletion(
                     filepaths, calculate_size, force_delete
                 )
-                if deleted and calculate_size:
-                    total_size += size
-
-                # Remove from dirnames to prevent further exploration
-                dirnames.remove(folder)
+                if deleted or marked:
+                    # Remove from dirnames to prevent further exploration
+                    dirnames.remove(folder)
+                    if calculate_size:
+                        total_size += size
 
             # Delete all files that match the patterns that we have decided
             # we should delete
