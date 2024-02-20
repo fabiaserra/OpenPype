@@ -20,7 +20,7 @@ class ArchiveModule(OpenPypeModule):
 
 @click.command("clean_project")
 @click.argument("proj_code")
-@click.option("--size/--no-size", default=False)
+@click.option("--size/--no-size", default=True)
 @click.option("--archive/--no-archive", default=False)
 def clean_project_command(
     proj_code,
@@ -37,7 +37,7 @@ def clean_project_command(
 
 @click.command("purge_project")
 @click.argument("proj_code")
-@click.option("--size/--no-size", default=False)
+@click.option("--size/--no-size", default=True)
 def purge_project_command(
     proj_code,
     size
