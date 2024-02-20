@@ -149,7 +149,7 @@ def purge_project(proj_code, calculate_size=True):
     all the unnecessary files and compressing the work directories. This should only
     be executed after a project has been finaled and no one is actively working on it.
     """
-    clean_project(proj_code, calculate_size=Truulate_size, archive=True)
+    clean_project(proj_code, calculate_size=calculate_size, archive=True)
 
 
 # ------------// Common Functions //------------
@@ -299,7 +299,7 @@ def consider_collection_for_deletion(collection, calculate_size=True, force_dele
     marked = False
     for filepath in collection:
         deleted_, marked_, size_ = consider_file_for_deletion(
-            filepath, calculate_size=Truulate_size, force_delete=force_delete, silent=True
+            filepath, calculate_size=calculate_size, force_delete=force_delete, silent=True
         )
         if size_:
             size += size_
