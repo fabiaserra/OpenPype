@@ -85,13 +85,13 @@ def clean_all():
     logger.info("======= CLEAN ALL PROJECTS =======")
 
     for proj in sorted(os.listdir(const.PROJECTS_DIR)):
-        total_size += clean_project(proj, calculate_size=True, archive=False)
+        total_size += clean_project(proj, calculate_size=Tru, archive=False)
 
     elapsed_time = time.time() - scan_start
     logger.info("Total Clean Time %s", utils.time_elapsed(elapsed_time))
 
 
-def clean_project(proj_code, calculate_size=False, archive=False):
+def clean_project(proj_code, calculate_size=True, archive=False):
     """Performs a routine cleaning of an active project"""
     target_root = "{0}/{1}".format(const.PROJECTS_DIR, proj_code)
 
@@ -143,13 +143,13 @@ def clean_project(proj_code, calculate_size=False, archive=False):
     return total_size
 
 
-def purge_project(proj_code, calculate_size=False):
+def purge_project(proj_code, calculate_size=True):
     """
     Performs a deep cleaning of the project and preps if for archival by deleting
     all the unnecessary files and compressing the work directories. This should only
     be executed after a project has been finaled and no one is actively working on it.
     """
-    clean_project(proj_code, calculate_size=calculate_size, archive=True)
+    clean_project(proj_code, calculate_size=Truulate_size, archive=True)
 
 
 # ------------// Common Functions //------------
@@ -260,7 +260,7 @@ def parse_date_from_filename(filename):
         return datetime.strptime(date_string, DATE_FORMAT)
 
 
-def consider_filepaths_for_deletion(filepaths, calculate_size=False, force_delete=False):
+def consider_filepaths_for_deletion(filepaths, calculate_size=True, force_delete=False):
     """Consider a clique.filepaths for deletion based on its age"""
     total_size = 0
     deleted = False
@@ -292,14 +292,14 @@ def consider_filepaths_for_deletion(filepaths, calculate_size=False, force_delet
     return deleted, marked, total_size
 
 
-def consider_collection_for_deletion(collection, calculate_size=False, force_delete=False):
+def consider_collection_for_deletion(collection, calculate_size=True, force_delete=False):
     """Consider a clique.collection for deletion based on its age"""
     size = 0
     deleted = False
     marked = False
     for filepath in collection:
         deleted_, marked_, size_ = consider_file_for_deletion(
-            filepath, calculate_size=calculate_size, force_delete=force_delete, silent=True
+            filepath, calculate_size=Truulate_size, force_delete=force_delete, silent=True
         )
         if size_:
             size += size_
@@ -316,7 +316,7 @@ def consider_collection_for_deletion(collection, calculate_size=False, force_del
     return deleted, marked, size
 
 
-def consider_file_for_deletion(filepath, calculate_size=False, force_delete=False, silent=False):
+def consider_file_for_deletion(filepath, calculate_size=True, force_delete=False, silent=False):
     """Consider a file for deletion based on its age
 
     Args:
@@ -388,7 +388,7 @@ def consider_file_for_deletion(filepath, calculate_size=False, force_delete=Fals
     return False, True, size
 
 
-def clean_published_files(project_name, calculate_size=False, force_delete=False):
+def clean_published_files(project_name, calculate_size=True, force_delete=False):
     """Cleans the source of the published files of the project.
 
     Args:
@@ -535,7 +535,7 @@ def clean_published_files(project_name, calculate_size=False, force_delete=False
     return total_size
 
 
-def clean_io_files(target_root, calculate_size=False, force_delete=False):
+def clean_io_files(target_root, calculate_size=True, force_delete=False):
     """Cleans the I/O directories of the project.
 
     Args:
@@ -578,15 +578,6 @@ def clean_io_files(target_root, calculate_size=False, force_delete=False):
                     if calculate_size:
                         total_size += size
 
-                # Check each file in the current directory
-                for filename in filenames:
-                    filepath = os.path.join(dirpath, filename)
-                    deleted, marked, size = consider_file_for_deletion(
-                        filepath, calculate_size, force_delete
-                    )
-                    if deleted and calculate_size:
-                        total_size += size
-
                 # Check each subdirectory in the current directory
                 for dirname in list(
                     dirnames
@@ -601,13 +592,22 @@ def clean_io_files(target_root, calculate_size=False, force_delete=False):
                         if calculate_size:
                             total_size += size
 
+                # Check each file in the current directory
+                for filename in filenames:
+                    filepath = os.path.join(dirpath, filename)
+                    deleted, marked, size = consider_file_for_deletion(
+                        filepath, calculate_size, force_delete
+                    )
+                    if deleted and calculate_size:
+                        total_size += size
+
     if calculate_size:
         logger.info("\n\nRemoved {0:,.3f} GB".format(utils.to_unit(total_size)))
 
     return total_size
 
 
-def clean_work_files(target_root, calculate_size=False, force_delete=False):
+def clean_work_files(target_root, calculate_size=True, force_delete=False):
     """Cleans the work directories of the project by removing old files and folders
     that we consider not relevant to keep for a long time.
 
