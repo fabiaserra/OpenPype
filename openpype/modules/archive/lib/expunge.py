@@ -11,14 +11,14 @@ Only three functions should be called externally.
     - purge_project(proj_code)
         Performs a deep cleaning of the project and preps if for archival
 """
-import re
-import os
 import clique
+import fnmatch
+import glob
+import logging
+import os
+import re
 import shutil
 import time
-import fnmatch
-import logging
-import glob
 from datetime import datetime, timedelta
 
 from . import utils
@@ -42,11 +42,23 @@ from openpype.modules.delivery.scripts.media import (
 
 logger = Logger.get_logger(__name__)
 
-# Threshold to warn about files that are older than this time to be marked for deletion
-WARNING_THRESHOLD = datetime.today() - timedelta(days=7)
+# Thresholds to warn about files that are older than this time to be marked for deletion
+# lower numbers is less caution, higher numbers for files we want to be more careful about
+# deleting
+WARNING_THRESHOLDS = {
+    0: datetime.today() - timedelta(days=3),
+    1: datetime.today() - timedelta(days=5),
+    2: datetime.today() - timedelta(days=10),
+}
 
-# Threshold to keep files marked for deletion before they get deleted
-DELETE_THRESHOLD = timedelta(days=7)
+# Thresholds to keep files marked for deletion before they get deleted
+# lower numbers is less caution, higher numbers for files we want to be more careful about
+# deleting
+DELETE_THRESHOLDS = {
+    0: timedelta(days=5),
+    1: timedelta(days=7),
+    2: timedelta(days=10)
+}
 
 # Prefix to use for files that are marked for deletion
 DELETE_PREFIX = "__DELETE__"
@@ -85,13 +97,13 @@ def clean_all():
     logger.info("======= CLEAN ALL PROJECTS =======")
 
     for proj in sorted(os.listdir(const.PROJECTS_DIR)):
-        total_size += clean_project(proj, calculate_size=Tru, archive=False)
+        total_size += clean_project(proj, archive=False)
 
     elapsed_time = time.time() - scan_start
     logger.info("Total Clean Time %s", utils.time_elapsed(elapsed_time))
 
 
-def clean_project(proj_code, calculate_size=True, archive=False):
+def clean_project(proj_code, archive=False):
     """Performs a routine cleaning of an active project"""
     target_root = "{0}/{1}".format(const.PROJECTS_DIR, proj_code)
 
@@ -118,7 +130,7 @@ def clean_project(proj_code, calculate_size=True, archive=False):
     logger.addHandler(file_handler)
 
     project_name = sg_project["name"]
-    logger.info("======= Cleaning project '%s' (%s) ======= \n\n\n", project_name, proj_code)
+    logger.info("======= Cleaning project '%s' (%s) ======= \n\n", project_name, proj_code)
 
     scan_start = time.time()
 
@@ -128,9 +140,9 @@ def clean_project(proj_code, calculate_size=True, archive=False):
     # )
 
     total_size = 0
-    total_size += clean_published_files(project_name, calculate_size, force_delete=archive)
-    total_size += clean_work_files(target_root, calculate_size, force_delete=archive)
-    total_size += clean_io_files(target_root, calculate_size, force_delete=archive)
+    total_size += clean_published_files(project_name, force_delete=archive)
+    total_size += clean_work_files(target_root, force_delete=archive)
+    total_size += clean_io_files(target_root, force_delete=archive)
 
     elapsed_time = time.time() - scan_start
     logger.info("Clean Time %s", utils.time_elapsed(elapsed_time))
@@ -143,13 +155,13 @@ def clean_project(proj_code, calculate_size=True, archive=False):
     return total_size
 
 
-def purge_project(proj_code, calculate_size=True):
+def purge_project(proj_code):
     """
     Performs a deep cleaning of the project and preps if for archival by deleting
     all the unnecessary files and compressing the work directories. This should only
     be executed after a project has been finaled and no one is actively working on it.
     """
-    clean_project(proj_code, calculate_size=calculate_size, archive=True)
+    clean_project(proj_code, archive=True)
 
 
 # ------------// Common Functions //------------
@@ -235,21 +247,28 @@ def get_shotgrid_data(proj_code):
     return finaled_shots, sent_versions, breakdown_shots
 
 
-def delete_filepath(filepath):
+def delete_filepath(filepath, silent=False):
     """Delete a file or directory"""
     try:
         if os.path.isfile(filepath):
             if not const._debug:
                 os.remove(filepath)  # Remove the file
-            logger.info(f"Deleted file: '{filepath}'.\n")
+            if not silent:
+                logger.info(f"Deleted file: '{filepath}'.")
+            return True
         elif os.path.isdir(filepath):
             if not const._debug:
                 shutil.rmtree(filepath)  # Remove the dir and all its contents
-            logger.info(f"Deleted directory: '{filepath}'.\n")
+            if not silent:
+                logger.info(f"Deleted directory: '{filepath}'.")
+            return True
         else:
-            logger.info(f"'{filepath}' is not a valid file or directory.\n")
+            if not silent:
+                logger.info(f"'{filepath}' is not a valid file or directory.")
     except Exception as e:
-        logger.error(f"Error deleting '{filepath}': {e}\n")
+        logger.error(f"Error deleting '{filepath}': {e}")
+
+    return False
 
 
 def parse_date_from_filename(filename):
@@ -260,7 +279,7 @@ def parse_date_from_filename(filename):
         return datetime.strptime(date_string, DATE_FORMAT)
 
 
-def consider_filepaths_for_deletion(filepaths, calculate_size=True, force_delete=False):
+def consider_filepaths_for_deletion(filepaths, caution_level=2, force_delete=False, create_time=None):
     """Consider a clique.filepaths for deletion based on its age"""
     total_size = 0
     deleted = False
@@ -269,7 +288,7 @@ def consider_filepaths_for_deletion(filepaths, calculate_size=True, force_delete
     collections, remainders = clique.assemble(filepaths)
     for collection in collections:
         deleted_, marked_, size_ = consider_collection_for_deletion(
-            collection, calculate_size, force_delete
+            collection, caution_level, force_delete, create_time
         )
         if size_:
             total_size += size_
@@ -280,7 +299,7 @@ def consider_filepaths_for_deletion(filepaths, calculate_size=True, force_delete
 
     for remainder in remainders:
         deleted_, marked_, size_ = consider_file_for_deletion(
-            remainder, calculate_size, force_delete
+            remainder, caution_level, force_delete, create_time
         )
         if size_:
             total_size += size_
@@ -292,14 +311,14 @@ def consider_filepaths_for_deletion(filepaths, calculate_size=True, force_delete
     return deleted, marked, total_size
 
 
-def consider_collection_for_deletion(collection, calculate_size=True, force_delete=False):
+def consider_collection_for_deletion(collection, caution_level=2, force_delete=False, create_time=None):
     """Consider a clique.collection for deletion based on its age"""
     size = 0
     deleted = False
     marked = False
     for filepath in collection:
         deleted_, marked_, size_ = consider_file_for_deletion(
-            filepath, calculate_size=calculate_size, force_delete=force_delete, silent=True
+            filepath, caution_level, force_delete, create_time, silent=True
         )
         if size_:
             size += size_
@@ -309,14 +328,14 @@ def consider_collection_for_deletion(collection, calculate_size=True, force_dele
             marked = True
 
     if deleted:
-        logger.info(f"Deleted collection '{collection}'\n")
+        logger.info(f"Deleted collection '{collection}'")
     elif marked:
-        logger.info(f"Marked collection for deletion: '{collection}'\n")
+        logger.info(f"Marked collection for deletion: '{collection}' (caution: {caution_level})")
 
     return deleted, marked, size
 
 
-def consider_file_for_deletion(filepath, calculate_size=True, force_delete=False, silent=False):
+def consider_file_for_deletion(filepath, caution_level=2, force_delete=False, create_time=None, silent=False):
     """Consider a file for deletion based on its age
 
     Args:
@@ -337,12 +356,12 @@ def consider_file_for_deletion(filepath, calculate_size=True, force_delete=False
     try:
         filepath_stat = os.stat(filepath)
     except FileNotFoundError:
-        logger.warning(f"File not found: '{filepath}'\n")
+        logger.warning(f"File not found: '{filepath}'")
         return False, False, size
 
     if force_delete:
-        delete_filepath(filepath, silent=silent)
-        if calculate_size:
+        success = delete_filepath(filepath, silent=silent)
+        if success:
             size = filepath_stat.st_size
         return True, False, size
 
@@ -351,25 +370,27 @@ def consider_file_for_deletion(filepath, calculate_size=True, force_delete=False
 
     if DELETE_PREFIX in original_name:
         date_marked_for_delete = parse_date_from_filename(original_name)
-        # if the file has been marked for deletion more than 7 days, delete it
-        logger.debug(
-            "Found date marked for deletion to be '%s'", date_marked_for_delete
-        )
-        logger.debug("Current date is '%s'", datetime.today())
-        if datetime.today() - date_marked_for_delete < DELETE_THRESHOLD:
+        # if the file has been marked for deletion more than the threshold, delete it
+        if datetime.today() - date_marked_for_delete > DELETE_THRESHOLDS[caution_level]:
             if not silent:
                 logger.debug(
-                    "File has been marked for deletion enough time to be deleted\n"
+                    f"File has been marked for deletion enough time, deleting it (caution: {caution_level})."
                 )
-            delete_filepath(filepath, silent=silent)
-            if calculate_size:
+            success = delete_filepath(filepath, silent=silent)
+            if success:
                 size = filepath_stat.st_size
             return True, False, size
 
         return False, True, size
-
+    # If file was modified after the creation time (publish), ignore removal to be safe
+    elif create_time and filepath_stat.st_mtime > create_time.timestamp():
+        logger.debug(
+            "File '%s' was modified after it was published, ignoring the removal",
+            filepath
+        )
+        return False, False, size
     # If file is newer than warning, ignore
-    elif filepath_stat.st_mtime > WARNING_THRESHOLD.timestamp():
+    elif filepath_stat.st_mtime > WARNING_THRESHOLDS[caution_level].timestamp():
         return False, False, size
 
     # Create the new name with the prefix
@@ -383,12 +404,12 @@ def consider_file_for_deletion(filepath, calculate_size=True, force_delete=False
         os.rename(filepath, new_filepath)
 
     if not silent:
-        logger.info(f"Marked for deletion: '{filepath}' -> '{new_name}'\n")
+        logger.info(f"Marked for deletion: '{filepath}' -> '{new_name}' (caution: {caution_level})")
 
     return False, True, size
 
 
-def clean_published_files(project_name, calculate_size=True, force_delete=False):
+def clean_published_files(project_name, force_delete=False):
     """Cleans the source of the published files of the project.
 
     Args:
@@ -398,10 +419,13 @@ def clean_published_files(project_name, calculate_size=True, force_delete=False)
         force_delete (bool, optional): Whether to force delete the files.
             Defaults to False.
     """
-    logger.info(" ---- Finding already published files ---- \n\n")
+    logger.info(" \n---- Finding already published files ---- \n")
     total_size = 0
 
     anatomy = Anatomy(project_name)
+
+    # Level of caution for published files
+    caution_level_default = 1
 
     # TODO: enable after a while since `stagingDir` integrate on the
     # representations was just added recently
@@ -417,7 +441,7 @@ def clean_published_files(project_name, calculate_size=True, force_delete=False)
     #         staging_dir = anatomy.fill_root(staging_dir)
     #         # TODO: make sure to check if the staging dir is older than the publish!
     #         deleted, _, size = consider_file_for_deletion(
-    #             staging_dir, force_delete
+    #             staging_dir, caution_level=caution_level, force_delete
     #         )
     #         if deleted:
     #             logger.info(" - Published file in '%s'", )
@@ -426,14 +450,20 @@ def clean_published_files(project_name, calculate_size=True, force_delete=False)
 
     version_docs = op_cli.get_versions(project_name)
     for version_doc in version_docs:
+
+        # Reset caution level every time
+        caution_level_ = caution_level_default
+
         if version_doc["data"].get("source_deleted"):
             logger.debug(
-                "Skipping version '%s' as 'source_deleted' is True\n",
+                "Skipping version '%s' as 'source_deleted' is true and that means it was already archived",
                 version_doc["_id"]
             )
             continue
         rootless_source_path = version_doc["data"].get("source")
         source_path = anatomy.fill_root(rootless_source_path)
+
+        version_created = datetime.strptime(version_doc["data"]["time"], "%Y%m%dT%H%M%SZ")
 
         # If source path is a Hiero workfile, we can infer that the publish
         # was a plate publish and a 'temp_transcode' folder was created next
@@ -444,7 +474,7 @@ def clean_published_files(project_name, calculate_size=True, force_delete=False)
             )
             if not subset_doc:
                 logger.warning(
-                    "Couldn't find subset for version '%s' with id '%s for source path '%s'\n",
+                    "Couldn't find subset for version '%s' with id '%s for source path '%s'",
                     version_doc["name"], version_doc["parent"], source_path
                 )
                 continue
@@ -464,7 +494,7 @@ def clean_published_files(project_name, calculate_size=True, force_delete=False)
             )
             if not subset_doc:
                 logger.warning(
-                    "Couldn't find subset for version '%s' with id '%s for source path '%s'\n",
+                    "Couldn't find subset for version '%s' with id '%s for source path '%s'",
                     version_doc["name"], version_doc["parent"], source_path
                 )
                 continue
@@ -475,7 +505,7 @@ def clean_published_files(project_name, calculate_size=True, force_delete=False)
             )
             if not asset_doc:
                 logger.warning(
-                    "Couldn't find asset for subset '%s' with id '%s",
+                    "Couldn't find asset for subset '%s' with id '%s'",
                     subset_doc["name"], subset_doc["parent"]
                 )
                 continue
@@ -490,6 +520,9 @@ def clean_published_files(project_name, calculate_size=True, force_delete=False)
         # Otherwise, we just check the 'source' directly assuming that's
         # directly the source of the publish
         else:
+            # Override caution file for I/O published files to be very low caution
+            if "/io/" in source_path:
+                caution_level_ = 0
             source_files, _, _, _ = path_utils.convert_to_sequence(source_path)
             if not source_files:
                 logger.warning(
@@ -499,16 +532,15 @@ def clean_published_files(project_name, calculate_size=True, force_delete=False)
                 continue
 
         # If we found files, we consider them for deletion
-        deleted, _, size = consider_filepaths_for_deletion(
-            source_files, calculate_size, force_delete
+        deleted, marked, size = consider_filepaths_for_deletion(
+            source_files, caution_level=caution_level_, force_delete=force_delete, create_time=version_created
         )
 
         # If any file gets deleted, try to infer the path where the
         # version was published so it's easier to find the corresponding
         # publish in the future
-        if deleted:
-            if calculate_size:
-                total_size += size
+        if deleted or marked:
+            total_size += size
             repre_docs = op_cli.get_representations(
                 project_name, version_ids=[version_doc["_id"]]
             )
@@ -516,26 +548,28 @@ def clean_published_files(project_name, calculate_size=True, force_delete=False)
                 repre_docs[0]["data"].get("path")
             )
             version_path = os.path.dirname(repre_name_path)
-            logger.info("Published files in '%s'", version_path)
+            logger.info(
+                "Published files in '%s' with id '%s'",
+                version_path,
+                version_doc["_id"]
+            )
+            if deleted:
+                # Add metadata to version so we can skip from inspecting it
+                # in the future
+                session = OperationsSession()
+                session.update_entity(
+                    project_name, "version", version_doc["_id"], {"data.source_deleted": True}
+                )
+                session.commit()
+
             logger.info("\n")
 
-            # Add metadata to version so we can skip from inspecting it
-            # in the future
-            session = OperationsSession()
-            update_data = version_doc["data"].deepcopy()
-            update_data["source_deleted"] = True
-            session.update_entity(
-                project_name, "version", version_doc["_id"], update_data
-            )
-            session.commit()
-
-    if calculate_size:
-        logger.info("\n\nRemoved {0:,.3f} GB".format(utils.to_unit(total_size)))
+    logger.info("\n\nRemoved {0:,.3f} GB".format(utils.to_unit(total_size)))
 
     return total_size
 
 
-def clean_io_files(target_root, calculate_size=True, force_delete=False):
+def clean_io_files(target_root, force_delete=False):
     """Cleans the I/O directories of the project.
 
     Args:
@@ -548,34 +582,38 @@ def clean_io_files(target_root, calculate_size=True, force_delete=False):
     Returns:
         float: The total size of the deleted files in bytes.
     """
-    logger.info(" ---- Finding old files in I/O ----\n\n")
+    logger.info(" \n---- Finding old files in I/O ----\n")
     total_size = 0
+
+    # Level of caution for I/O files
+    caution_level = 1
 
     for folder in ["incoming", "outgoing", "delivery", "outsource"]:
         target = os.path.join(target_root, "io", folder)
         if os.path.exists(target):
-            logger.debug(f"Scanning {target} folder\n")
+            logger.debug(f"Scanning {target} folder")
         else:
-            logger.warning(f"{target} folder does not exist\n")
+            logger.warning(f"{target} folder does not exist")
             continue
 
         if force_delete:
             # Add entire folder
             deleted, _, size = consider_file_for_deletion(
-                target, calculate_size, force_delete
+                target, force_delete=True
             )
-            if deleted and calculate_size:
-                total_size += os.path.getsize(target)
+            if deleted:
+                total_size += size
         else:
             for dirpath, dirnames, filenames in os.walk(target, topdown=True):
                 deleted, marked, size = consider_file_for_deletion(
-                    dirpath, calculate_size, force_delete
+                    dirpath, caution_level=caution_level, force_delete=force_delete
                 )
                 if deleted or marked:
                     # Prevent further exploration of this directory
                     dirnames.clear()
                     filenames.clear()
-                    if calculate_size:
+                    logger.info("\n")
+                    if deleted:
                         total_size += size
 
                 # Check each subdirectory in the current directory
@@ -583,49 +621,51 @@ def clean_io_files(target_root, calculate_size=True, force_delete=False):
                     dirnames
                 ):  # Use a copy of the list for safe modification
                     subdirpath = os.path.join(dirpath, dirname)
-                    deleted, _, size = consider_file_for_deletion(
-                        subdirpath, calculate_size, force_delete
+                    deleted, marked, size = consider_file_for_deletion(
+                        subdirpath, caution_level=caution_level, force_delete=force_delete
                     )
-                    if deleted:
+                    if deleted or marked:
                         # Remove from dirnames to prevent further exploration
                         dirnames.remove(dirname)
-                        if calculate_size:
+                        logger.info("\n")
+                        if deleted:
                             total_size += size
 
                 # Check each file in the current directory
-                for filename in filenames:
-                    filepath = os.path.join(dirpath, filename)
-                    deleted, marked, size = consider_file_for_deletion(
-                        filepath, calculate_size, force_delete
-                    )
-                    if deleted and calculate_size:
+                filepaths = [os.path.join(dirpath, filename) for filename in filenames]
+                deleted, marked, size = consider_filepaths_for_deletion(
+                    filepaths, caution_level=caution_level, force_delete=force_delete
+                )
+                if deleted or marked:
+                    logger.info("\n")
+                    if deleted:
                         total_size += size
 
-    if calculate_size:
-        logger.info("\n\nRemoved {0:,.3f} GB".format(utils.to_unit(total_size)))
+    logger.info("\n\nRemoved {0:,.3f} GB".format(utils.to_unit(total_size)))
 
     return total_size
 
 
-def clean_work_files(target_root, calculate_size=True, force_delete=False):
+def clean_work_files(target_root, force_delete=False):
     """Cleans the work directories of the project by removing old files and folders
     that we consider not relevant to keep for a long time.
 
     """
-    logger.info(" ---- Cleaning work files ----\n\n")
+    logger.info(" \n---- Cleaning work files ----\n")
 
     # Folders that we want to clear all the files from inside them
-    # that are older than our threshold
+    # that are older than our threshold and the number of caution
+    # of removal to take for each
     folders_to_clean = {
-        "ass",
-        "backup",
-        "cache",
-        "ifd",
-        "ifds",
-        "img",
-        "render",
-        "renders",
-        "temp_transcode",
+        "ass": 2,
+        "backup": 0,
+        "cache": 2,
+        "ifd": 0,
+        "ifds": 0,
+        "img": 2,
+        "render": 2,
+        "renders": 2,
+        "temp_transcode": 0,
     }
     file_patterns_to_remove = {
         ".*.nk~",
@@ -640,9 +680,9 @@ def clean_work_files(target_root, calculate_size=True, force_delete=False):
     for folder in ["assets", "shots"]:
         target = os.path.join(target_root, folder)
         if os.path.exists(target):
-            logger.debug(f" - Scanning {target} folder\n\n")
+            logger.debug(f" - Scanning {target} folder")
         else:
-            logger.warning(f" - {target} folder does not exist\n")
+            logger.warning(f" - {target} folder does not exist")
             continue
 
         for dirpath, dirnames, filenames in os.walk(target, topdown=True):
@@ -652,33 +692,33 @@ def clean_work_files(target_root, calculate_size=True, force_delete=False):
 
             # Add files from the potential archive folders that are
             # older than 7 days
-            for folder in folders_to_clean:
+            for folder, caution_level in folders_to_clean.items():
                 if folder not in dirnames:
                     continue
 
                 filepaths = glob.glob(os.path.join(dirpath, folder, "*"))
                 deleted, marked, size = consider_filepaths_for_deletion(
-                    filepaths, calculate_size, force_delete
+                    filepaths, caution_level=caution_level, force_delete=force_delete
                 )
                 if deleted or marked:
                     # Remove from dirnames to prevent further exploration
                     dirnames.remove(folder)
-                    if calculate_size:
-                        total_size += size
+                    logger.info("\n")
+                    total_size += size
 
             # Delete all files that match the patterns that we have decided
             # we should delete
             for pattern in file_patterns_to_remove:
                 for filename in fnmatch.filter(filenames, pattern):
                     filepath = os.path.join(dirpath, filename)
-                    deleted, _, size = consider_file_for_deletion(
-                        filepath, calculate_size, force_delete
+                    deleted, marked, size = consider_file_for_deletion(
+                        filepath, caution_level=0, force_delete=force_delete
                     )
-                    if deleted and calculate_size:
+                    if deleted or marked:
                         total_size += size
+                        logger.info("\n")
 
-        if calculate_size:
-            logger.info("\n\nRemoved {0:,.3f} GB".format(utils.to_unit(total_size)))
+    logger.info("Removed {0:,.3f} GB".format(utils.to_unit(total_size)))
 
     return total_size
 
@@ -687,8 +727,8 @@ def clean_work_files(target_root, calculate_size=True, force_delete=False):
 def compress_workfiles(target_root):
     """Compresses the work directories for a project."""
 
-    logger.info(" ---- Compressing work files ----\n\n")
-    for dirpath, dirnames, filenames in os.walk(target_root):
+    logger.info(" \n---- Compressing work files ----\n")
+    for dirpath, dirnames, _ in os.walk(target_root):
         if "work" in dirnames:
             work_dir = os.path.join(dirpath, "work")
             if const._debug:

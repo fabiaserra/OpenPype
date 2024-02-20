@@ -20,33 +20,29 @@ class ArchiveModule(OpenPypeModule):
 
 @click.command("clean_project")
 @click.argument("proj_code")
-@click.option("--size/--no-size", default=True)
 @click.option("--archive/--no-archive", default=False)
 def clean_project_command(
     proj_code,
-    size,
     archive,
 ):
     """Perform a routine clean up of project by removing old files and folders
     that we consider irrelevant to keep through a production lifecycle.
     """
     return expunge.clean_project(
-        proj_code, calculate_size=size, archive=archive
+        proj_code, archive=archive
     )
 
 
 @click.command("purge_project")
 @click.argument("proj_code")
-@click.option("--size/--no-size", default=True)
 def purge_project_command(
     proj_code,
-    size
 ):
     """Perform deep cleaning of the project by force deleting all the unnecessary
     files and folders and compressing the work directories.
     """
     return expunge.clean_project(
-        proj_code, calculate_size=size, archive=True
+        proj_code, archive=True
     )
 
 
