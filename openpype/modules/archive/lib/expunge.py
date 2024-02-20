@@ -368,7 +368,7 @@ def consider_file_for_deletion(filepath, calculate_size=False, force_delete=Fals
 
     # If file is newer than warning, ignore
     elif filepath_stat.st_mtime > WARNING_THRESHOLD.timestamp():
-        return False, size
+        return False, False, size
 
     # Create the new name with the prefix
     new_name = f"{TIME_DELETE_PREFIX}{original_name}"
