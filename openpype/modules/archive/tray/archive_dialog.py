@@ -237,7 +237,7 @@ class ArchiveDialog(QtWidgets.QDialog):
         tools_lib.schedule(self._refresh, 50, channel="mongo")
 
 
-class ProductsTableModel(QtCore.QAbstractTableModel):
+class ArchivePathsTableModel(QtCore.QAbstractTableModel):
 
     COLUMN_LABELS = [
         ("path", "Filepath"),
