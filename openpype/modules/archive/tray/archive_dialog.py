@@ -12,7 +12,7 @@ from openpype.client import get_projects
 from openpype.pipeline import AvalonMongoDB
 from openpype.tools.utils import lib as tools_lib
 from openpype.modules.shotgrid.lib import credentials
-from openpype.modules.archive.lib import expunge
+from openpype.modules.archive.lib import archive
 from openpype.tools.utils.constants import (
     HEADER_NAME_ROLE,
 )
@@ -227,7 +227,7 @@ class ArchiveDialog(QtWidgets.QDialog):
         proj_code = sg_project.get("sg_code")
         self._current_proj_code = proj_code
 
-        self._model.set_archive_paths(expunge.get_archive_paths(proj_code))
+        self._model.set_archive_paths(archive.get_archive_paths(proj_code))
 
     # -------------------------------
     # Delay calling blocking methods
