@@ -96,9 +96,7 @@ class ArchiveDialog(QtWidgets.QDialog):
 
         # Table with all the products we find in the given folder
         table_view = QtWidgets.QTableView()
-        headers = [item[0] for item in self.DEFAULT_WIDTHS]
-
-        model = ArchivePathsTableModel(headers, parent=self)
+        model = ArchivePathsTableModel(parent=self)
 
         table_view.setModel(model)
         table_view.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
@@ -227,7 +225,9 @@ class ArchiveDialog(QtWidgets.QDialog):
         proj_code = sg_project.get("sg_code")
         self._current_proj_code = proj_code
 
-        self._model.set_archive_paths(archive.get_archive_paths(proj_code))
+        archive_proj = archive.ArchiveProject(proj_code)
+        archive_data = archive_proj.get_archive_data()
+        self._model.set_archive_data(archive_data)
 
     # -------------------------------
     # Delay calling blocking methods
@@ -238,18 +238,15 @@ class ArchiveDialog(QtWidgets.QDialog):
 
 
 class ArchivePathsTableModel(QtCore.QAbstractTableModel):
+    """Model for the archive paths table"""
 
-    COLUMN_LABELS = [
-        ("path", "Filepath"),
-        ("delete_time", "Delete Time"),
-        ("publish_path", "Publish Path"),
-    ]
-
-    _tooltips = [
-        "Path to archive",
-        "Time when the path will be deleted",
-        "Path where the file was published to",
-    ]
+    _column_data = {
+        "path": ("Paths", "Archived paths"),
+        "delete_time": ("Delete Time", "Time when the path will be deleted"),
+        "is_deleted": ("Is Deleted", "Is the path deleted"),
+        "publish_dir": ("Publish Path", "Path where the file was published to"),
+        "publish_ids": ("Publish IDs", "Publish IDs"),
+    }
 
     @attr.s
     class ProductRepresentation:
@@ -268,29 +265,7 @@ class ArchivePathsTableModel(QtCore.QAbstractTableModel):
         return len(self._data)
 
     def columnCount(self, parent=None):
-        return len(self._header)
-
-    def get_column(self, index):
-        """Return info about column
-
-        Args:
-            index (QModelIndex)
-
-        Returns:
-            (tuple): (COLUMN_NAME: COLUMN_LABEL)
-        """
-        return self.COLUMN_LABELS[index]
-
-    def get_header_index(self, value):
-        """Return index of 'value' in headers
-
-        Args:
-            value (str): header name value
-
-        Returns:
-            (int)
-        """
-        return self._header.index(value)
+        return len(self._data.columns)
 
     def data(self, index, role=QtCore.Qt.DisplayRole):
         """Return data depending on index, Qt::ItemDataRole and data type of the column.
@@ -301,17 +276,12 @@ class ArchivePathsTableModel(QtCore.QAbstractTableModel):
 
         Returns:
             None if index is invalid
-            None if role is none of: DisplayRole, EditRole, CheckStateRole, DATAFRAME_ROLE
         """
         if not index.isValid():
             return
 
-        if index.column() >= len(self.COLUMN_LABELS):
-            return
-
-        prod_item = self._data[index.row()]
         if role in (QtCore.Qt.DisplayRole):
-            return attr.asdict(prod_item)[self._header[index.column()]]
+            return self._data.iat[index.row(), index.column()]
 
         # TODO: change color if date is close to be deleted?
         # if role == QtCore.Qt.ForegroundRole:
@@ -329,54 +299,36 @@ class ArchivePathsTableModel(QtCore.QAbstractTableModel):
         return None
 
     def headerData(self, section, orientation, role=QtCore.Qt.DisplayRole):
-        if section >= len(self.COLUMN_LABELS):
+        if section >= self.columnCount():
             return
 
         if role == QtCore.Qt.DisplayRole:
             if orientation == QtCore.Qt.Horizontal:
-                return self.COLUMN_LABELS[section][1]
+                return self._data.columns[section]
 
         elif role == HEADER_NAME_ROLE:
             if orientation == QtCore.Qt.Horizontal:
-                return self.COLUMN_LABELS[section][0]  # return name
+                return self._column_data[self._data.columns[section]][0]
 
         elif role == QtCore.Qt.ToolTipRole:
             if orientation == QtCore.Qt.Horizontal:
-                return self._tooltips[section]
+                return self._column_data[self._data.columns[section]][1]
 
     def sort(self, column, order):
         self.layoutAboutToBeChanged.emit()
 
-        if column == 0:
-            self._data.sort(key=lambda x: x.path)
-
-        if column == 1:
-            self._data.sort(key=lambda x: x.delete_time)
-
-        # For the columns that could be empty, we need to make sure we
-        # sort None type values
-        if column == 2:
-            self._data.sort(key=lambda x: (x.publish_path is not None, x.publish_path))
+        column_name = self._data.columns[column]
 
         if order == QtCore.Qt.DescendingOrder:
-            self._data.reverse()
+            self._data.sort_values(column_name, ascending=False, inplace=True)
+        else:
+            self._data.sort_values(column_name, inplace=True)
 
         self.layoutChanged.emit()
 
-    def set_archive_paths(self, archive_paths):
-
+    def set_archive_data(self, archive_data):
         self.beginResetModel()
-
-        self._data = []
-
-        for filepath, archive_data in archive_paths.items():
-            item = self.ProductRepresentation(
-                filepath,
-                archive_data["delete_time"],
-                archive_data.get("publish_path", ""),
-            )
-            self._data.append(item)
-
+        self._data = archive_data
         self.endResetModel()
 
 
