@@ -318,7 +318,7 @@ def publish_version(
             # Create read path to pass to Nuke task
             basename = repre["files"][0] if isinstance(repre["files"], list) else repre["files"]
             read_path = os.path.join(staging_dir, basename)
-            read_path = utils.replace_frame_number_with_token(read_path, "####")
+            read_path = path_utils.replace_frame_number_with_token(read_path, "#", padding=True)
             logger.debug("Review read path: %s", read_path)
 
             # Create review output path
