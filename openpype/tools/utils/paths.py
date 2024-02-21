@@ -13,12 +13,48 @@ RE_FRAME_NUMBER = re.compile(
     r"(?P<prefix>\w+[\._])(?P<frame>(\*|%0?\d*d|\d)+)\.(?P<extension>\w+\.?(sc|gz)?$)"
 )
 
+# Regular expression that allows us to find the number of padding of a frame token
+RE_FRAME_PADDING = re.compile(
+    r"%0(\d+)d"
+)
+
 logger = Logger.get_logger(__name__)
 
 
-def replace_frame_number_with_token(path, token):
+def get_padding_from_frame(frame_token):
+    """Get number of padding given a frame token
+
+    Examples:
+        "1001" -> returns 4
+        "001001" -> returns 6
+        "%04d" -> returns 4
+        "%08d" -> returns 8
+    """
+    padding_length = None
+    try:
+        _ = int(frame_token)
+        padding_length = len(frame_token)
+    except ValueError:
+        # frame_token isn't an integer so it can't be converted
+        # with int()
+        match = RE_FRAME_PADDING.match(frame_token)
+        if match:
+            padding_length = int(match.group(1))
+
+    return padding_length
+
+
+def replace_frame_number_with_token(path, token, padding=False):
     """Replace the frame number of a file path with a token"""
     root, filename = os.path.split(path)
+    if padding:
+        frame_match = RE_FRAME_NUMBER.search(filename)
+        if frame_match:
+            frame_token = frame_match.group("frame")
+            padding_length = get_padding_from_frame(frame_token)
+            if padding_length:
+                token = token * padding_length
+
     filename = RE_FRAME_NUMBER.sub(
         r"\g<prefix>{}.\g<extension>".format(token), filename
     )
