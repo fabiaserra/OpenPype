@@ -14,6 +14,7 @@ import os
 import requests
 
 from openpype.lib import Logger, is_running_from_build
+from openpype.tools.utils import paths as path_utils
 from openpype.pipeline import Anatomy
 from openpype.pipeline.colorspace import get_imageio_config
 
@@ -48,14 +49,6 @@ def create_metadata_path(instance_data):
     )
 
     return os.path.join(output_dir, metadata_filename)
-
-
-def replace_frame_number_with_token(path, token):
-    root, filename = os.path.split(path)
-    filename = RE_FRAME_NUMBER.sub(
-        r"\g<prefix>{}.\g<extension>".format(token), filename
-    )
-    return os.path.join(root, filename)
 
 
 def get_representations(
@@ -95,7 +88,7 @@ def get_representations(
 
         # Convert file path so it can be used with glob and find all the
         # frames for the sequence
-        file_pattern = replace_frame_number_with_token(file_path, "*")
+        file_pattern = path_utils.replace_frame_number_with_token(file_path, "*")
 
         representation_files = glob.glob(file_pattern)
         collections, remainder = clique.assemble(representation_files)

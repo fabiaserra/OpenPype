@@ -2,7 +2,8 @@ import os
 import pyblish.api
 
 from openpype.pipeline import publish
-from openpype.modules.delivery.scripts import utils, review
+from openpype.modules.delivery.scripts import review
+from openpype.tools.utils import paths as path_utils
 
 
 class ExtractReviewNuke(publish.Extractor):

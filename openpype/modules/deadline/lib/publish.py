@@ -11,6 +11,7 @@ from openpype.client import (
     get_version_by_name
 )
 
+from openpype.tools.utils import paths as path_utils
 from openpype.modules.deadline import constants as dl_constants
 from openpype.modules.deadline.lib import submit
 from openpype.modules.shotgrid.lib import credentials
