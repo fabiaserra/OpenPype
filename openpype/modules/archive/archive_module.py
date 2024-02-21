@@ -7,15 +7,30 @@ from openpype.modules import (
 from openpype.modules.archive.lib import expunge
 
 
-class ArchiveModule(OpenPypeModule):
+class ArchiveModule(OpenPypeModule, ITrayModule):
     label = "Archive"
     name = "archive"
+    tray_wrapper = None
 
     def initialize(self, modules_settings):
         self.enabled = True
 
     def cli(self, click_group):
         click_group.add_command(cli_main)
+
+    def tray_init(self):
+        from .tray.archive_tray import ArchiveTrayWrapper
+
+        self.tray_wrapper = ArchiveTrayWrapper(self)
+
+    def tray_start(self):
+        return
+
+    def tray_exit(self, *args, **kwargs):
+        return self.tray_wrapper
+
+    def tray_menu(self, tray_menu):
+        return self.tray_wrapper.tray_menu(tray_menu)
 
 
 @click.command("clean_project")
