@@ -28,9 +28,8 @@ def clean_project_command(
     """Perform a routine clean up of project by removing old files and folders
     that we consider irrelevant to keep through a production lifecycle.
     """
-    return expunge.clean_project(
-        proj_code, archive=archive
-    )
+    archive_proj = expunge.ArchiveProject(proj_code)
+    return archive_proj.clean(archive=archive)
 
 
 @click.command("purge_project")
@@ -41,9 +40,8 @@ def purge_project_command(
     """Perform deep cleaning of the project by force deleting all the unnecessary
     files and folders and compressing the work directories.
     """
-    return expunge.clean_project(
-        proj_code, archive=True
-    )
+    archive_proj = expunge.ArchiveProject(proj_code)
+    return archive_proj.purge()
 
 
 @click.group(ArchiveModule.name, help="Archive CLI")
