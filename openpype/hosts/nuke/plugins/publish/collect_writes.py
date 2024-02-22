@@ -5,10 +5,9 @@ import nuke
 import pyblish.api
 import re
 from openpype.hosts.nuke import api as napi
-from openpype.pipeline import publish
-
-from openpype.pipeline import publish, PublishXmlValidationError
 from openpype.tools.utils import paths as path_utils
+from openpype.pipeline import publish, PublishXmlValidationError
+from openpype.lib import get_ffprobe_streams, convert_ffprobe_fps_value
 
 
 class CollectNukeWrites(pyblish.api.InstancePlugin,
@@ -406,6 +405,9 @@ class CollectNukeWrites(pyblish.api.InstancePlugin,
                 key="no_render_files"
             )
 
+        first_frame = 1
+        last_frame = 1
+
         collections, remainders = clique.assemble(output_files)
         if collections:
             collected_frame_paths = list(collections[0])
@@ -419,14 +421,16 @@ class CollectNukeWrites(pyblish.api.InstancePlugin,
                 first_frame = 1
                 last_frame = duration
             else:
-                try:
-                    match = path_utils.RE_FRAME_NUMBER.match(remainders[0])
-                    if match:
-                        first_frame = int(match.group("frame"))
-                        last_frame = int(match.group("frame"))
-                except ValueError:
-                    first_frame = 1
-                    last_frame = 1
+                match = path_utils.RE_FRAME_NUMBER.match(
+                    os.path.basename(remainders[0])
+                )
+                if match:
+                    try:
+                        frame = int(match.group("frame"))
+                        first_frame = frame
+                        last_frame = frame
+                    except ValueError:
+                        pass
 
         # Update frame instance frame range with collected frame range
         self._set_frame_range_data(instance, first_frame, last_frame)
@@ -435,3 +439,53 @@ class CollectNukeWrites(pyblish.api.InstancePlugin,
         self.log.info("Collected frames: %s", collected_frames)
         ### Ends Alkemy-X Override ###
         return collected_frames
+
+    ### Starts Alkemy-X Override ###
+    def _get_number_of_frames(self, file_url):
+        """Return duration in frames"""
+        try:
+            streams = get_ffprobe_streams(file_url, self.log)
+        except Exception as exc:
+            raise AssertionError(
+                (
+                    'FFprobe couldn\'t read information about input file: "{}".'
+                    " Error message: {}"
+                ).format(file_url, str(exc))
+            )
+
+        first_video_stream = None
+        for stream in streams:
+            if "width" in stream and "height" in stream:
+                first_video_stream = stream
+                break
+
+        if first_video_stream:
+            nb_frames = stream.get("nb_frames")
+            if nb_frames:
+                try:
+                    return int(nb_frames)
+                except ValueError:
+                    self.log.warning(
+                        "nb_frames {} not convertible".format(nb_frames)
+                    )
+
+                    duration = stream.get("duration")
+                    frame_rate = convert_ffprobe_fps_value(
+                        stream.get("r_frame_rate", "0/0")
+                    )
+                    self.log.debug(
+                        "duration:: {} frame_rate:: {}".format(
+                            duration, frame_rate
+                        )
+                    )
+                    try:
+                        return float(duration) * float(frame_rate)
+                    except ValueError:
+                        self.log.warning(
+                            "{} or {} cannot be converted".format(
+                                duration, frame_rate
+                            )
+                        )
+
+        self.log.warning("Cannot get number of frames")
+        ### Ends Alkemy-X Override ###
