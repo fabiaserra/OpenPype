@@ -77,6 +77,7 @@ html2image = "^2.0.3"
 tqdm = "^4.65.0"
 scenedetect = "^0.6.1"
 opencv-python-headless = "^4.7.0.72"
+pandas = "^2.2.0"
 
 [tool.poetry.dev-dependencies]
 flake8 = "^6.0"
