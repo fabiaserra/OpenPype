@@ -13,7 +13,7 @@ from openpype.client import get_projects
 from openpype.pipeline import AvalonMongoDB
 from openpype.tools.utils import lib as tools_lib
 from openpype.modules.shotgrid.lib import credentials
-from openpype.modules.archive.lib import archive, utils
+from openpype.modules.archive.lib import expunge, utils
 from openpype.tools.utils.constants import (
     HEADER_NAME_ROLE,
 )
@@ -241,7 +241,7 @@ class ArchiveDialog(QtWidgets.QDialog):
         proj_code = sg_project.get("sg_code")
         self._current_proj_code = proj_code
 
-        archive_proj = archive.ArchiveProject(proj_code)
+        archive_proj = expunge.ArchiveProject(proj_code)
         archive_data = archive_proj.get_archive_data()
         self._model.set_archive_data(archive_data)
 

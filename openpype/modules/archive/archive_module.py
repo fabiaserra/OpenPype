@@ -4,7 +4,7 @@ from openpype.modules import (
     OpenPypeModule,
     ITrayModule
 )
-from openpype.modules.archive.lib import archive
+from openpype.modules.archive.lib import expunge
 
 
 class ArchiveModule(OpenPypeModule, ITrayModule):
@@ -43,7 +43,7 @@ def clean_project_command(
     """Perform a routine clean up of project by removing old files and folders
     that we consider irrelevant to keep through a production lifecycle.
     """
-    archive_proj = archive.ArchiveProject(proj_code)
+    archive_proj = expunge.ArchiveProject(proj_code)
     return archive_proj.clean(archive=archive)
 
 
@@ -55,7 +55,7 @@ def purge_project_command(
     """Perform deep cleaning of the project by force deleting all the unnecessary
     files and folders and compressing the work directories.
     """
-    archive_proj = archive.ArchiveProject(proj_code)
+    archive_proj = expunge.ArchiveProject(proj_code)
     return archive_proj.purge()
 
 
