@@ -420,11 +420,14 @@ class CollectNukeWrites(pyblish.api.InstancePlugin,
                 first_frame = 1
                 last_frame = duration
             else:
-                match = path_utils.RE_FRAME_NUMBER.match(remainders[0])
+                match = path_utils.RE_FRAME_NUMBER.match(
+                    os.path.basename(remainders[0])
+                )
                 if match:
                     try:
-                        first_frame = int(match.group("frame"))
-                        last_frame = int(match.group("frame"))
+                        frame = int(match.group("frame"))
+                        first_frame = frame
+                        last_frame = frame
                     except ValueError:
                         pass
 
