@@ -1,9 +1,10 @@
-import attr
 import sys
 import platform
+import pandas as pd
 
-from qtpy import QtCore, QtWidgets, QtGui
 import qtawesome
+from qtpy import QtCore, QtWidgets, QtGui
+from datetime import datetime
 
 from openpype import style
 from openpype import resources
@@ -12,7 +13,7 @@ from openpype.client import get_projects
 from openpype.pipeline import AvalonMongoDB
 from openpype.tools.utils import lib as tools_lib
 from openpype.modules.shotgrid.lib import credentials
-from openpype.modules.archive.lib import archive
+from openpype.modules.archive.lib import archive, utils
 from openpype.tools.utils.constants import (
     HEADER_NAME_ROLE,
 )
@@ -30,13 +31,15 @@ class ArchiveDialog(QtWidgets.QDialog):
     SIZE_H = 800
 
     DEFAULT_WIDTHS = (
-        ("path", 1000),
-        ("delete_time", 120),
-        ("publish_path", 120),
-        # ("family", 120),
-        # ("subset", 120),
-        # ("rep_name", 120),
-        # ("version", 120)
+        ("path", 700),
+        ("delete_time", 100),
+        ("marked_time", 100),
+        ("size", 80),
+        ("is_deleted", 50),
+        ("publish_dir", 150),
+        ("publish_id", 50),
+        ("reason", 150),
+        ("paths", 200),
     )
 
     def __init__(self, module, parent=None):
@@ -92,18 +95,28 @@ class ArchiveDialog(QtWidgets.QDialog):
         projects_combobox.currentTextChanged.connect(self.on_project_change)
         input_layout.addRow("Project", projects_combobox)
 
+        text_filter = QtWidgets.QLineEdit()
+        text_filter.setPlaceholderText("Type to filter...")
+        text_filter.textChanged.connect(self.on_filter_text_changed)
+        input_layout.addRow("Filter", text_filter)
+
+        show_deleted = QtWidgets.QCheckBox()
+        show_deleted.setChecked(True)
+        show_deleted.setToolTip(
+            "Whether we want to show the already deleted paths or not."
+        )
+        show_deleted.stateChanged.connect(self.on_filter_deleted_changed)
+        input_layout.addRow("Show deleted", show_deleted)
+
         main_layout.addWidget(input_widget)
 
         # Table with all the products we find in the given folder
         table_view = QtWidgets.QTableView()
         model = ArchivePathsTableModel(parent=self)
-
-        table_view.setModel(model)
+        proxy_model = FilterProxyModel()
+        proxy_model.setSourceModel(model)
+        table_view.setModel(proxy_model)
         table_view.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
-
-        # TODO: Enable if we want to support publishing only selected
-        # table_view.setSelectionMode(QtWidgets.QAbstractItemView.ExtendedSelection)
-        # table_view.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
 
         table_view.horizontalHeader().setSortIndicator(-1, QtCore.Qt.AscendingOrder)
         table_view.setAlternatingRowColors(True)
@@ -115,7 +128,7 @@ class ArchiveDialog(QtWidgets.QDialog):
 
         header = table_view.horizontalHeader()
         for column_name, width in self.DEFAULT_WIDTHS:
-            idx = model.get_header_index(column_name)
+            idx = model.get_column_index(column_name)
             header.setSectionResizeMode(idx, QtWidgets.QHeaderView.Interactive)
             table_view.setColumnWidth(idx, width)
 
@@ -125,8 +138,11 @@ class ArchiveDialog(QtWidgets.QDialog):
 
         # Assign widgets we want to reuse to class instance
         self._projects_combobox = projects_combobox
+        self._text_filter = text_filter
+        self._show_deleted = show_deleted
         self._table_view = table_view
         self._model = model
+        self._proxy_model = proxy_model
 
     def keyPressEvent(self, event: QtGui.QKeyEvent):
         # Ignore enter key
@@ -229,6 +245,12 @@ class ArchiveDialog(QtWidgets.QDialog):
         archive_data = archive_proj.get_archive_data()
         self._model.set_archive_data(archive_data)
 
+    def on_filter_text_changed(self, text):
+        self._proxy_model.setFilterRegExp(text)
+
+    def on_filter_deleted_changed(self, state):
+        self._proxy_model.set_show_deleted(state == QtCore.Qt.Checked)
+
     # -------------------------------
     # Delay calling blocking methods
     # -------------------------------
@@ -237,28 +259,82 @@ class ArchiveDialog(QtWidgets.QDialog):
         tools_lib.schedule(self._refresh, 50, channel="mongo")
 
 
+class FilterProxyModel(QtCore.QSortFilterProxyModel):
+    def __init__(self, parent=None):
+        super(FilterProxyModel, self).__init__(parent)
+        # 0 is the path index
+        # 5 the publish dir index
+        # 7 the reason index
+        self._filter_columns = [0, 5, 7]
+        self._deleted_idx = 4
+        self._show_deleted = True
+
+    def set_show_deleted(self, state):
+        self._show_deleted = state
+        self.invalidateFilter()
+
+    def filterAcceptsRow(self, source_row, source_parent):
+        """Override to filter rows based on the text in the specified column."""
+        # First, check the regular expression filter
+        if self.filterRegExp():
+            regex_matches = False
+            for column_idx in self._filter_columns:
+                index = self.sourceModel().index(source_row, column_idx, source_parent)
+                try:
+                    if self.filterRegExp().indexIn(self.sourceModel().data(index)) >= 0:
+                        regex_matches = True
+                except TypeError:
+                    continue
+
+            if not regex_matches:
+                return False
+
+        # Then, check the show_deleted filter
+        if not self._show_deleted:
+            deleted_index = self.sourceModel().index(source_row, self._deleted_idx, source_parent)
+
+            is_deleted_data = self.sourceModel().data(deleted_index)
+
+            # Convert to boolean if not inherently boolean
+            is_deleted = (is_deleted_data == 'True') if isinstance(is_deleted_data, str) else bool(is_deleted_data)
+
+            if is_deleted:
+                return False
+
+        # If none of the above conditions block the row, accept it
+        return True
+
+
 class ArchivePathsTableModel(QtCore.QAbstractTableModel):
     """Model for the archive paths table"""
 
     _column_data = {
-        "path": ("Paths", "Archived paths"),
+        "path": ("Path", "Archived path"),
         "delete_time": ("Delete Time", "Time when the path will be deleted"),
-        "is_deleted": ("Is Deleted", "Is the path deleted"),
+        "marked_time": ("Marked Time", "Time when the path was marked for ready to be deleted"),
+        "size": ("Size", "Size of path"),
+        "is_deleted": ("Deleted", "Whether the path has been deleted already or not"),
         "publish_dir": ("Publish Path", "Path where the file was published to"),
-        "publish_ids": ("Publish IDs", "Publish IDs"),
+        "publish_id": ("id", "Publish version entity ID"),
+        "reason": ("Reason", "Reason why the path was marked for deletion"),
+        "paths": ("Full paths", "All the filepaths included under the entry")
     }
 
-    @attr.s
-    class ProductRepresentation:
-        path = attr.ib()
-        delete_time = attr.ib()
-        publish_path = attr.ib()
+    DATE_FORMAT = "%Y-%m-%d"
 
-    def __init__(self, header, parent=None):
+    def __init__(self, parent=None):
         super().__init__(parent=parent)
-        self._header = header
-        self._data = []
-
+        self._data = pd.DataFrame({
+            "path": [],
+            "delete_time": [],
+            "marked_time": [],
+            "size": [],
+            "is_deleted": [],
+            "publish_dir": [],
+            "publish_id": [],
+            "reason": [],
+            "paths": [],
+        })
         self.edit_icon = qtawesome.icon("fa.edit", color="white")
 
     def rowCount(self, parent=None):
@@ -266,6 +342,52 @@ class ArchivePathsTableModel(QtCore.QAbstractTableModel):
 
     def columnCount(self, parent=None):
         return len(self._data.columns)
+
+    def get_column_index(self, column_name):
+        """Return index of column
+
+        Args:
+            column_name (str): Name of column
+
+        Returns:
+            int: Index of column in data
+        """
+        return self._data.columns.get_loc(column_name)
+
+    def get_color_by_time(self, target_datetime, hours_before_turning_red=200):
+        """Return a QColor object ranging from yellow to red based on time proximity.
+
+        This function calculates the difference in time between the current moment and
+        a target datetime. It returns a QColor object that gradually changes from yellow
+        to red as the current time approaches the target datetime. The color is green
+        at or past the target time, and fully yellow if the current time is more than
+        the specified hours away from the target time.
+
+        Args:
+            target_datetime (datetime.datetime): The target datetime to compare against.
+            hours_before_turning_red (int): The number of hours before the target_datetime
+                                            when the color starts changing from yellow to red.
+
+        Returns:
+            QtGui.QColor: The color corresponding to the time difference, ranging from yellow to red.
+
+        """
+        current_time = datetime.now()
+        time_diff = (target_datetime - current_time).total_seconds() / 3600  # convert difference to hours
+
+        if time_diff <= 0:
+            # Current time is at or past the target time
+            return QtGui.QColor("green")  # Green
+        elif time_diff > hours_before_turning_red:
+            # Current time is more than specified hours away from target time
+            return QtGui.QColor(255, 255, 0)  # Yellow
+
+        # Calculate color based on linear interpolation
+        red_value = int(utils.interp(time_diff, [0, hours_before_turning_red], [255, 255]))
+        green_value = int(utils.interp(time_diff, [0, hours_before_turning_red], [0, 255]))
+        blue_value = 0  # Constant, as we're moving between red and yellow (no blue component)
+
+        return QtGui.QColor(red_value, green_value, blue_value)
 
     def data(self, index, role=QtCore.Qt.DisplayRole):
         """Return data depending on index, Qt::ItemDataRole and data type of the column.
@@ -280,21 +402,23 @@ class ArchivePathsTableModel(QtCore.QAbstractTableModel):
         if not index.isValid():
             return
 
-        if role in (QtCore.Qt.DisplayRole):
-            return self._data.iat[index.row(), index.column()]
+        column_name = self._data.columns[index.column()]
 
-        # TODO: change color if date is close to be deleted?
-        # if role == QtCore.Qt.ForegroundRole:
-            # product_dict = attr.asdict(prod_item)
-            # publishable = all(
-            #     value
-            #     for key, value in product_dict.items()
-            #     if key not in self.UNNECESSARY_COLUMNS
-            # )
-            # if not publishable:
-            #     return QtGui.QColor(QtCore.Qt.yellow)
-            # if any(value is None or value == "" for value in product_dict.values()):
-                # return QtGui.QColor(QtCore.Qt.yellow)
+        if role == QtCore.Qt.DisplayRole:
+            value = self._data.iat[index.row(), index.column()]
+            if column_name.endswith("_time"):
+                return pd.to_datetime(value).strftime(self.DATE_FORMAT)
+            elif column_name == "size":
+                return utils.format_bytes(value)
+            elif column_name == "is_deleted":
+                return str(bool(value))
+            else:
+                return value
+
+        if role == QtCore.Qt.ForegroundRole:
+            if column_name == "delete_time":
+                value = self._data.iat[index.row(), index.column()]
+                return self.get_color_by_time(pd.to_datetime(value))
 
         return None
 
@@ -304,11 +428,11 @@ class ArchivePathsTableModel(QtCore.QAbstractTableModel):
 
         if role == QtCore.Qt.DisplayRole:
             if orientation == QtCore.Qt.Horizontal:
-                return self._data.columns[section]
+                return self._column_data[self._data.columns[section]][0]
 
         elif role == HEADER_NAME_ROLE:
             if orientation == QtCore.Qt.Horizontal:
-                return self._column_data[self._data.columns[section]][0]
+                return self._data.columns[section]
 
         elif role == QtCore.Qt.ToolTipRole:
             if orientation == QtCore.Qt.Horizontal:
@@ -342,9 +466,8 @@ def main():
         ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("archive_status")
 
     window = ArchiveDialog()
-    window.show()
-
     # Trigger on project change every time the tool loads
     window.on_project_change()
+    window.show()
 
     sys.exit(app_instance.exec_())
