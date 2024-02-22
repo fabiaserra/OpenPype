@@ -8,6 +8,7 @@ from openpype.hosts.nuke import api as napi
 from openpype.pipeline import publish
 
 from openpype.pipeline import publish, PublishXmlValidationError
+from openpype.tools.utils import paths as path_utils
 
 
 class CollectNukeWrites(pyblish.api.InstancePlugin,
@@ -414,12 +415,18 @@ class CollectNukeWrites(pyblish.api.InstancePlugin,
         elif remainders:
             collected_frame_paths = [remainders[0]]
             if f".{extension}" in napi.constants.VIDEO_FILE_EXTENSIONS:
-                duration = self._get_number_of_frames(collected_frames[0])
+                duration = self._get_number_of_frames(collected_frame_paths[0])
                 first_frame = 1
                 last_frame = duration
             else:
-                first_frame = 1
-                last_frame = 1
+                try:
+                    match = path_utils.RE_FRAME_NUMBER.match(remainders[0])
+                    if match:
+                        first_frame = int(match.group("frame"))
+                        last_frame = int(match.group("frame"))
+                except ValueError:
+                    first_frame = 1
+                    last_frame = 1
 
         # Update frame instance frame range with collected frame range
         self._set_frame_range_data(instance, first_frame, last_frame)
