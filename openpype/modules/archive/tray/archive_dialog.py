@@ -354,7 +354,7 @@ class ArchivePathsTableModel(QtCore.QAbstractTableModel):
         """
         return self._data.columns.get_loc(column_name)
 
-    def get_color_by_time(self, target_datetime, hours_before_turning_red=200):
+    def get_color_by_time(self, target_datetime, hours_before_turning_red=168):
         """Return a QColor object ranging from yellow to red based on time proximity.
 
         This function calculates the difference in time between the current moment and
@@ -383,8 +383,8 @@ class ArchivePathsTableModel(QtCore.QAbstractTableModel):
             return QtGui.QColor(255, 255, 0)  # Yellow
 
         # Calculate color based on linear interpolation
-        red_value = int(utils.interp(time_diff, [0, hours_before_turning_red], [255, 255]))
-        green_value = int(utils.interp(time_diff, [0, hours_before_turning_red], [0, 255]))
+        red_value = 255
+        green_value = utils.interp(time_diff, 0, 0, hours_before_turning_red, 255)
         blue_value = 0  # Constant, as we're moving between red and yellow (no blue component)
 
         return QtGui.QColor(red_value, green_value, blue_value)
