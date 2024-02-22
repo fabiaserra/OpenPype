@@ -404,6 +404,9 @@ class CollectNukeWrites(pyblish.api.InstancePlugin,
                 key="no_render_files"
             )
 
+        first_frame = 1
+        last_frame = 1
+
         collections, remainders = clique.assemble(output_files)
         if collections:
             collected_frame_paths = list(collections[0])
@@ -417,14 +420,13 @@ class CollectNukeWrites(pyblish.api.InstancePlugin,
                 first_frame = 1
                 last_frame = duration
             else:
-                try:
-                    match = path_utils.RE_FRAME_NUMBER.match(remainders[0])
-                    if match:
+                match = path_utils.RE_FRAME_NUMBER.match(remainders[0])
+                if match:
+                    try:
                         first_frame = int(match.group("frame"))
                         last_frame = int(match.group("frame"))
-                except ValueError:
-                    first_frame = 1
-                    last_frame = 1
+                    except ValueError:
+                        pass
 
         # Update frame instance frame range with collected frame range
         self._set_frame_range_data(instance, first_frame, last_frame)
