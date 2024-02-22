@@ -10,6 +10,7 @@ import csv
 from openpype import client as op_cli
 from openpype.lib import Logger, StringTemplate, get_datetime_data
 from openpype.pipeline import delivery, template_data
+from openpype.tools.utils import paths as path_utils
 from openpype.modules.deadline import constants as dl_constants
 from openpype.modules.deadline.lib import submit
 from openpype.modules.shotgrid.lib import credentials
@@ -94,7 +95,10 @@ def get_output_anatomy_data(anatomy_data, delivery_data, output_name, output_ext
     # If output extension is one of the single file extensions we remove the
     # "frame" token
     if output_extension in SINGLE_FILE_EXTENSIONS:
-        output_anatomy_data.pop("frame")
+        try:
+            output_anatomy_data.pop("frame")
+        except KeyError:
+            pass
     # Otherwise we add "is_sequence" as an empty token so we can use it on
     # nested optional tokens to add extra items
     # i.e., "<{is_sequence}<{filename}/>>" will only add that extra folder
@@ -344,10 +348,9 @@ def generate_delivery_media_version(
     # lives
     input_path = exr_repre_doc["data"]["path"]
     # Replace frame number with #'s for expected_files function
-    input_hashes_path = re.sub(
-        r"\d+(?=\.\w+$)", lambda m: "#" * len(m.group()) if m.group() else "#",
-        input_path
-    )
+    path, filename = os.path.split(input_path)
+    new_filename = path_utils.replace_frame_number_with_token(filename, "#", padding=True)
+    input_hashes_path = os.path.join(path, new_filename)
 
     # Create a dictionary of anatomy data so we can fill up
     # all the tokenized paths
