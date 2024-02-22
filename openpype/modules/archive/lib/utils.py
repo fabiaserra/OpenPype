@@ -13,26 +13,31 @@ def time_elapsed(etime, exact=False):
     return wording
 
 
-def to_unit(size, unit="gb"):
-    """
-    Accepts bytes and returns them to a human readable unit.
-    """
+def format_bytes(size):
+    # 2**10 = 1024
+    power = 1024
+    n = 0
+    power_labels = {0 : 'bytes', 1: 'KB', 2: 'MB', 3: 'GB', 4: 'TB'}
+    while size > power:
+        size /= power
+        n += 1
+    return f"{round(size, 2)} {power_labels[n]}"
 
-    size = float(size)
-    unit = unit.strip().lower()
-    if unit == "b":
-        size = size
-    elif unit == "kb":
-        size /= 1024
-    elif unit == "mb":
-        size /= 1024**2
-    elif unit == "gb":
-        size /= 1024**3
-    elif unit == "tb":
-        size /= 1024**4
-    elif unit == "pb":
-        size /= 1024**5
-    elif unit == "ex":
-        size /= 1024**6
 
-    return size
+def interp(x, x1, y1, x2, y2):
+    """Perform linear interpolation.
+
+    It's easier to use numpy.interp but to avoid adding the
+    dependency we are adding this simple function
+
+    Args:
+        x (float): The x-value to interpolate.
+        x1 (float): The x-value of the first point.
+        y1 (float): The y-value of the first point.
+        x2 (float): The x-value of the second point.
+        y2 (float): The y-value of the second point.
+
+    Returns:
+        float: The interpolated y-value.
+    """
+    return y1 + (x - x1) * (y2 - y1) / (x2 - x1)
