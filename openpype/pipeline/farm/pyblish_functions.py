@@ -454,7 +454,8 @@ def prepare_representations(skeleton_data, exp_files, anatomy, aov_filter,
 
         ### Starts Alkemy-X Override ###
         # Only add 'review' and 'shotgridreview' tags for video files
-        if ext not in {"mp4", "mov", "mxf"}:
+        # and single exr frames
+        if ext not in {"mp4", "mov", "mxf", "exr"}:
             preview = False
         ### Ends Alkemy-X Override ###
 
