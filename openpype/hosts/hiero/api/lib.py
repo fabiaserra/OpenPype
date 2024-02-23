@@ -1547,7 +1547,7 @@ def otio_parse_edl_events(path, color_edits_only=False):
 
     if len(timeline.tracks) > 1:
         raise Exception(
-            "EDL can not contain more than one track. Something went wrong"
+            "EDL '%s' can not contain more than one track. Something went wrong" % path
         )
 
     edl = {"events": {}}

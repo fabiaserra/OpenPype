@@ -102,24 +102,9 @@ class ArchiveProject:
             self.summary_dir, "delete_data.csv"
         )
 
-        # TODO: add support for consecutive runs
-        # if os.path.exists(self.delete_data_file):
-            # self.data = pd.read_csv(self.delete_data_file)
-            # self.archive_entries = self.data.to_dict()
-        # else:
-            # self.data = pd.DataFrame({
-            #     "path": [],
-            #     "delete_time": [],
-            #     "marked_time": [],
-            #     "size": [],
-            #     "is_deleted": [],
-            #     "publish_dir": [],
-            #     "publish_id": [],
-            #     "reason": [],
-            #     "paths": [],
-            # })
-
-        self.archive_entries = {}
+        # Populate the self.archive_entries with the existing CSV document
+        # in the project if it exists
+        self.read_archive_data()
 
         self.total_size_deleted = 0
 
@@ -140,6 +125,8 @@ class ArchiveProject:
             self.proj_code,
         )
         start_time = time.time()
+
+        self.clean_existing_entries()
 
         self.clean_published_file_sources(force_delete=archive)
         self.clean_work_files(force_delete=archive)
@@ -173,6 +160,20 @@ class ArchiveProject:
         """
         self.clean(archive=True)
 
+    def read_archive_data(self):
+        """Read the archive data from the CSV file in the project as a dictionary"""
+        if not os.path.exists(self.delete_data_file):
+            self.archive_entries = {}
+            return
+
+        data_frame = pd.read_csv(self.delete_data_file)
+        non_deleted_data = data_frame[~data_frame["is_deleted"]]
+        data_list = non_deleted_data.to_dict(orient="records")
+        for data_entry in data_list:
+            data_entry["marked_time"] = pd.to_datetime(data_entry["marked_time"])
+            data_entry["delete_time"] = pd.to_datetime(data_entry["delete_time"])
+            self.archive_entries[data_entry.pop("path")] = data_entry
+
     def write_archive_data(self):
         """Stores the archive data dictionary as a CSV file in the project.
 
@@ -197,10 +198,10 @@ class ArchiveProject:
             data_dict["marked_time"].append(data_entries["marked_time"])
             data_dict["size"].append(data_entries["size"])
             data_dict["is_deleted"].append(data_entries["is_deleted"])
-            data_dict["publish_dir"].append(data_entries.get("publish_dir"))
-            data_dict["publish_id"].append(data_entries.get("publish_id"))
-            data_dict["reason"].append(data_entries.get("reason"))
-            data_dict["paths"].append(data_entries.get("paths"))
+            data_dict["publish_dir"].append(data_entries.get("publish_dir", ""))
+            data_dict["publish_id"].append(data_entries.get("publish_id", ""))
+            data_dict["reason"].append(data_entries.get("reason", ""))
+            data_dict["paths"].append(data_entries.get("paths", set()))
 
         df = pd.DataFrame(data_dict)
         df.to_csv(self.delete_data_file, index=False)
@@ -264,6 +265,21 @@ class ArchiveProject:
             )
 
         return shots_status
+
+    def clean_existing_entries(self, force_delete=False):
+        """Clean existing entries from self.archive_entries"""
+        logger.info(" \n---- Cleaning files marked for archive from CSV ---- \n")
+
+        for _, data_entry in self.archive_entries:
+            # Skip entries that have already been marked deleted
+            if data_entry["is_deleted"]:
+                continue
+
+            self.consider_filepaths_for_deletion(
+                data_entry["paths"],
+                caution_level=None,
+                force_delete=force_delete,
+            )
 
     def clean_published_file_sources(self, force_delete=False):
         """Cleans the source of the published files of the project.
@@ -752,7 +768,6 @@ class ArchiveProject:
 
         return deleted, marked
 
-
     def consider_collection_for_deletion(
         self,
         collection,
@@ -833,10 +848,21 @@ class ArchiveProject:
         # Add entry to archive entries dictionary
         if path_entry in self.archive_entries:
             data_entry = self.archive_entries[path_entry]
-            if filepath not in data_entry.get("paths"):
+            if filepath in data_entry.get("paths"):
+                # if this filepath already exists on the data entry it means
+                # it was already marked for deletion, skip it!
+                return False, True
+            else:
                 data_entry["size"] += path_size
                 data_entry["paths"].add(filepath)
         else:
+            if not caution_level:
+                logger.error(
+                    "No caution level was passed to the function, probably due "
+                    "to assuming the file was already marked for deletion but it "
+                    "wasn't found on the existing entries. Skipping!")
+                return False, False
+
             data_entry = {
                 "size": path_size,
                 "marked_time": TIME_NOW,
@@ -857,12 +883,11 @@ class ArchiveProject:
             return False, False
 
         if DELETE_PREFIX in original_name:
-            date_marked_for_delete = self.parse_date_from_filename(original_name)
-            # if the file has been marked for deletion more than the threshold, delete it
-            if datetime.today() - date_marked_for_delete > DELETE_THRESHOLDS[caution_level]:
+            # If we are passed the time marked for deletion, delete it
+            if datetime.today() > data_entry.get("delete_time"):
                 if not silent:
                     logger.debug(
-                        f"File has been marked for deletion enough time, deleting it (caution: {caution_level})."
+                        f"File has been marked for deletion enough time, deleting it."
                     )
                 success = self.delete_filepath(filepath, silent=silent)
                 if success:
@@ -898,6 +923,9 @@ class ArchiveProject:
             logger.info(
                 f"Marked for deletion: '{filepath}' -> '{new_name}' (caution: {caution_level})"
             )
+
+        data_entry["paths"].remove(filepath)
+        data_entry["paths"].add(new_filepath)
 
         self.archive_entries[path_entry] = data_entry
 
