@@ -42,12 +42,10 @@ class ArchiveDialog(QtWidgets.QDialog):
         ("paths", 200),
     )
 
-    def __init__(self, module, parent=None):
+    def __init__(self, parent=None):
         super(ArchiveDialog, self).__init__(parent)
 
         self.setWindowTitle(self.tool_title)
-
-        self._module = module
 
         icon = QtGui.QIcon(resources.get_openpype_icon_filepath())
         self.setWindowIcon(icon)

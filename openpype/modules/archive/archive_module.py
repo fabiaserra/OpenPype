@@ -2,15 +2,16 @@ import click
 
 from openpype.modules import (
     OpenPypeModule,
-    ITrayModule
+    ITrayAction
 )
+from openpype.lib import get_openpype_execute_args
+from openpype.lib.execute import run_detached_process
 from openpype.modules.archive.lib import expunge
 
 
-class ArchiveModule(OpenPypeModule, ITrayModule):
+class ArchiveModule(OpenPypeModule, ITrayAction):
     label = "Archive"
     name = "archive"
-    tray_wrapper = None
 
     def initialize(self, modules_settings):
         self.enabled = True
@@ -19,15 +20,16 @@ class ArchiveModule(OpenPypeModule, ITrayModule):
         click_group.add_command(cli_main)
 
     def tray_init(self):
-        from .tray.archive_tray import ArchiveTrayWrapper
-
-        self.tray_wrapper = ArchiveTrayWrapper(self)
-
-    def tray_start(self):
         return
 
-    def tray_exit(self, *args, **kwargs):
-        return self.tray_wrapper
+    def run_traypublisher(self):
+        args = get_openpype_execute_args(
+            "module", self.name, "launch"
+        )
+        run_detached_process(args)
+
+    def on_action_trigger(self):
+        self.launch_archive_tool()
 
     def tray_menu(self, tray_menu):
         return self.tray_wrapper.tray_menu(tray_menu)
@@ -62,6 +64,14 @@ def purge_project_command(
 @click.group(ArchiveModule.name, help="Archive CLI")
 def cli_main():
     pass
+
+
+@cli_main.command()
+def launch():
+    """Launch TrayPublish tool UI."""
+    from openpype.modules.archive.tray import archive_dialog
+    # TODO: inject path to pandas?
+    archive_dialog.main()
 
 
 cli_main.add_command(clean_project_command)
