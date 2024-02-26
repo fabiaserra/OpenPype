@@ -60,7 +60,7 @@ build-op-container:
 
 build-patch:
   tags:
-    - dind
+    - kube
   stage: build
   image: dm.tenant-alkemyx.lga1.ingress.coreweave.cloud/coreweave/pipeline/openpype/openpype:jammy-3.16-FFFFGDGD
   script:
