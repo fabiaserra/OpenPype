@@ -931,15 +931,10 @@ class ArchiveProject:
 
 # ------------// Callable Functions //------------
 def clean_all():
-    total_size = 0
     scan_start = time.time()
 
-    summary_dir = os.path.join("/pipe", "archive_logs")
-    if not os.path.exists(summary_dir):
-        os.makedirs(summary_dir)
-
     timestamp = time.strftime("%Y%m%d%H%M")
-    summary_file = os.path.join(summary_dir, f"{timestamp}.txt")
+    summary_file = os.path.join(const.EXPORT_DIR, f"{timestamp}{'_debug' if const._debug else ''}.txt")
 
     # Create a file handler which logs even debug messages
     file_handler = logging.FileHandler(summary_file)
@@ -954,7 +949,7 @@ def clean_all():
 
     for proj in sorted(os.listdir(const.PROJECTS_DIR)):
         archive_project = ArchiveProject(proj)
-        total_size += archive_project.clean_project(archive=False)
+        archive_project.clean(archive=False)
 
     elapsed_time = time.time() - scan_start
     logger.info("Total Clean Time %s", utils.time_elapsed(elapsed_time))
