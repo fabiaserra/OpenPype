@@ -7,26 +7,10 @@ variables:
   DOCKER_TLS_CERTDIR: "/certs"
 
 stages:
-  - archive
   - build
   - build-op-container
-  - deploy-deadline
   - deploy
   - release
-
-clean-jobs:
-  stage: archive
-  tags:
-    - mnt-proj
-  image: dm.tenant-alkemyx.lga1.ingress.coreweave.cloud/coreweave/pipeline/openpype/openpype:jammy-3.16-FFFFGDGD
-  script:
-    - ./openpype_console module archive clean_project $PROJ_CODE
-  parallel:
-    matrix:
-      - PROJ_CODE: "dev_000"
-      - PROJ_CODE: "zzz"
-  rules:
-    - when: manual
 
 build-ubuntu22:
   tags:
@@ -110,6 +94,23 @@ deploy-patch:
       when: never
     - when: always
 
+deploy-to-deadline:
+  image: alpine:latest
+  tags:
+    - mnt-deadline
+  stage: deploy
+  script:
+    - apk add rsync
+    - rsync -avh --chmod=777 --chown=995:776523089 $CI_PROJECT_DIR/openpype/modules/deadline/repository/custom/plugins/* /deadline-10-2-1-1//custom/plugins/
+  rules:
+    - if: $CI_COMMIT_TAG
+      when: never
+    - if: $CI_COMMIT_BRANCH == "release/alkemyx"
+      changes:
+        - openpype/modules/deadline/repository/custom/plugins/**/*
+    - if: $CI_COMMIT_BRANCH == "release/alkemyx-develop"
+      when: manual
+
 release-patch:
   tags:
     - dind
@@ -133,20 +134,3 @@ release-patch:
     - if: $CI_COMMIT_TAG
       when: never
     - when: always
-
-deploy-to-deadline:
-  image: alpine:latest
-  tags:
-    - mnt-deadline
-  stage: build
-  script:
-    - apk add rsync
-    - rsync -avh --chmod=777 --chown=995:776523089 $CI_PROJECT_DIR/openpype/modules/deadline/repository/custom/plugins/* /deadline-10-2-1-1//custom/plugins/
-  rules:
-    - if: $CI_COMMIT_TAG
-      when: never
-    - if: $CI_COMMIT_BRANCH == "release/alkemyx"
-      changes:
-        - openpype/modules/deadline/repository/custom/plugins/**/*
-    - if: $CI_COMMIT_BRANCH == "release/alkemyx-develop"
-      when: manual
