@@ -229,6 +229,8 @@ class ArchiveDialog(QtWidgets.QDialog):
             [["name", "is", project_name]],
             fields=["sg_code"]
         )
+        if not sg_project:
+            return
 
         project_name = self.dbcon.active_project() or "No project selected"
         title = "{} - {}".format(self.tool_title, project_name)
@@ -464,8 +466,6 @@ def main():
         ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("archive_status")
 
     window = ArchiveDialog()
-    # Trigger on project change every time the tool loads
-    window.on_project_change()
     window.show()
 
     sys.exit(app_instance.exec_())

@@ -423,7 +423,7 @@ class ArchiveProject:
             )
 
             # If we found files, we consider them for deletion
-            deleted, marked = self.consider_filepaths_for_deletion(
+            deleted, _ = self.consider_filepaths_for_deletion(
                 source_files,
                 caution_level=caution_level_,
                 force_delete=force_delete,
@@ -435,19 +435,17 @@ class ArchiveProject:
                 }
             )
 
-            if deleted or marked:
-                logger.info("\n")
-                if deleted:
-                    # Add metadata to version so we can skip from inspecting it
-                    # in the future
-                    session = OperationsSession()
-                    session.update_entity(
-                        self.project_name,
-                        "version",
-                        version_doc["_id"],
-                        {"data.source_deleted": True}
-                    )
-                    session.commit()
+            if deleted:
+                # Add metadata to version so we can skip from inspecting it
+                # in the future
+                session = OperationsSession()
+                session.update_entity(
+                    self.project_name,
+                    "version",
+                    version_doc["_id"],
+                    {"data.source_deleted": True}
+                )
+                session.commit()
 
 
     def clean_io_files(self, force_delete=False):
@@ -505,7 +503,6 @@ class ArchiveProject:
                         if deleted or marked:
                             # Remove from dirnames to prevent further exploration
                             dirnames.remove(dirname)
-                            logger.info("\n")
 
                     # Check each file in the current directory
                     filepaths = [os.path.join(dirpath, filename) for filename in filenames]
@@ -517,8 +514,6 @@ class ArchiveProject:
                             "reason": "Routine clean up"
                         }
                     )
-                    if deleted or marked:
-                        logger.info("\n")
 
     def clean_work_files(self, force_delete=False):
         """Cleans the work directories of the project by removing old files and folders
@@ -538,7 +533,7 @@ class ArchiveProject:
             "img": 2,
             # "render": 2,
             # "renders": 2,
-            "nuke": 2,
+            # "nuke": 2,
             "temp_transcode": 0,
         }
         file_patterns_to_remove = {
@@ -581,7 +576,6 @@ class ArchiveProject:
                     if deleted or marked:
                         # Remove from dirnames to prevent further exploration
                         dirnames.remove(folder)
-                        logger.info("\n")
 
                 # Delete all files that match the patterns that we have decided
                 # we should delete
@@ -596,8 +590,6 @@ class ArchiveProject:
                                 "reason": "Transient file"
                             }
                         )
-                        if deleted or marked:
-                            logger.info("\n")
 
 
     def clean_shots_by_status(self, shots_status, force_delete=False):

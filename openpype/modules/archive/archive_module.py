@@ -1,3 +1,4 @@
+import sys
 import click
 
 from openpype.modules import (
@@ -6,7 +7,6 @@ from openpype.modules import (
 )
 from openpype.lib import get_openpype_execute_args
 from openpype.lib.execute import run_detached_process
-from openpype.modules.archive.lib import expunge
 
 
 class ArchiveModule(OpenPypeModule, ITrayAction):
@@ -22,7 +22,7 @@ class ArchiveModule(OpenPypeModule, ITrayAction):
     def tray_init(self):
         return
 
-    def run_traypublisher(self):
+    def launch_archive_tool(self):
         args = get_openpype_execute_args(
             "module", self.name, "launch"
         )
@@ -30,9 +30,6 @@ class ArchiveModule(OpenPypeModule, ITrayAction):
 
     def on_action_trigger(self):
         self.launch_archive_tool()
-
-    def tray_menu(self, tray_menu):
-        return self.tray_wrapper.tray_menu(tray_menu)
 
 
 @click.command("clean_project")
@@ -45,6 +42,8 @@ def clean_project_command(
     """Perform a routine clean up of project by removing old files and folders
     that we consider irrelevant to keep through a production lifecycle.
     """
+    sys.path.insert(0, "/sw/python/3.9.17/lib/python3.9/site-packages")
+    from openpype.modules.archive.lib import expunge
     archive_proj = expunge.ArchiveProject(proj_code)
     return archive_proj.clean(archive=archive)
 
@@ -57,6 +56,8 @@ def purge_project_command(
     """Perform deep cleaning of the project by force deleting all the unnecessary
     files and folders and compressing the work directories.
     """
+    sys.path.insert(0, "/sw/python/3.9.17/lib/python3.9/site-packages")
+    from openpype.modules.archive.lib import expunge
     archive_proj = expunge.ArchiveProject(proj_code)
     return archive_proj.purge()
 
@@ -69,8 +70,8 @@ def cli_main():
 @cli_main.command()
 def launch():
     """Launch TrayPublish tool UI."""
+    sys.path.insert(0, "/sw/python/3.9.17/lib/python3.9/site-packages")
     from openpype.modules.archive.tray import archive_dialog
-    # TODO: inject path to pandas?
     archive_dialog.main()
 
 
