@@ -167,6 +167,7 @@ class ArchiveProject:
         self.archive_entries = {}
 
         if not os.path.exists(self.delete_data_file):
+            logger.info(f"CSV file '{self.delete_data_file}' does not exist yet")
             return
 
         data_frame = pd.read_csv(self.delete_data_file)
