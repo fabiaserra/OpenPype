@@ -184,6 +184,8 @@ class ArchiveProject:
         This allows us to retrieve the data in the archive dialog and keep
         a history of all the files archived in the project.
         """
+        start_time = time.time()
+
         # Create final dictionary to store in csv
         data_dict = {
             "path": [],
@@ -207,11 +209,23 @@ class ArchiveProject:
             data_dict["reason"].append(data_entries.get("reason", ""))
             data_dict["paths"].append(data_entries.get("paths", set()))
 
+        # Create a pandas data frame from current archive data dictionary
         df = pd.DataFrame(data_dict)
-        # TODO: don't overwrite!
-        df.to_csv(self.delete_data_file, index=False)
 
-        logger.info("Saved CSV data in '%s'", self.delete_data_file)
+        # Make sure we don't overwrite existing entries from the main CSV file
+        existing_df = pd.read_csv(self.delete_data_file)
+        combined_df = pd.concat([existing_df, df])
+        combined_df = combined_df.drop_duplicates(subset=["path"])
+
+        # Write out data to CSV file
+        combined_df.to_csv(self.delete_data_file, index=False)
+
+        elapsed_time = time.time() - start_time
+        logger.info(
+            "Saved CSV data in '%s', it took %s",
+            self.delete_data_file,
+            utils.time_elapsed(elapsed_time)
+        )
 
     def get_archive_data(self):
         """Retrieves the data stored in the project as a pd.DataFrame object

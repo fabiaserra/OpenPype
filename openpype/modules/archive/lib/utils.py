@@ -1,16 +1,16 @@
 
-def time_elapsed(etime, exact=False):
-    seconds = (int(etime % 60), "s")
-    minutes = (int((etime / 60) % 60), "m")
-    hours = (int((etime / 3600) % 24), "h")
-    days = (int(etime / 86400), "d")
+def time_elapsed(elapsed_time):
 
-    wording = ""
-    for part in [days, hours, minutes, seconds]:
-        if part[0] or exact:
-            wording += "{0}{1} ".format(part[0], part[1])
+    hours = int(elapsed_time // 3600)
+    minutes = int((elapsed_time % 3600) // 60)
+    seconds = elapsed_time % 60
 
-    return wording
+    if hours > 0:
+        friendly_time = f"{hours} hours, {minutes} minutes, and {seconds:.2f} seconds"
+    else:
+        friendly_time = f"{minutes} minutes and {seconds:.2f} seconds"
+
+    return friendly_time
 
 
 def format_bytes(size):
