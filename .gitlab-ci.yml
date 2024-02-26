@@ -16,12 +16,15 @@ stages:
 
 clean-jobs:
   stage: archive
+  tags:
+    - mnt-proj
   image: dm.tenant-alkemyx.lga1.ingress.coreweave.cloud/coreweave/pipeline/openpype/openpype:jammy-3.16-FFFFGDGD
   script:
-    - openpype_console module archive clean_project $PROJ_CODE
+    - ./openpype_console module archive clean_project $PROJ_CODE
   parallel:
     matrix:
       - PROJ_CODE: "dev_000"
+      - PROJ_CODE: "zzz"
   rules:
     - when: manual
 
