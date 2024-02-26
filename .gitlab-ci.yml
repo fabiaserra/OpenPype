@@ -4,6 +4,8 @@ stages:
   - deploy-deadline
   - deploy
   - release
+  - trigger-clean-jobs
+  - process-clean-job
 
 build-docker:
   stage: build
@@ -128,3 +130,26 @@ deploy-to-deadline:
         - openpype/modules/deadline/repository/custom/plugins/**/*
     - if: $CI_COMMIT_BRANCH == "release/alkemyx-develop"
       when: manual
+
+
+trigger-clean-jobs:
+  stage: trigger
+  script:
+    - echo "stages:" > dynamic_jobs.yml
+    - echo "  - process" >> dynamic_jobs.yml
+    - |
+      for STRING in "dev_000" "evl_s4"; do
+        echo "processing_$STRING:" >> dynamic_jobs.yml
+        echo "  stage: process" >> dynamic_jobs.yml
+        echo "  script:" >> dynamic_jobs.yml
+        echo "    - echo Processing $STRING" >> dynamic_jobs.yml
+      done
+  artifacts:
+    paths:
+      - dynamic_jobs.yml
+  trigger:
+    include:
+      - artifact: dynamic_jobs.yml
+        job: trigger-clean-jobs
+  rules:
+    - when: manual
