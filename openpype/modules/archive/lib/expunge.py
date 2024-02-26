@@ -98,10 +98,10 @@ class ArchiveProject:
             os.makedirs(self.summary_dir)
 
         timestamp = time.strftime("%Y%m%d%H%M")
-        self.summary_file = os.path.join(self.summary_dir, f"{timestamp}.txt")
+        self.summary_file = os.path.join(self.summary_dir, f"{timestamp}{'_debug' if const._debug else ''}.txt")
 
         self.delete_data_file = os.path.join(
-            self.summary_dir, "delete_data.csv"
+            self.summary_dir, f"delete_data{'_debug' if const._debug else ''}.csv"
         )
 
         # Populate the self.archive_entries with the existing CSV document
@@ -213,12 +213,13 @@ class ArchiveProject:
         df = pd.DataFrame(data_dict)
 
         # Make sure we don't overwrite existing entries from the main CSV file
-        existing_df = pd.read_csv(self.delete_data_file)
-        combined_df = pd.concat([existing_df, df])
-        combined_df = combined_df.drop_duplicates(subset=["path"])
+        if os.path.exists(self.delete_data_file):
+            existing_df = pd.read_csv(self.delete_data_file)
+            combined_df = pd.concat([existing_df, df])
+            df = combined_df.drop_duplicates(subset=["path"])
 
         # Write out data to CSV file
-        combined_df.to_csv(self.delete_data_file, index=False)
+        df.to_csv(self.delete_data_file, index=False)
 
         elapsed_time = time.time() - start_time
         logger.info(
