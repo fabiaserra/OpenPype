@@ -4,8 +4,7 @@ stages:
   - deploy-deadline
   - deploy
   - release
-  - trigger-clean-jobs
-  - process-clean-job
+  - trigger
 
 build-docker:
   stage: build
