@@ -66,8 +66,7 @@ build-patch:
   script:
     - mkdir -p $CI_PROJECT_DIR/artifact/build
     # Proc dies after creating the poetry env on first run. Just run it twice
-    - ./tools/create_zip.sh --path $CI_PROJECT_DIR/artifact/build
-    - ./tools/create_zip.sh --path $CI_PROJECT_DIR/artifact/build
+    - ./openpype_console run ${CI_PROJECT_DIR}/tools/create_zip.sh --path $CI_PROJECT_DIR/artifact/build
   artifacts:
     paths:
       - artifact
