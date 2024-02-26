@@ -9,6 +9,7 @@ from openpype.tools.utils import paths as path_utils
 from openpype.pipeline import publish, PublishXmlValidationError
 from openpype.lib import get_ffprobe_streams, convert_ffprobe_fps_value
 
+
 class CollectNukeWrites(pyblish.api.InstancePlugin,
                         publish.ColormanagedPyblishPluginMixin):
     """Collect all write nodes."""

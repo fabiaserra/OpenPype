@@ -14,6 +14,11 @@ class IntegrateVersionUpWorkfile(api.ContextPlugin):
     active = False
 
     def process(self, context):
+        ### Starts Alkemy-X Override ###
+        # Skip version up
+        return
+        ### Ends Alkemy-X Override ###
+
         project = context.data["activeProject"]
         path = context.data.get("currentFile")
         new_path = version_up(path)
