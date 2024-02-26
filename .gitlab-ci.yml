@@ -59,7 +59,7 @@ build-patch:
   variables:
     DNS_SERVER: "10.20.53.229"
     SEARCH_DOMAIN: "tenant-alkemyx.svc.tenant.chi.local"
-  image: dm.tenant-alkemyx.lga1.ingress.coreweave.cloud/coreweave/pipeline/openpype/openpype:jammy--bbc6adf5
+  image: dm.tenant-alkemyx.lga1.ingress.coreweave.cloud/coreweave/pipeline/openpype/openpype:jammy-3.16.11-ax-dev.1-817df4df
   script:
     - mkdir -p $CI_PROJECT_DIR/artifact/build
     # Proc dies after creating the poetry env on first run. Just run it twice
