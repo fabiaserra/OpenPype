@@ -16,7 +16,11 @@ last_increment = 0
 @click.option("--path", required=False,
               help="path where to put version",
               type=click.Path(exists=True))
-def main(path):
+@click.option("--repo-dir", required=False,
+              help="directory path where OP repo lives",
+              defaults=None,
+              type=click.Path(exists=True))
+def main(path, repo_dir):
     # create zip file
 
     progress_bar = enlighten.Counter(
@@ -36,7 +40,7 @@ def main(path):
             bs.data_dir = out_path.parent
 
     _print(f"Creating zip in {bs.data_dir} ...")
-    repo_file = bs.create_version_from_live_code()
+    repo_file = bs.create_version_from_live_code(repo_dir)
     if not repo_file:
         _print("Error while creating zip file.", 1)
         exit(1)
