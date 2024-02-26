@@ -39,6 +39,9 @@ def main(path, repo_dir):
         if out_path.is_file():
             bs.data_dir = out_path.parent
 
+    if repo_dir:
+        repo_dir = Path(repo_dir)
+
     _print(f"Creating zip in {bs.data_dir} ...")
     repo_file = bs.create_version_from_live_code(repo_dir)
     if not repo_file:
