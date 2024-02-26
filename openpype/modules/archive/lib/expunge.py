@@ -9,8 +9,10 @@ import os
 import re
 import shutil
 import time
-from datetime import datetime, timedelta
 import pandas as pd
+
+from ast import literal_eval
+from datetime import datetime, timedelta
 
 from openpype import AYON_SERVER_ENABLED
 from openpype import client as op_cli
@@ -162,8 +164,9 @@ class ArchiveProject:
 
     def read_archive_data(self):
         """Read the archive data from the CSV file in the project as a dictionary"""
+        self.archive_entries = {}
+
         if not os.path.exists(self.delete_data_file):
-            self.archive_entries = {}
             return
 
         data_frame = pd.read_csv(self.delete_data_file)
@@ -172,6 +175,7 @@ class ArchiveProject:
         for data_entry in data_list:
             data_entry["marked_time"] = pd.to_datetime(data_entry["marked_time"])
             data_entry["delete_time"] = pd.to_datetime(data_entry["delete_time"])
+            data_entry["paths"] = literal_eval(data_entry["paths"])
             self.archive_entries[data_entry.pop("path")] = data_entry
 
     def write_archive_data(self):
@@ -204,6 +208,7 @@ class ArchiveProject:
             data_dict["paths"].append(data_entries.get("paths", set()))
 
         df = pd.DataFrame(data_dict)
+        # TODO: don't overwrite!
         df.to_csv(self.delete_data_file, index=False)
 
         logger.info("Saved CSV data in '%s'", self.delete_data_file)
@@ -270,7 +275,7 @@ class ArchiveProject:
         """Clean existing entries from self.archive_entries"""
         logger.info(" \n---- Cleaning files marked for archive from CSV ---- \n")
 
-        for _, data_entry in self.archive_entries:
+        for _, data_entry in self.archive_entries.items():
             # Skip entries that have already been marked deleted
             if data_entry["is_deleted"]:
                 continue
@@ -856,7 +861,7 @@ class ArchiveProject:
                 data_entry["size"] += path_size
                 data_entry["paths"].add(filepath)
         else:
-            if not caution_level:
+            if caution_level is None:
                 logger.error(
                     "No caution level was passed to the function, probably due "
                     "to assuming the file was already marked for deletion but it "
