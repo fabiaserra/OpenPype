@@ -617,78 +617,68 @@ class ArchiveProject:
         # Level of caution for archive based on status
         caution_level = 0
 
-        for status, shots in shots_status.items():
+        # For final status, we add all versions but the ones listed
+        for shot_name, version_ids in shots_status.get("fin", {}).items():
+
             # TODO: add more logic to delete other versions from shot
             #asset_doc = op_cli.get_asset_by_name(project_name, shot)
 
-            # For final status, we add all versions but the ones listed
-            if status == "fin":
-                for version_id in shots:
-                    version_doc = op_cli.get_version_by_id(
-                        self.project_name, version_id=version_id, fields=["parent"]
-                    )
-                    subset_doc = op_cli.get_subset_by_id(
-                        self.project_name, subset_id=version_doc["parent"], fields=["_id"]
-                    )
-                    version_docs = op_cli.get_versions(
-                        self.project_name, subset_ids=[subset_doc["_id"]], fields=["_id"]
-                    )
-
-                    versions_to_delete = {}
-                    for version_doc in version_docs:
-                        # Skip the version that was marked as final
-                        other_version_id = version_doc["_id"]
-                        if other_version_id == version_id:
-                            continue
-                        repre_docs = op_cli.get_representations(
-                            self.project_name, version_ids=[other_version_id]
-                        )
-                        for repre_doc in repre_docs:
-                            repre_files, _, _, _ = path_utils.convert_to_sequence(
-                                repre_doc["path"]
-                            )
-                            versions_to_delete[other_version_id].extend(repre_files)
-
-                    for version_id_to_delete, paths in versions_to_delete.items():
-                        # It shouldn't happen but make sure none of the versions that were
-                        # added are part of final versions
-                        if version_id_to_delete in shots:
-                            continue
-
-                        # Add all representation paths that are not from final versions
-                        # to be considered for deletion
-                        self.consider_filepaths_for_deletion(
-                            paths,
-                            caution_level=caution_level,
-                            force_delete=force_delete,
-                            extra_data={
-                                "publish_id": version_id_to_delete,
-                                "reason": "Old versions in final status"
-                            }
-                        )
-
-            # For omitted status, we add the versions listed directly
-            elif status == "omt":
+            for version_id in version_ids:
+                version_doc = op_cli.get_version_by_id(
+                    self.project_name, version_id=version_id, fields=["parent"]
+                )
+                subset_doc = op_cli.get_subset_by_id(
+                    self.project_name, subset_id=version_doc["parent"], fields=["_id"]
+                )
                 version_docs = op_cli.get_versions(
-                    self.project_name, version_ids=[shots], fields=["_id"]
+                    self.project_name, subset_ids=[subset_doc["_id"]], fields=["_id"]
                 )
 
                 for version_doc in version_docs:
-                    version_id = version_doc["_id"]
-                    filepaths = []
-                    repre_docs = op_cli.get_representations(
-                        self.project_name, version_ids=[version_id]
-                    )
-                    for repre_doc in repre_docs:
-                        source_files, _, _, _ = path_utils.convert_to_sequence(
-                            repre_doc["path"]
-                        )
-                        filepaths.extend(source_files)
+                    # Skip all the versions that were marked as final
+                    other_version_id = str(version_doc["_id"])
+                    if other_version_id in version_ids:
+                        continue
 
-                    # Add all representation paths that are coming from omitted status be
-                    # considered for deletion
-                    self.consider_filepaths_for_deletion(
-                        filepaths,
+                    repre_docs = op_cli.get_representations(
+                        self.project_name, version_ids=[other_version_id]
+                    )
+
+                    # Add the directory where all the representations live
+                    for repre_doc in repre_docs:
+                        repres_dir = os.path.dirname(
+                            os.path.dirname(repre_doc["data"]["path"]
+                        ))
+                        self.consider_file_for_deletion(
+                            repres_dir,
+                            caution_level=caution_level,
+                            force_delete=force_delete,
+                            extra_data={
+                                "publish_id": other_version_id,
+                                "reason": "Old versions in final status"
+                            }
+                        )
+                        break
+
+        # For omitted status, we add the versions listed directly
+        for shot_name, version_ids in shots_status.get("omt", {}).items():
+            version_docs = op_cli.get_versions(
+                self.project_name, version_ids=version_ids, fields=["_id"]
+            )
+
+            for version_doc in version_docs:
+                version_id = version_doc["_id"]
+                repre_docs = op_cli.get_representations(
+                    self.project_name, version_ids=[version_id]
+                )
+                # Delete the directory where all the representations for that
+                # version exist
+                for repre_doc in repre_docs:
+                    repres_dir = os.path.dirname(
+                        os.path.dirname(repre_doc["data"]["path"]
+                    ))
+                    self.consider_file_for_deletion(
+                        repres_dir,
                         caution_level=caution_level,
                         force_delete=force_delete,
                         extra_data={
@@ -696,6 +686,7 @@ class ArchiveProject:
                             "reason": "Omitted status"
                         }
                     )
+                    break
 
     # ------------// Archival Functions //------------
     def compress_workfiles(self):
