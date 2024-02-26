@@ -8,7 +8,6 @@ variables:
 
 stages:
   - build
-  - build-op-container
   - deploy
   - release
 
@@ -40,7 +39,7 @@ build-ubuntu22:
       when: manual
 
 build-op-container:
-  stage: build-op-container
+  stage: build
   tags:
     - kube
   image:
