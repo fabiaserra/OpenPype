@@ -80,14 +80,9 @@ deploy-patch:
   script:
     - cp -R ./artifact/build/* /pipe/openpype/versions/
     - chown -R 1000:776523089 /pipe/openpype/versions
-  dependencies:
-    - build-patch
-  needs:
-    - build-patch
   rules:
     - if: $CI_COMMIT_TAG
       when: never
-    - when: always
 
 deploy-to-deadline:
   image: alpine:latest
@@ -119,9 +114,6 @@ release-patch:
         echo "Release "${VERSION}" does not exist, creating..."
         release-cli create --description "Release ${VERSION} using CI pipeline $CI_PIPELINE_ID" --tag-name "${VERSION}"
       fi
-  needs:
-    - deploy-patch
   rules:
     - if: $CI_COMMIT_TAG
       when: never
-    - when: always
