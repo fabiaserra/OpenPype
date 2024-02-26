@@ -46,11 +46,13 @@ build-op-container:
     name: gcr.io/kaniko-project/executor:v1.14.0-debug
     entrypoint: [""]
   script:
+    - version_command="import os;exec(open(os.path.join('./', 'openpype', 'version.py')).read());print('.'.join(__version__.split('.')[:2]));"
+    - openpype_version="$(python3 -c "${version_command}")"    - openpype_version="$(python3 -c "${version_command}")"
     - CI_COMMIT_BRANCH_SAFE="${CI_COMMIT_BRANCH////-}" && echo "$CI_COMMIT_BRANCH_SAFE"
     - /kaniko/executor
       --context "${CI_PROJECT_DIR}/op-container"
       --dockerfile "${CI_PROJECT_DIR}/op-container/Dockerfile"
-      --destination "${CI_REGISTRY_IMAGE}/openpype:jammy-${VERSION}-${CI_COMMIT_SHORT_SHA}"
+      --destination "${CI_REGISTRY_IMAGE}/openpype:jammy-${openpype_version}-${CI_COMMIT_SHORT_SHA}"
   rules:
     - if: $CI_COMMIT_TAG
       when: never
@@ -58,12 +60,12 @@ build-op-container:
       when: manual
     - if: $CI_COMMIT_BRANCH == "release/alkemyx-develop"
       when: manual
-      
+
 build-patch:
   tags:
     - kube
   stage: build
-  image: dm.tenant-alkemyx.lga1.ingress.coreweave.cloud/coreweave/pipeline/openpype/openpype:jammy-3.16-FFFFGDGD
+  image: dm.tenant-alkemyx.lga1.ingress.coreweave.cloud/coreweave/pipeline/openpype/openpype:jammy--bbc6adf5
   script:
     - mkdir -p $CI_PROJECT_DIR/artifact/build
     # Proc dies after creating the poetry env on first run. Just run it twice
