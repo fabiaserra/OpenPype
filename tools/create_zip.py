@@ -18,7 +18,7 @@ last_increment = 0
               type=click.Path(exists=True))
 @click.option("--repo-dir", required=False,
               help="directory path where OP repo lives",
-              defaults=None,
+              default=None,
               type=click.Path(exists=True))
 def main(path, repo_dir):
     # create zip file
