@@ -56,6 +56,9 @@ build-op-container:
 
 build-patch:
   stage: build
+  variables:
+    DNS_SERVER: "10.20.53.229"
+    SEARCH_DOMAIN: "tenant-alkemyx.svc.tenant.chi.local"
   image: dm.tenant-alkemyx.lga1.ingress.coreweave.cloud/coreweave/pipeline/openpype/openpype:jammy--bbc6adf5
   script:
     - mkdir -p $CI_PROJECT_DIR/artifact/build
