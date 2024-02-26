@@ -12,7 +12,7 @@ stages:
   - deploy-deadline
   - deploy
   - release
-  - trigger
+  - archive
 
 build-centos7:
   tags:
@@ -111,25 +111,6 @@ build-ubuntu22:
     - if: $CI_COMMIT_BRANCH == "release/alkemyx-develop"
       when: manual
 
-build-patch:
-  tags:
-    - dind
-  stage: build
-  image: python:3.9
-  script:
-    - mkdir -p $CI_PROJECT_DIR/artifact/build
-    # Proc dies after creating the poetry env on first run. Just run it twice
-    - ./tools/create_zip.sh --path $CI_PROJECT_DIR/artifact/build
-    - ./tools/create_zip.sh --path $CI_PROJECT_DIR/artifact/build
-  artifacts:
-    paths:
-      - artifact
-  rules:
-    - if: $CI_COMMIT_TAG
-      when: never
-    - when: manual
-  allow_failure: false
-
 build-op-container:
   stage: build-op-container
   needs:
@@ -148,6 +129,25 @@ build-op-container:
   rules:
     - if: $CI_COMMIT_TAG
       when: never
+
+build-patch:
+  tags:
+    - dind
+  stage: build
+  image: dm.tenant-alkemyx.lga1.ingress.coreweave.cloud/coreweave/pipeline/openpype/openpype:jammy-3.16-FFFFGDGD
+  script:
+    - mkdir -p $CI_PROJECT_DIR/artifact/build
+    # Proc dies after creating the poetry env on first run. Just run it twice
+    - ./tools/create_zip.sh --path $CI_PROJECT_DIR/artifact/build
+    - ./tools/create_zip.sh --path $CI_PROJECT_DIR/artifact/build
+  artifacts:
+    paths:
+      - artifact
+  rules:
+    - if: $CI_COMMIT_TAG
+      when: never
+    - when: manual
+  allow_failure: false
 
 deploy-patch:
   image: alpine:latest
@@ -207,25 +207,13 @@ deploy-to-deadline:
     - if: $CI_COMMIT_BRANCH == "release/alkemyx-develop"
       when: manual
 
-
-trigger-clean-jobs:
-  stage: trigger
+clean-jobs:
+  stage: archive
+  image: dm.tenant-alkemyx.lga1.ingress.coreweave.cloud/coreweave/pipeline/openpype/openpype:jammy-3.16-FFFFGDGD
   script:
-    - echo "stages:" > dynamic_jobs.yml
-    - echo "  - process" >> dynamic_jobs.yml
-    - |
-      for STRING in "dev_000" "evl_s4"; do
-        echo "processing_$STRING:" >> dynamic_jobs.yml
-        echo "  stage: process" >> dynamic_jobs.yml
-        echo "  script:" >> dynamic_jobs.yml
-        echo "    - echo Processing $STRING" >> dynamic_jobs.yml
-      done
-  artifacts:
-    paths:
-      - dynamic_jobs.yml
-  trigger:
-    include:
-      - artifact: dynamic_jobs.yml
-        job: trigger-clean-jobs
+    - openpype_console module archive clean_project $PROJ_CODE
+  parallel:
+    matrix:
+      - PROJ_CODE: "dev_000"
   rules:
     - when: manual
