@@ -803,6 +803,15 @@ class ArchiveProject:
 
         return deleted, marked
 
+    def get_filepath_size(self, filepath, filepath_stat):
+        """Util function to retun size of a file by using 'du' if it's a directory or the stat
+        object if it's a file
+        """
+        if os.path.isdir(filepath):
+            return int(run_subprocess(["du", "-s", filepath]).split("\t")[0]) * 1024
+
+        return filepath_stat.st_size
+
     def consider_file_for_deletion(
         self,
         filepath,
@@ -842,20 +851,11 @@ class ArchiveProject:
             # Replace delete prefix so we store the entry in the same data entry
             path_entry = DELETE_PREFIX_RE.sub(filepath, "")
 
-        if os.path.isdir(filepath):
-            path_size = int(run_subprocess(["du", "-s", filepath]).split("\t")[0]) * 1024
-        else:
-            path_size = filepath_stat.st_size
-
         # Add entry to archive entries dictionary
         if path_entry in self.archive_entries:
             data_entry = self.archive_entries[path_entry]
-            if filepath in data_entry.get("paths"):
-                # if this filepath already exists on the data entry it means
-                # it was already marked for deletion, skip it!
-                return False, True
-            else:
-                data_entry["size"] += path_size
+            if filepath not in data_entry.get("paths"):
+                data_entry["size"] += self.get_filepath_size(filepath, filepath_stat)
                 data_entry["paths"].add(filepath)
         else:
             if caution_level is None:
@@ -866,7 +866,6 @@ class ArchiveProject:
                 return False, False
 
             data_entry = {
-                "size": path_size,
                 "marked_time": TIME_NOW,
                 "delete_time": TIME_NOW + DELETE_THRESHOLDS[caution_level],
                 "is_deleted": False,
@@ -875,18 +874,9 @@ class ArchiveProject:
             if extra_data:
                 data_entry.update(extra_data)
 
-        if force_delete:
-            success = self.delete_filepath(filepath, silent=silent)
-            if success:
-                data_entry["is_deleted"] = True
-                self.total_size_deleted += path_size
-                self.archive_entries[path_entry] = data_entry
-                return True, False
-            return False, False
-
-        if DELETE_PREFIX in original_name:
-            # If we are passed the time marked for deletion, delete it
-            if datetime.today() > data_entry.get("delete_time"):
+        if DELETE_PREFIX in original_name or force_delete:
+            # If we are passed the time marked for deletion or force_delete is True, delete it
+            if datetime.today() > data_entry.get("delete_time") or force_delete:
                 if not silent:
                     logger.debug(
                         f"File has been marked for deletion enough time, deleting it."
@@ -894,7 +884,8 @@ class ArchiveProject:
                 success = self.delete_filepath(filepath, silent=silent)
                 if success:
                     data_entry["is_deleted"] = True
-                    self.total_size_deleted += path_size
+                    size_deleted = self.get_filepath_size(filepath, filepath_stat)
+                    self.total_size_deleted += size_deleted
                     self.archive_entries[path_entry] = data_entry
                     return path_entry, data_entry
                 return False, False
@@ -908,7 +899,7 @@ class ArchiveProject:
             )
             return False, False
         # If file is newer than warning, ignore
-        elif filepath_stat.st_mtime > WARNING_THRESHOLDS[caution_level].timestamp():
+        elif filepath_stat.st_mtime > WARNING_THRESHOLDS.get(caution_level, WARNING_THRESHOLDS[2]).timestamp():
             return False, False
 
         # Create the new name with the prefix
@@ -928,6 +919,9 @@ class ArchiveProject:
 
         data_entry["paths"].remove(filepath)
         data_entry["paths"].add(new_filepath)
+
+        # Calculate the file size only at the end if it's marked for deletion
+        data_entry["size"] = self.get_filepath_size(filepath, filepath_stat)
 
         self.archive_entries[path_entry] = data_entry
 
