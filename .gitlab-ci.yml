@@ -88,7 +88,9 @@ deploy-patch:
     - if: $CI_COMMIT_TAG
       when: never
     - if: $CI_COMMIT_BRANCH == "release/alkemyx"
+      when: always
     - if: $CI_COMMIT_BRANCH == "release/alkemyx-develop"
+      when: always
 
 release-patch:
   stage: release
@@ -109,7 +111,9 @@ release-patch:
     - if: $CI_COMMIT_TAG
       when: never
     - if: $CI_COMMIT_BRANCH == "release/alkemyx"
+      when: always
     - if: $CI_COMMIT_BRANCH == "release/alkemyx-develop"
+      when: always
 
 deploy-to-deadline:
   image: alpine:latest
