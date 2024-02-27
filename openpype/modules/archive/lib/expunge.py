@@ -856,7 +856,7 @@ class ArchiveProject:
         path_entry = path_utils.replace_frame_number_with_token(filepath, "*")
         if DELETE_PREFIX in original_name:
             # Replace delete prefix so we store the entry in the same data entry
-            path_entry = DELETE_PREFIX_RE.sub(filepath, "")
+            path_entry = DELETE_PREFIX_RE.sub("", filepath)
 
         # Add entry to archive entries dictionary
         if path_entry in self.archive_entries:
