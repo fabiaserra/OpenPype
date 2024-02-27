@@ -75,16 +75,41 @@ build-patch:
   allow_failure: false
 
 deploy-patch:
+  stage: deploy
+  dependencies:
+    - build-patch
   image: alpine:latest
   tags:
     - mnt-pipe
-  stage: deploy
   script:
     - cp -R ./artifact/build/* /pipe/openpype/versions/
     - chown -R 1000:776523089 /pipe/openpype/versions
   rules:
     - if: $CI_COMMIT_TAG
       when: never
+    - if: $CI_COMMIT_BRANCH == "release/alkemyx"
+    - if: $CI_COMMIT_BRANCH == "release/alkemyx-develop"
+
+release-patch:
+  stage: release
+  dependencies:
+    - deploy-patch
+  image: registry.gitlab.com/gitlab-org/release-cli:latest
+  script:
+    - VERSION=$(sed -n 's/__version__ = \"\(.*\)\"/\1/p' openpype/version.py)
+    - >
+      if release-cli get --tag-name "${VERSION}"; then
+        echo "Release "${VERSION}" already exists, updating..."
+        release-cli update --description "Release ${VERSION} using CI pipeline $CI_PIPELINE_ID" --tag-name "${VERSION}"
+      else
+        echo "Release "${VERSION}" does not exist, creating..."
+        release-cli create --description "Release ${VERSION} using CI pipeline $CI_PIPELINE_ID" --tag-name "${VERSION}"
+      fi
+  rules:
+    - if: $CI_COMMIT_TAG
+      when: never
+    - if: $CI_COMMIT_BRANCH == "release/alkemyx"
+    - if: $CI_COMMIT_BRANCH == "release/alkemyx-develop"
 
 deploy-to-deadline:
   image: alpine:latest
@@ -102,20 +127,3 @@ deploy-to-deadline:
         - openpype/modules/deadline/repository/custom/plugins/**/*
     - if: $CI_COMMIT_BRANCH == "release/alkemyx-develop"
       when: manual
-
-release-patch:
-  stage: release
-  image: registry.gitlab.com/gitlab-org/release-cli:latest
-  script:
-    - VERSION=$(sed -n 's/__version__ = \"\(.*\)\"/\1/p' openpype/version.py)
-    - >
-      if release-cli get --tag-name "${VERSION}"; then
-        echo "Release "${VERSION}" already exists, updating..."
-        release-cli update --description "Release ${VERSION} using CI pipeline $CI_PIPELINE_ID" --tag-name "${VERSION}"
-      else
-        echo "Release "${VERSION}" does not exist, creating..."
-        release-cli create --description "Release ${VERSION} using CI pipeline $CI_PIPELINE_ID" --tag-name "${VERSION}"
-      fi
-  rules:
-    - if: $CI_COMMIT_TAG
-      when: never
