@@ -548,7 +548,7 @@ class ArchiveProject:
         folders_to_clean = {
             "ass": 2,
             "backup": 0,
-            "cache": 2,
+            # "cache": 2,
             "ifd": 0,
             "ifds": 0,
             "img": 2,
