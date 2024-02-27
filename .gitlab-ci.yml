@@ -87,6 +87,7 @@ deploy-patch:
   rules:
     - if: $CI_COMMIT_TAG
       when: never
+    - when: always
 
 release-patch:
   stage: release
@@ -106,6 +107,7 @@ release-patch:
   rules:
     - if: $CI_COMMIT_TAG
       when: never
+    - when: always
 
 deploy-to-deadline:
   image: alpine:latest
