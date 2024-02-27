@@ -128,7 +128,12 @@ class ArchiveProject:
         )
         start_time = time.time()
 
-        self.clean_existing_entries()
+        # Comment out since it actually takes longer to pre-process
+        # the existing entries to try delete them early than letting
+        # the other functions discover the files again at this point
+        # NOTE: this could change in the future once this script
+        # runs daily and the archive is up to date
+        # self.clean_existing_entries()
 
         self.clean_published_file_sources(force_delete=archive)
         self.clean_work_files(force_delete=archive)
