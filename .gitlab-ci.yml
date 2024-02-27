@@ -75,10 +75,12 @@ build-patch:
   allow_failure: false
 
 deploy-patch:
+  stage: deploy
+  dependencies:
+    - build-patch
   image: alpine:latest
   tags:
     - mnt-pipe
-  stage: deploy
   script:
     - cp -R ./artifact/build/* /pipe/openpype/versions/
     - chown -R 1000:776523089 /pipe/openpype/versions
@@ -90,6 +92,8 @@ deploy-patch:
 
 release-patch:
   stage: release
+  dependencies:
+    - deploy-patch
   image: registry.gitlab.com/gitlab-org/release-cli:latest
   script:
     - VERSION=$(sed -n 's/__version__ = \"\(.*\)\"/\1/p' openpype/version.py)
