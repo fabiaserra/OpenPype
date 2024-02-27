@@ -1,102 +1,43 @@
-import os
-import subprocess
-import time
+
+def time_elapsed(elapsed_time):
+
+    hours = int(elapsed_time // 3600)
+    minutes = int((elapsed_time % 3600) // 60)
+    seconds = elapsed_time % 60
+
+    if hours > 0:
+        friendly_time = f"{hours} hours, {minutes} minutes, and {seconds:.2f} seconds"
+    else:
+        friendly_time = f"{minutes} minutes and {seconds:.2f} seconds"
+
+    return friendly_time
 
 
-class TimeEstimate:
-
-    @classmethod
-    def elapsed(self, etime, exact=False):
-        seconds = (int(etime % 60), "s")
-        minutes = (int((etime / 60) % 60), "m")
-        hours = (int((etime / 3600) % 24), "h")
-        days = (int(etime / 86400), "d")
-
-        wording = ""
-        for part in [days, hours, minutes, seconds]:
-            if part[0] or exact:
-                wording += "{0}{1} ".format(part[0], part[1])
-
-        return wording
-
-    @classmethod
-    def start(self):
-        global start_time
-        start_time = time.time()
-
-    @classmethod
-    def show(self, total, count):
-        global start_time
-        delta = time.time() - start_time
-        seconds_left = int((delta / count) * (total - count))
-
-        hour, remainder = divmod(seconds_left, 60 * 60)
-        min, seconds = divmod(remainder, 60)
-
-        if hour:
-            result = "Time Remaining: {0} h {1} mins".format(hour, min)
-        else:
-            result = "Time Remaining: {0} mins".format(min)
-
-        return result
+def format_bytes(size):
+    # 2**10 = 1024
+    power = 1024
+    n = 0
+    power_labels = {0 : 'bytes', 1: 'KB', 2: 'MB', 3: 'GB', 4: 'TB'}
+    while size > power:
+        size /= power
+        n += 1
+    return f"{round(size, 2)} {power_labels[n]}"
 
 
-def to_unit(size, unit="gb"):
+def interp(x, x1, y1, x2, y2):
+    """Perform linear interpolation.
+
+    It's easier to use numpy.interp but to avoid adding the
+    dependency we are adding this simple function
+
+    Args:
+        x (float): The x-value to interpolate.
+        x1 (float): The x-value of the first point.
+        y1 (float): The y-value of the first point.
+        x2 (float): The x-value of the second point.
+        y2 (float): The y-value of the second point.
+
+    Returns:
+        float: The interpolated y-value.
     """
-    Accepts bytes and returns them to a human readable unit.
-    """
-
-    size = float(size)
-    unit = unit.strip().lower()
-    if unit == "b":
-        size = size
-    elif unit == "kb":
-        size /= 1024
-    elif unit == "mb":
-        size /= 1024**2
-    elif unit == "gb":
-        size /= 1024**3
-    elif unit == "tb":
-        size /= 1024**4
-    elif unit == "pb":
-        size /= 1024**5
-    elif unit == "ex":
-        size /= 1024**6
-
-    return size
-
-
-def check_size(path, unit="gb", follow_symlinks=False):
-    du_args = "-sbL" if follow_symlinks else "-sb"
-    _cmd = " ".join(["du", du_args, path])
-    try:
-        size = float(get_exitcode_stdout_stderr(_cmd).split()[0].decode("utf-8"))
-    except:
-        size = 0
-    size = to_unit(size, unit)
-
-    return size
-
-
-def log_header(title, length=150):
-    try:
-        length = int(os.popen("stty size", "r").read().split()[1])
-    except:
-        pass
-
-    print("\n{0:^{1}}".format(("=" * length), length))
-    print("{0:^{1}}".format(title, (length)))
-    print("{0:^{1}}\n".format(("=" * length), length))
-
-
-def server_space():
-    # Get disk space utilization
-    cmd = "df | grep $DIVEHOME"
-    utilization = subprocess.Popen(
-        cmd, shell=True, stdout=subprocess.PIPE
-    ).communicate()[0]
-    usage = utilization.split()[4]
-    remainder = int(utilization.split()[3])
-    remainder = round(to_unit(remainder, "gb"), 1)
-
-    return {"usage": usage, "remainder": remainder}
+    return y1 + (x - x1) * (y2 - y1) / (x2 - x1)

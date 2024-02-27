@@ -1547,7 +1547,7 @@ def otio_parse_edl_events(path, color_edits_only=False):
 
     if len(timeline.tracks) > 1:
         raise Exception(
-            "EDL can not contain more than one track. Something went wrong"
+            "EDL '%s' can not contain more than one track. Something went wrong" % path
         )
 
     edl = {"events": {}}
@@ -1611,7 +1611,7 @@ def parse_edl_events(color_file, color_edits_only=True):
     except UnicodeDecodeError:
         return False
 
-    except ValueError:
+    except:
         # Try using regex to parse if OTIO fails
         try:
             edl = regex_parse_edl_events(color_file, color_edits_only)

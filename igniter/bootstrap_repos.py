@@ -674,6 +674,7 @@ class BootstrapRepos:
         # entered location.
         if repo_dir:
             version = self.get_version(repo_dir)
+            installed_version = OpenPypeVersion(version=version)
         else:
             installed_version = OpenPypeVersion.get_installed_version()
             version = str(installed_version)

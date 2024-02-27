@@ -8,6 +8,12 @@ import re
 import pyblish.api
 
 from openpype.pipeline.publish import get_publish_repre_path
+from openpype.lib.transcoding import (
+    VIDEO_EXTENSIONS,
+    IMAGE_EXTENSIONS
+)
+VIDEO_EXTENSIONS = set(ext.lstrip(".") for ext in VIDEO_EXTENSIONS)
+IMAGE_EXTENSIONS = set(ext.lstrip(".") for ext in IMAGE_EXTENSIONS)
 
 
 class IntegrateShotgridVersion(pyblish.api.InstancePlugin):
@@ -42,7 +48,7 @@ class IntegrateShotgridVersion(pyblish.api.InstancePlugin):
             )
             if "shotgridreview" in representation.get("tags", []):
                 self.log.debug("Integrating representation")
-                if representation["ext"] in ["mov", "avi", "mp4"]:
+                if representation["ext"] in VIDEO_EXTENSIONS:
                     data_to_update["sg_path_to_movie"] = local_path
                     ### Starts Alkemy-X Override ###
                     if (
@@ -52,7 +58,7 @@ class IntegrateShotgridVersion(pyblish.api.InstancePlugin):
                         data_to_update["sg_movie_has_slate"] = True
                     ### Ends Alkemy-X Override ###
 
-                elif representation["ext"] in ["jpg", "png", "exr", "tga"]:
+                elif representation["ext"] in IMAGE_EXTENSIONS:
                     # Define the pattern to match the frame number
                     padding_pattern = r"\.\d+\."
                     # Replace the frame number with '%04d'
