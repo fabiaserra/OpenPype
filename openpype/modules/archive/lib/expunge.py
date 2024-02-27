@@ -458,17 +458,17 @@ class ArchiveProject:
                 source_files, _, _, _ = path_utils.convert_to_sequence(
                     source_path
                 )
-                if source_path.endswith(".exr"):
-                    symlink_paths = [
-                        glob.glob(os.path.join(version_path, "exr", "*"))
-                    ]
-
                 if not source_files:
                     logger.warning(
                         "Couldn't find files for file pattern '%s'.",
                         source_path
                     )
                     continue
+
+                if source_path.endswith(".exr"):
+                    symlink_paths = [
+                        glob.glob(os.path.join(version_path, "exr", "*"))
+                    ]
 
             logger.info(
                 "Published files in version with id '%s': '%s'",
@@ -679,7 +679,6 @@ class ArchiveProject:
 
                     # Add the directory where all the representations live
                     version_path = self.get_version_path(other_version_id)
-
                     self.consider_file_for_deletion(
                         version_path,
                         caution_level=caution_level,
