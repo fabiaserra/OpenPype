@@ -156,7 +156,7 @@ class ArchiveProject:
 
         keep_versions = 5
         if archive:
-            keep_versions = 2
+            keep_versions = 3
         self.clean_old_versions(keep_versions, archive=archive)
         self.clean_work_files(archive=archive)
         self.clean_io_files(archive=archive)
