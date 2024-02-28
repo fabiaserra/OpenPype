@@ -28,6 +28,12 @@ class ValidateVersion(
         if not self.is_active(instance.data):
             return
 
+        ### Starts Alkemy-X Override ###
+        if instance.data["family"] == "workfile":
+            self.log.debug("Ignoring validating versions for workfiles")
+            return
+        ### Ends Alkemy-X Override ###
+
         version = instance.data.get("version")
         latest_version = instance.data.get("latestVersion")
 
