@@ -212,6 +212,7 @@ class ProcessSubmittedJobOnFarm(pyblish.api.InstancePlugin,
         self.log.info("Metadata path: %s", metadata_path)
 
         environment = {
+            "AVALON_DB": os.environ["AVALON_DB"],
             "AVALON_PROJECT": instance.context.data["projectName"],
             ### Starts Alkemy-X Override ###
             # Grab context from instance instead of context.data for the
@@ -367,7 +368,6 @@ class ProcessSubmittedJobOnFarm(pyblish.api.InstancePlugin,
         deadline_publish_job_id = response.json()["_id"]
 
         return deadline_publish_job_id, metadata_path
-
 
     def process(self, instance):
         # type: (pyblish.api.Instance) -> None
