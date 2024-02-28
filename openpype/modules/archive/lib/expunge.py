@@ -148,15 +148,15 @@ class ArchiveProject:
         # NOTE: this could change in the future once this script
         # runs daily and the archive is up to date
         # self.clean_existing_entries()
-        keep_versions = 5
-        if archive:
-            keep_versions = 2
 
         # Delete assets based on shot status in SG
         shots_status = self.get_shotgrid_data()
         if shots_status:
             self.clean_shots_by_status(shots_status, archive=archive)
 
+        keep_versions = 5
+        if archive:
+            keep_versions = 2
         self.clean_old_versions(keep_versions, archive=archive)
         self.clean_work_files(archive=archive)
         self.clean_io_files(archive=archive)
@@ -334,6 +334,9 @@ class ArchiveProject:
             archive (bool, optional): Whether to force delete the files.
                 Defaults to False.
         """
+        logger.info(" \n---- Cleaning old versions ---- \n")
+        logger.info("Keeping only '%s' versions in total", keep_versions)
+
         version_pattern = re.compile(r"^v\d+$", re.IGNORECASE)
 
         # Function to extract the numerical part from the version string
@@ -370,6 +373,11 @@ class ArchiveProject:
                 for name in PROTECTED_OLD_VERSIONS:
                     if name in dirpath.lower():
                         keep_versions_offset = 2
+                        if len(version_folders) > keep_versions + keep_versions_offset:
+                            logger.debug(
+                                "Keeping '%s' extra versions due to extra caution.", keep_versions_offset
+                            )
+                        break
 
                 # If there are more than 5 versions, remove the oldest ones
                 while len(version_folders) > keep_versions + keep_versions_offset:
