@@ -2,7 +2,6 @@
 Main cleaner module. Includes functions for active project cleaning and archiving.
 """
 import clique
-import fnmatch
 import glob
 import logging
 import os
@@ -69,6 +68,21 @@ TIME_DELETE_PREFIX = f"{DELETE_PREFIX}({TIME_NOW_STR})"
 # Regular expression used to remove the delete prefix from a path
 DELETE_PREFIX_RE = re.compile(rf"{DELETE_PREFIX}\(.*\)")
 
+# Set of file patterns to delete if we find them in the project and they are
+# older than a certain time
+TEMP_FILE_PATTERNS = {
+    re.compile(r".*\.nk~$"),
+    re.compile(r".*\.nk\.autosave\d+$"),
+    re.compile(r".*_auto\d+\.hip$"),
+    re.compile(r".*_bak\d+\.hip$"),
+    re.compile(r".*\.hrox\.autosave$"),
+}
+
+# Keywords to ignore when walking into directories to avoid deleting its versions
+PROTECTED_OLD_VERSIONS = {
+    "comp",
+    "paint"
+}
 
 logger = Logger.get_logger(__name__)
 
@@ -135,14 +149,18 @@ class ArchiveProject:
         # runs daily and the archive is up to date
         # self.clean_existing_entries()
 
-        self.clean_published_file_sources(force_delete=archive)
-        self.clean_work_files(force_delete=archive)
-        self.clean_io_files(force_delete=archive)
-
         # Delete assets based on shot status in SG
         shots_status = self.get_shotgrid_data()
         if shots_status:
-            self.clean_shots_by_status(shots_status)
+            self.clean_shots_by_status(shots_status, archive=archive)
+
+        keep_versions = 5
+        if archive:
+            keep_versions = 3
+        self.clean_old_versions(keep_versions, archive=archive)
+        self.clean_work_files(archive=archive)
+        self.clean_io_files(archive=archive)
+        self.clean_published_file_sources(archive=archive)
 
         if archive:
             self.compress_workfiles()
@@ -292,7 +310,7 @@ class ArchiveProject:
 
         return shots_status
 
-    def clean_existing_entries(self, force_delete=False):
+    def clean_existing_entries(self, archive=False):
         """Clean existing entries from self.archive_entries"""
         logger.info(" \n---- Cleaning files marked for archive from CSV ---- \n")
 
@@ -304,14 +322,98 @@ class ArchiveProject:
             self.consider_filepaths_for_deletion(
                 data_entry["paths"],
                 caution_level=None,
-                force_delete=force_delete,
+                archive=archive,
             )
 
-    def clean_published_file_sources(self, force_delete=False):
+    def clean_old_versions(self, keep_versions=5, archive=False):
+        """Clean old version folders (if more than 'keep_versions' are found)
+
+        Args:
+            keep_versions (int, optional): The number of versions to keep.
+                Defaults to 5.
+            archive (bool, optional): Whether to force delete the files.
+                Defaults to False.
+        """
+        logger.info(" \n---- Cleaning old versions ---- \n")
+        logger.info("Keeping only '%s' versions in total", keep_versions)
+
+        version_pattern = re.compile(r"^v\d+$", re.IGNORECASE)
+
+        # Function to extract the numerical part from the version string
+        def _extract_number(v):
+            return int(v[1:])  # Assuming each version string starts with 'v' followed by the number
+
+        caution_level = 1
+
+
+        for folder in ["assets", "shots"]:
+            target = os.path.join(self.target_root, folder)
+
+            for dirpath, dirnames, _ in os.walk(target, topdown=True):
+
+                # If we are not running an archive, skip the 'publish' folders
+                if not archive and "/publish" in dirpath:
+                    continue
+
+                keep_versions_offset = 0
+
+                # Filter out version folders in the current directory
+                version_folders = []
+                for dirname in list(dirnames):
+
+                    if version_pattern.match(dirname):
+                        version_folders.append(dirname)
+                        # Remove version folder from dirname to not walk into it
+                        dirnames.remove(dirname)
+
+                # Sort the version folders by name so we can remove the oldest ones
+                version_folders = sorted(version_folders, key=_extract_number)
+
+                # For certain keywords, we are a bit more careful and keep some extra versions
+                for name in PROTECTED_OLD_VERSIONS:
+                    if name in dirpath.lower():
+                        keep_versions_offset = 2
+                        if len(version_folders) > keep_versions + keep_versions_offset:
+                            logger.debug(
+                                "Keeping '%s' extra versions due to extra caution.", keep_versions_offset
+                            )
+                        break
+
+                # If there are more than 5 versions, remove the oldest ones
+                while len(version_folders) > keep_versions + keep_versions_offset:
+                    folder_to_delete = os.path.join(dirpath, version_folders.pop(0))
+                    self.consider_file_for_deletion(
+                        folder_to_delete,
+                        caution_level=caution_level,
+                        archive=archive,
+                        extra_data={
+                            "reason": "Old version folder"
+                        }
+                    )
+
+    def get_version_path(self, version_id):
+        """Get the path on disk of the version id by checking the path of the
+        first representation found for that version.
+        """
+        # Create filepath from published file
+        repre_docs = op_cli.get_representations(
+            self.project_name, version_ids=[version_id]
+        )
+        version_path = None
+        for repre_doc in repre_docs:
+            repre_name_path = os.path.dirname(
+                repre_doc["data"]["path"]
+            )
+            version_path = os.path.dirname(repre_name_path)
+            break
+
+        return version_path
+
+    def clean_published_file_sources(self, archive=False):
         """Cleans the source of the published files of the project.
 
         Args:
-            force_delete (bool, optional): Whether to force delete the files.
+            archive (bool, optional): Whether to force delete the files.
                 Defaults to False.
         """
         logger.info(" \n---- Finding already published files ---- \n")
@@ -333,7 +435,7 @@ class ArchiveProject:
         #         staging_dir = anatomy.fill_root(staging_dir)
         #         # TODO: make sure to check if the staging dir is older than the publish!
         #         deleted, _, size = self.consider_file_for_deletion(
-        #             staging_dir, caution_level=caution_level, force_delete
+        #             staging_dir, caution_level=caution_level, archive
         #         )
         #         if deleted:
         #             logger.info(" - Published file in '%s'", )
@@ -346,16 +448,23 @@ class ArchiveProject:
             # Reset caution level every time
             caution_level_ = caution_level_default
 
+            version_id = version_doc["_id"]
+
             if version_doc["data"].get("source_deleted"):
                 logger.debug(
                     "Skipping version '%s' as 'source_deleted' is true and that means it was already archived",
-                    version_doc["_id"]
+                    version_id
                 )
                 continue
+
+            version_path = self.get_version_path(version_id)
+
             rootless_source_path = version_doc["data"].get("source")
             source_path = self.anatomy.fill_root(rootless_source_path)
 
-            version_created = datetime.strptime(version_doc["data"]["time"], "%Y%m%dT%H%M%SZ")
+            # Create a path of what we want to symlink the source path
+            # to if we want to keep the source path but not the files
+            symlink_paths = None
 
             # If source path is a Hiero workfile, we can infer that the publish
             # was a plate publish and a 'temp_transcode' folder was created next
@@ -411,13 +520,13 @@ class ArchiveProject:
                     f"{asset_doc['name']}_{subset_doc['name'].replace(' ', '_')}",
                     "v{:03}".format(version_doc["name"]),
                 )]
+                symlink_paths = [os.path.join(version_path, "exr")]
             # Otherwise, we just check the 'source' directly assuming that's
             # directly the source of the publish
             else:
-                # Override caution file for I/O published files to be very low caution
-                if "/io/" in source_path:
-                    caution_level_ = 0
-                source_files, _, _, _ = path_utils.convert_to_sequence(source_path)
+                source_files, _, _, _ = path_utils.convert_to_sequence(
+                    source_path
+                )
                 if not source_files:
                     logger.warning(
                         "Couldn't find files for file pattern '%s'.",
@@ -425,40 +534,46 @@ class ArchiveProject:
                     )
                     continue
 
-            # Create filepath from published file
-            repre_docs = op_cli.get_representations(
-                self.project_name, version_ids=[version_doc["_id"]]
-            )
-            version_path = "(not found)"
-            for repre_doc in repre_docs:
-                repre_name_path = os.path.dirname(
-                    repre_doc["data"]["path"]
-                )
-                version_path = os.path.dirname(repre_name_path)
-                break
+                # Override caution file for I/O published files to be very low
+                # caution
+                if "/io/" in source_path:
+                    caution_level_ = 0
 
-            logger.info(
-                "Published files in version with id '%s': '%s'",
-                version_doc["_id"],
-                version_path,
+                # For source paths ending with .exr we try create a symlink path from
+                # the original source to the publish path
+                if source_path.endswith(".exr"):
+                    symlink_paths = glob.glob(os.path.join(version_path, "exr", "*"))
+
+            version_created = datetime.strptime(
+                version_doc["data"]["time"], "%Y%m%dT%H%M%SZ"
             )
 
             # If we found files, we consider them for deletion
-            deleted, _ = self.consider_filepaths_for_deletion(
+            deleted, marked = self.consider_filepaths_for_deletion(
                 source_files,
                 caution_level=caution_level_,
-                force_delete=force_delete,
+                archive=archive,
                 create_time=version_created,
                 extra_data={
-                    "publish_id": version_doc["_id"],
+                    "publish_id": version_id,
                     "publish_dir": version_path,
                     "reason": "Already published"
-                }
+                },
+                symlink_paths=symlink_paths
             )
 
-            if deleted:
+            if marked or deleted:
+                logger.info(
+                    "Published files for source '%s' in version with id '%s': '%s'",
+                    source_path,
+                    version_id,
+                    version_path,
+                )
+
+            if deleted and not const._debug:
                 # Add metadata to version so we can skip from inspecting it
                 # in the future
+                logger.debug("Updating OP entity with data.source_deleted=True")
                 session = OperationsSession()
                 session.update_entity(
                     self.project_name,
@@ -468,12 +583,11 @@ class ArchiveProject:
                 )
                 session.commit()
 
-
-    def clean_io_files(self, force_delete=False):
+    def clean_io_files(self, archive=False):
         """Cleans the I/O directories of the project.
 
         Args:
-            force_delete (bool, optional): Whether to force delete the files.
+            archive (bool, optional): Whether to force delete the files.
                 Defaults to False.
 
         Returns:
@@ -484,7 +598,7 @@ class ArchiveProject:
         # Level of caution for I/O files
         caution_level = 1
 
-        if force_delete:
+        if archive:
             target_folders = ["incoming", "outgoing", "delivery", "outsource"]
         else:
             target_folders = ["outgoing", "delivery", "outsource"]
@@ -497,11 +611,11 @@ class ArchiveProject:
                 logger.warning(f"{target} folder does not exist")
                 continue
 
-            if force_delete:
+            if archive:
                 # Add entire folder
                 self.consider_file_for_deletion(
                     target,
-                    force_delete=True,
+                    archive=True,
                     extra_data={
                         "reason": "Force delete on archive"
                     }
@@ -516,7 +630,7 @@ class ArchiveProject:
                         deleted, marked = self.consider_file_for_deletion(
                             subdirpath,
                             caution_level=caution_level,
-                            force_delete=force_delete,
+                            archive=archive,
                             extra_data={
                                 "reason": "Routine clean up"
                             }
@@ -527,16 +641,16 @@ class ArchiveProject:
 
                     # Check each file in the current directory
                     filepaths = [os.path.join(dirpath, filename) for filename in filenames]
-                    deleted, marked  = self.consider_filepaths_for_deletion(
+                    self.consider_filepaths_for_deletion(
                         filepaths,
                         caution_level=caution_level,
-                        force_delete=force_delete,
+                        archive=archive,
                         extra_data={
                             "reason": "Routine clean up"
                         }
                     )
 
-    def clean_work_files(self, force_delete=False):
+    def clean_work_files(self, archive=False):
         """Cleans the work directories of the project by removing old files and folders
         that we consider not relevant to keep for a long time.
         """
@@ -546,25 +660,21 @@ class ArchiveProject:
         # that are older than our threshold and the number of caution
         # of removal to take for each
         folders_to_clean = {
-            "ass": 2,
             "backup": 0,
-            "cache": 2,
             "ifd": 0,
             "ifds": 0,
-            "img": 2,
-            # "render": 2,
-            # "renders": 2,
-            # "nuke": 2,
             "temp_transcode": 0,
         }
-        file_patterns_to_remove = {
-            ".*.nk~",
-            ".*nk_history",
-            ".*nk.autosave.*",
-            "*_auto*.hip",
-            "*_bak*.hip",
-            "*.hrox.autosave",
-        }
+
+        # If archiving, we also want to clear some extra folders
+        if archive:
+            folders_to_clean.update(
+                {
+                    "img": 0,
+                    "ass": 0,
+                    "cache": 0,
+                }
+            )
 
         for folder in ["assets", "shots"]:
             target = os.path.join(self.target_root, folder)
@@ -589,7 +699,7 @@ class ArchiveProject:
                     deleted, marked = self.consider_filepaths_for_deletion(
                         filepaths,
                         caution_level=caution_level,
-                        force_delete=force_delete,
+                        archive=archive,
                         extra_data={
                             "reason": "Transient file"
                         }
@@ -600,20 +710,20 @@ class ArchiveProject:
 
                 # Delete all files that match the patterns that we have decided
                 # we should delete
-                for pattern in file_patterns_to_remove:
-                    for filename in fnmatch.filter(filenames, pattern):
-                        filepath = os.path.join(dirpath, filename)
-                        deleted, marked = self.consider_file_for_deletion(
-                            filepath,
-                            caution_level=0,
-                            force_delete=force_delete,
-                            extra_data={
-                                "reason": "Transient file"
-                            }
-                        )
+                for filename in filenames:
+                    for pattern in TEMP_FILE_PATTERNS:
+                        if pattern.match(filename):
+                            filepath = os.path.join(dirpath, filename)
+                            deleted, marked = self.consider_file_for_deletion(
+                                filepath,
+                                caution_level=0,
+                                archive=archive,
+                                extra_data={
+                                    "reason": "Transient file"
+                                }
+                            )
 
-
-    def clean_shots_by_status(self, shots_status, force_delete=False):
+    def clean_shots_by_status(self, shots_status, archive=False):
         """Cleans publishes by having information about the status of shots in SG.
 
         If we know that a version was omitted, we delete that version.
@@ -647,25 +757,17 @@ class ArchiveProject:
                     if other_version_id in version_ids:
                         continue
 
-                    repre_docs = op_cli.get_representations(
-                        self.project_name, version_ids=[other_version_id]
-                    )
-
                     # Add the directory where all the representations live
-                    for repre_doc in repre_docs:
-                        repres_dir = os.path.dirname(
-                            os.path.dirname(repre_doc["data"]["path"]
-                        ))
-                        self.consider_file_for_deletion(
-                            repres_dir,
-                            caution_level=caution_level,
-                            force_delete=force_delete,
-                            extra_data={
-                                "publish_id": other_version_id,
-                                "reason": "Old versions in final status"
-                            }
-                        )
-                        break
+                    version_path = self.get_version_path(other_version_id)
+                    self.consider_file_for_deletion(
+                        version_path,
+                        caution_level=caution_level,
+                        archive=archive,
+                        extra_data={
+                            "publish_id": other_version_id,
+                            "reason": "Old versions in final status"
+                        }
+                    )
 
         # For omitted status, we add the versions listed directly
         for shot_name, version_ids in shots_status.get("omt", {}).items():
@@ -675,25 +777,18 @@ class ArchiveProject:
 
             for version_doc in version_docs:
                 version_id = version_doc["_id"]
-                repre_docs = op_cli.get_representations(
-                    self.project_name, version_ids=[version_id]
-                )
                 # Delete the directory where all the representations for that
                 # version exist
-                for repre_doc in repre_docs:
-                    repres_dir = os.path.dirname(
-                        os.path.dirname(repre_doc["data"]["path"]
-                    ))
-                    self.consider_file_for_deletion(
-                        repres_dir,
-                        caution_level=caution_level,
-                        force_delete=force_delete,
-                        extra_data={
-                            "publish_id": version_id,
-                            "reason": "Omitted status"
-                        }
-                    )
-                    break
+                version_path = self.get_version_path(version_id)
+                self.consider_file_for_deletion(
+                    version_path,
+                    caution_level=caution_level,
+                    archive=archive,
+                    extra_data={
+                        "publish_id": version_id,
+                        "reason": "Omitted status"
+                    }
+                )
 
     # ------------// Archival Functions //------------
     def compress_workfiles(self):
@@ -703,10 +798,8 @@ class ArchiveProject:
         for dirpath, dirnames, _ in os.walk(self.target_root):
             if "work" in dirnames:
                 work_dir = os.path.join(dirpath, "work")
-                if const._debug:
-                    logger.info(f" + Dry compress -- {work_dir}")
-                else:
-                    logger.info(f" + {work_dir}")
+                logger.info(f"Compressing {work_dir}")
+                if not const._debug:
                     os.system(f"cd {os.path.dirname(work_dir)} && zip -rmT work work")
 
     def delete_filepath(self, filepath, silent=False):
@@ -740,35 +833,44 @@ class ArchiveProject:
         self,
         filepaths,
         caution_level=2,
-        force_delete=False,
+        archive=False,
         create_time=None,
-        extra_data=None
+        extra_data=None,
+        symlink_paths=None,
     ):
         """Consider a clique.filepaths for deletion based on its age"""
         deleted = False
         marked = False
+
+        if symlink_paths and len(symlink_paths) != len(filepaths):
+            logger.warning(
+                "The number of symlink paths should be the same as the number of filepaths, skipping."
+            )
+            return False, False
 
         collections, remainders = clique.assemble(filepaths)
         for collection in collections:
             deleted_, marked_ = self.consider_collection_for_deletion(
                 collection,
                 caution_level,
-                force_delete,
+                archive,
                 create_time,
-                extra_data=extra_data
+                extra_data=extra_data,
+                symlink_paths=symlink_paths
             )
             if deleted_:
                 deleted = True
             if marked_:
                 marked = True
 
-        for remainder in remainders:
+        for index, remainder in enumerate(remainders):
             deleted_, marked_ = self.consider_file_for_deletion(
                 remainder,
                 caution_level,
-                force_delete,
+                archive,
                 create_time,
-                extra_data=extra_data
+                extra_data=extra_data,
+                symlink_path=symlink_paths[index] if symlink_paths else None
             )
             if deleted_:
                 deleted = True
@@ -781,22 +883,24 @@ class ArchiveProject:
         self,
         collection,
         caution_level=2,
-        force_delete=False,
+        archive=False,
         create_time=None,
-        extra_data=None
+        extra_data=None,
+        symlink_paths=None,
     ):
         """Consider a clique.collection for deletion based on its age"""
         deleted = False
         marked = False
 
-        for filepath in collection:
+        for index, filepath in enumerate(collection):
             deleted_, marked_ = self.consider_file_for_deletion(
                 filepath,
                 caution_level,
-                force_delete,
+                archive,
                 create_time,
                 silent=True,
                 extra_data=extra_data,
+                symlink_path=symlink_paths[index] if symlink_paths else None
             )
             if deleted_:
                 deleted = True
@@ -823,20 +927,28 @@ class ArchiveProject:
         self,
         filepath,
         caution_level=2,
-        force_delete=False,
+        archive=False,
         create_time=None,
         silent=False,
-        extra_data=None
+        extra_data=None,
+        symlink_path=None,
     ):
         """Consider a file for deletion based on its age
 
         Args:
             filepath (str): The path to the file
-            calculate_size (bool, optional): Whether to calculate the size of the deleted
-                files. Defaults to False.
-            force_delete (bool, optional): Whether to force delete the files.
-                Defaults to False.
-            silent (bool, optional): Whether to suppress the log messages. Defaults to False.
+            caution_level (int, optional): The level of caution to take when deleting
+                the file. Defaults to 2.
+            archive (bool, optional): Whether we are running an archive or just a
+                routine clean up.
+            create_time (datetime, optional): The time the publish file was created so
+                we can compare it to the modification time of the file we are considering
+                for deletion. Defaults to None.
+            silent (bool, optional): Whether to suppress the log messages. Defaults to
+                False.
+            extra_data (dict, optional): Extra data to store in the archive entries.
+                Defaults to None.
+            symlink_path (str, optional): The path to the file to create a symlink to.
 
         Returns:
             bool: Whether the file was deleted
@@ -849,21 +961,26 @@ class ArchiveProject:
             logger.warning(f"File not found: '{filepath}'")
             return False, False
 
+        if os.path.islink(filepath):
+            logger.debug(f"Skipping symlink: '{filepath}'")
+            return False, False
+
         # Extract the directory path and the original name
         dir_path, original_name = os.path.split(filepath)
 
         # Replace frame with token to save file ranges under the same entry
         path_entry = path_utils.replace_frame_number_with_token(filepath, "*")
+
+        # If the file is already marked for deletion, we want to store it in the same
+        # entry as the original file
         if DELETE_PREFIX in original_name:
-            # Replace delete prefix so we store the entry in the same data entry
             path_entry = DELETE_PREFIX_RE.sub(filepath, "")
 
-        # Add entry to archive entries dictionary
+        # If the entry already exists, we want to add the file to the existing entry
+        # if the path wasn't added to the set of paths
         if path_entry in self.archive_entries:
             data_entry = self.archive_entries[path_entry]
-            if filepath not in data_entry.get("paths"):
-                data_entry["size"] += self.get_filepath_size(filepath, filepath_stat)
-                data_entry["paths"].add(filepath)
+        # Otherwise, we want to create a new entry for the file
         else:
             if caution_level is None:
                 logger.error(
@@ -876,23 +993,32 @@ class ArchiveProject:
                 "marked_time": TIME_NOW,
                 "delete_time": TIME_NOW + DELETE_THRESHOLDS[caution_level],
                 "is_deleted": False,
-                "paths": {filepath}
             }
             if extra_data:
                 data_entry.update(extra_data)
 
-        if DELETE_PREFIX in original_name or force_delete:
-            # If we are passed the time marked for deletion or force_delete is True, delete it
-            if datetime.today() > data_entry.get("delete_time") or force_delete:
+        # If the file is already marked for deletion, we want to check if it's time
+        # to delete it
+        if DELETE_PREFIX in original_name or archive:
+            # If we are passed the time marked for deletion or archive is True, delete it
+            if datetime.today() > data_entry.get("delete_time") or archive:
                 if not silent:
-                    logger.debug(
-                        f"File has been marked for deletion enough time, deleting it."
-                    )
+                    if not archive:
+                        logger.info(
+                            f"File has been marked for deletion enough time, deleting it."
+                        )
                 success = self.delete_filepath(filepath, silent=silent)
                 if success:
                     data_entry["is_deleted"] = True
                     size_deleted = self.get_filepath_size(filepath, filepath_stat)
                     self.total_size_deleted += size_deleted
+                    # Add filepath to set of paths for data entry
+                    if data_entry.get("paths"):
+                        data_entry["paths"].add(filepath)
+                        data_entry["size"] += size_deleted
+                    else:
+                        data_entry["paths"] = {filepath}
+                        data_entry["size"] = size_deleted
                     self.archive_entries[path_entry] = data_entry
                     return path_entry, data_entry
                 return False, False
@@ -915,20 +1041,31 @@ class ArchiveProject:
         # Construct the full path for the new name
         new_filepath = os.path.join(dir_path, new_name)
 
+        # Add new filepath to set of paths for data entry
+        if data_entry.get("paths"):
+            data_entry["size"] += self.get_filepath_size(filepath, filepath_stat)
+            data_entry["paths"].add(new_filepath if not const._debug else filepath)
+        else:
+            data_entry["size"] = self.get_filepath_size(filepath, filepath_stat)
+            data_entry["paths"] = {new_filepath if not const._debug else filepath}
+
         # Rename the file or folder
         if not const._debug:
             os.rename(filepath, new_filepath)
+
+        # If we are passing a symlink path, we want to create a symlink from
+        # the source path to the new path
+        if symlink_path:
+            logger.debug(
+                "Created symlink from '%s' to '%s'", symlink_path, filepath
+            )
+            if not const._debug:
+                os.symlink(symlink_path, filepath)
 
         if not silent:
             logger.info(
                 f"Marked for deletion: '{filepath}' -> '{new_name}' (caution: {caution_level})"
             )
-
-        data_entry["paths"].remove(filepath)
-        data_entry["paths"].add(new_filepath)
-
-        # Calculate the file size only at the end if it's marked for deletion
-        data_entry["size"] = self.get_filepath_size(filepath, filepath_stat)
 
         self.archive_entries[path_entry] = data_entry
 
@@ -937,6 +1074,7 @@ class ArchiveProject:
 
 # ------------// Callable Functions //------------
 def clean_all():
+    """Cleans all the projects in the projects directory."""
     scan_start = time.time()
 
     timestamp = time.strftime("%Y%m%d%H%M")
