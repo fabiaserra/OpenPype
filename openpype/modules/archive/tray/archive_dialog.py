@@ -93,18 +93,35 @@ class ArchiveDialog(QtWidgets.QDialog):
         projects_combobox.currentTextChanged.connect(self.on_project_change)
         input_layout.addRow("Project", projects_combobox)
 
+        # Filter line edit to filter by regex
         text_filter = QtWidgets.QLineEdit()
         text_filter.setPlaceholderText("Type to filter...")
         text_filter.textChanged.connect(self.on_filter_text_changed)
         input_layout.addRow("Filter", text_filter)
 
-        show_deleted = QtWidgets.QCheckBox()
+        filters_widget = QtWidgets.QWidget()
+        horizontal_layout = QtWidgets.QHBoxLayout()
+        filters_widget.setLayout(horizontal_layout)
+
+        # Checkbox to choose whether to show deleted files or not
+        show_deleted = QtWidgets.QCheckBox("Deleted")
         show_deleted.setChecked(True)
         show_deleted.setToolTip(
             "Whether we want to show the already deleted paths or not."
         )
         show_deleted.stateChanged.connect(self.on_filter_deleted_changed)
-        input_layout.addRow("Show deleted", show_deleted)
+        horizontal_layout.addWidget(show_deleted)
+
+        # Checkbox to choose whether to show temp files or not
+        show_temp_files = QtWidgets.QCheckBox("Temp Files")
+        show_temp_files.setChecked(False)
+        show_temp_files.setToolTip(
+            "Whether we want to show temp files like scene backups or autosaves."
+        )
+        show_temp_files.stateChanged.connect(self.on_filter_temp_files_changed)
+        horizontal_layout.addWidget(show_deleted)
+
+        input_layout.addRow("Filters", filters_widget)
 
         main_layout.addWidget(input_widget)
 
@@ -251,6 +268,9 @@ class ArchiveDialog(QtWidgets.QDialog):
     def on_filter_deleted_changed(self, state):
         self._proxy_model.set_show_deleted(state == QtCore.Qt.Checked)
 
+    def on_filter_show_temp_files(self, state):
+        self._proxy_model.set_show_temp_files(state == QtCore.Qt.Checked)
+
     # -------------------------------
     # Delay calling blocking methods
     # -------------------------------
@@ -260,17 +280,24 @@ class ArchiveDialog(QtWidgets.QDialog):
 
 
 class FilterProxyModel(QtCore.QSortFilterProxyModel):
+
     def __init__(self, parent=None):
         super(FilterProxyModel, self).__init__(parent)
         # 0 is the path index
         # 5 the publish dir index
         # 7 the reason index
-        self._filter_columns = [0, 5, 7]
+        self._path_idx = 0
+        self._filter_columns = [self._path_idx, 5, 7]
         self._deleted_idx = 4
         self._show_deleted = True
+        self._show_temp_files = False
 
     def set_show_deleted(self, state):
         self._show_deleted = state
+        self.invalidateFilter()
+
+    def on_filter_show_temp_files(self, state):
+        self._show_temp_files = state
         self.invalidateFilter()
 
     def filterAcceptsRow(self, source_row, source_parent):
@@ -289,14 +316,32 @@ class FilterProxyModel(QtCore.QSortFilterProxyModel):
             if not regex_matches:
                 return False
 
-        # Then, check the show_deleted filter
-        if not self._show_deleted:
-            deleted_index = self.sourceModel().index(source_row, self._deleted_idx, source_parent)
+        # Then, check the toggle filters
 
+        # If we don't want to show temp files, check if the file path matches
+        # any of the patterns to reject the row
+        if not self._show_temp_files:
+            path_index = self.sourceModel().index(
+                source_row, self._path_idx, source_parent
+            )
+            filepath = index.data(path_index)
+
+            # Check if the file path matches any of the patterns
+            for pattern in expunge.TEMP_FILE_PATTERNS:
+                if pattern.match(filepath):
+                    return False
+
+        # If we don't want to show deleted rows, check if the row is deleted
+        if not self._show_deleted:
+            deleted_index = self.sourceModel().index(
+                source_row, self._deleted_idx, source_parent
+            )
             is_deleted_data = self.sourceModel().data(deleted_index)
 
             # Convert to boolean if not inherently boolean
-            is_deleted = (is_deleted_data == 'True') if isinstance(is_deleted_data, str) else bool(is_deleted_data)
+            is_deleted = (is_deleted_data == 'True') if isinstance(
+                is_deleted_data, str
+            ) else bool(is_deleted_data)
 
             if is_deleted:
                 return False

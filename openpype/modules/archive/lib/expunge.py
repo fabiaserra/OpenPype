@@ -2,7 +2,6 @@
 Main cleaner module. Includes functions for active project cleaning and archiving.
 """
 import clique
-import fnmatch
 import glob
 import logging
 import os
@@ -72,12 +71,12 @@ DELETE_PREFIX_RE = re.compile(rf"{DELETE_PREFIX}\(.*\)")
 # Set of file patterns to delete if we find them in the project and they are
 # older than a certain time
 TEMP_FILE_PATTERNS = {
-    ".*.nk~",
-    ".*nk_history",
-    ".*nk.autosave.*",
-    "*_auto*.hip",
-    "*_bak*.hip",
-    "*.hrox.autosave",
+    re.compile(".*.nk~"),
+    re.compile(".*nk_history"),
+    re.compile(".*nk.autosave.*"),
+    re.compile("*_auto*.hip"),
+    re.compile("*_bak*.hip"),
+    re.compile("*.hrox.autosave"),
 }
 
 logger = Logger.get_logger(__name__)
@@ -631,17 +630,17 @@ class ArchiveProject:
                 # Delete all files that match the patterns that we have decided
                 # we should delete
                 for pattern in TEMP_FILE_PATTERNS:
-                    for filename in fnmatch.filter(filenames, pattern):
-                        filepath = os.path.join(dirpath, filename)
-                        deleted, marked = self.consider_file_for_deletion(
-                            filepath,
-                            caution_level=0,
-                            force_delete=force_delete,
-                            extra_data={
-                                "reason": "Transient file"
-                            }
-                        )
-
+                    for filename in filenames:
+                        if pattern.match(filename):
+                            filepath = os.path.join(dirpath, filename)
+                            deleted, marked = self.consider_file_for_deletion(
+                                filepath,
+                                caution_level=0,
+                                force_delete=force_delete,
+                                extra_data={
+                                    "reason": "Transient file"
+                                }
+                            )
 
     def clean_shots_by_status(self, shots_status, force_delete=False):
         """Cleans publishes by having information about the status of shots in SG.
