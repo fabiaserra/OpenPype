@@ -104,8 +104,8 @@ class ArchiveDialog(QtWidgets.QDialog):
         filters_widget.setLayout(horizontal_layout)
 
         # Checkbox to choose whether to show deleted files or not
-        show_deleted = QtWidgets.QCheckBox("Deleted")
-        show_deleted.setChecked(True)
+        show_deleted = QtWidgets.QCheckBox("Only deleted")
+        show_deleted.setChecked(False)
         show_deleted.setToolTip(
             "Whether we want to show the already deleted paths or not."
         )
@@ -118,10 +118,13 @@ class ArchiveDialog(QtWidgets.QDialog):
         show_temp_files.setToolTip(
             "Whether we want to show temp files like scene backups or autosaves."
         )
-        show_temp_files.stateChanged.connect(self.on_filter_temp_files_changed)
-        horizontal_layout.addWidget(show_deleted)
+        show_temp_files.stateChanged.connect(self.on_filter_show_temp_files)
+        horizontal_layout.addWidget(show_temp_files)
 
-        input_layout.addRow("Filters", filters_widget)
+        # Add stretch so filter toggles are aligned to the left
+        horizontal_layout.addStretch()
+
+        input_layout.addRow("Show", filters_widget)
 
         main_layout.addWidget(input_widget)
 
@@ -153,8 +156,6 @@ class ArchiveDialog(QtWidgets.QDialog):
 
         # Assign widgets we want to reuse to class instance
         self._projects_combobox = projects_combobox
-        self._text_filter = text_filter
-        self._show_deleted = show_deleted
         self._table_view = table_view
         self._model = model
         self._proxy_model = proxy_model
@@ -266,7 +267,7 @@ class ArchiveDialog(QtWidgets.QDialog):
         self._proxy_model.setFilterRegExp(text)
 
     def on_filter_deleted_changed(self, state):
-        self._proxy_model.set_show_deleted(state == QtCore.Qt.Checked)
+        self._proxy_model.set_show_only_deleted(state == QtCore.Qt.Checked)
 
     def on_filter_show_temp_files(self, state):
         self._proxy_model.set_show_temp_files(state == QtCore.Qt.Checked)
@@ -289,19 +290,20 @@ class FilterProxyModel(QtCore.QSortFilterProxyModel):
         self._path_idx = 0
         self._filter_columns = [self._path_idx, 5, 7]
         self._deleted_idx = 4
-        self._show_deleted = True
+        self._show_only_deleted = False
         self._show_temp_files = False
 
-    def set_show_deleted(self, state):
-        self._show_deleted = state
+    def set_show_only_deleted(self, state):
+        self._show_only_deleted = state
         self.invalidateFilter()
 
-    def on_filter_show_temp_files(self, state):
+    def set_show_temp_files(self, state):
         self._show_temp_files = state
         self.invalidateFilter()
 
     def filterAcceptsRow(self, source_row, source_parent):
         """Override to filter rows based on the text in the specified column."""
+
         # First, check the regular expression filter
         if self.filterRegExp():
             regex_matches = False
@@ -324,27 +326,28 @@ class FilterProxyModel(QtCore.QSortFilterProxyModel):
             path_index = self.sourceModel().index(
                 source_row, self._path_idx, source_parent
             )
-            filepath = index.data(path_index)
+            filepath = self.sourceModel().data(path_index)
 
             # Check if the file path matches any of the patterns
             for pattern in expunge.TEMP_FILE_PATTERNS:
                 if pattern.match(filepath):
                     return False
 
-        # If we don't want to show deleted rows, check if the row is deleted
-        if not self._show_deleted:
-            deleted_index = self.sourceModel().index(
-                source_row, self._deleted_idx, source_parent
-            )
-            is_deleted_data = self.sourceModel().data(deleted_index)
+        # Hide deleted rows, unless we are only showing deleted
+        deleted_index = self.sourceModel().index(
+            source_row, self._deleted_idx, source_parent
+        )
+        is_deleted_data = self.sourceModel().data(deleted_index)
 
-            # Convert to boolean if not inherently boolean
-            is_deleted = (is_deleted_data == 'True') if isinstance(
-                is_deleted_data, str
-            ) else bool(is_deleted_data)
+        # Convert to boolean if not inherently boolean
+        is_deleted = (is_deleted_data == 'True') if isinstance(
+            is_deleted_data, str
+        ) else bool(is_deleted_data)
 
-            if is_deleted:
-                return False
+        if self._show_only_deleted:
+            return is_deleted
+        else:
+            return not is_deleted
 
         # If none of the above conditions block the row, accept it
         return True
@@ -422,7 +425,7 @@ class ArchivePathsTableModel(QtCore.QAbstractTableModel):
 
         if time_diff <= 0:
             # Current time is at or past the target time
-            return QtGui.QColor("green")  # Green
+            return QtGui.QColor(15)  # Light gray
         elif time_diff > hours_before_turning_red:
             # Current time is more than specified hours away from target time
             return QtGui.QColor(255, 255, 0)  # Yellow
