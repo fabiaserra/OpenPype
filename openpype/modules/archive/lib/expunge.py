@@ -570,9 +570,10 @@ class ArchiveProject:
                     version_path,
                 )
 
-            if deleted:
+            if deleted and not const._debug:
                 # Add metadata to version so we can skip from inspecting it
                 # in the future
+                logger.debug("Updating OP entity with data.source_deleted=True")
                 session = OperationsSession()
                 session.update_entity(
                     self.project_name,
