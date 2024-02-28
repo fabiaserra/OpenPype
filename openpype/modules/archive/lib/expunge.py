@@ -659,7 +659,7 @@ class ArchiveProject:
 
         # If archiving, we also want to clear some extra folders
         if archive:
-            folders_to_clean.extend(
+            folders_to_clean.update(
                 {
                     "img": 0,
                     "ass": 0,
@@ -994,9 +994,10 @@ class ArchiveProject:
             # If we are passed the time marked for deletion or archive is True, delete it
             if datetime.today() > data_entry.get("delete_time") or archive:
                 if not silent:
-                    logger.debug(
-                        f"File has been marked for deletion enough time, deleting it."
-                    )
+                    if not archive:
+                        logger.info(
+                            f"File has been marked for deletion enough time, deleting it."
+                        )
                 success = self.delete_filepath(filepath, silent=silent)
                 if success:
                     data_entry["is_deleted"] = True
