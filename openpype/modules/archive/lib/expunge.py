@@ -1027,10 +1027,11 @@ class ArchiveProject:
         # If we are passing a symlink path, we want to create a symlink from
         # the source path to the new path
         if symlink_path:
-            os.symlink(symlink_path, filepath)
             logger.debug(
                 "Created symlink from '%s' to '%s'", symlink_path, filepath
             )
+            if not const._debug:
+                os.symlink(symlink_path, filepath)
 
         if not silent:
             logger.info(
