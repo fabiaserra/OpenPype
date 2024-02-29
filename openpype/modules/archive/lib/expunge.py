@@ -8,6 +8,7 @@ import os
 import re
 import shutil
 import time
+import pathlib
 import pandas as pd
 
 from ast import literal_eval
@@ -544,6 +545,13 @@ class ArchiveProject:
                 if source_path.endswith(".exr"):
                     symlink_paths = glob.glob(os.path.join(version_path, "exr", "*"))
 
+            if not source_files or not os.path.exists(source_files[0]):
+                logger.warning(
+                    "Couldn't find source files for published version with path '%s'.",
+                    version_path
+                )
+                continue
+
             version_created = datetime.strptime(
                 version_doc["data"]["time"], "%Y%m%dT%H%M%SZ"
             )
@@ -842,11 +850,28 @@ class ArchiveProject:
         deleted = False
         marked = False
 
-        if isinstance(symlink_paths, list) and len(symlink_paths) != len(filepaths):
-            logger.warning(
-                "The number of symlink paths should be the same as the number of filepaths, skipping."
-            )
-            return False, False
+        # Check if the symlink paths argument is a list (at the moment only coming from the clean_published_source_files)
+        # and only try remove the filepaths if the symlink paths actually matches the list of paths
+        if isinstance(symlink_paths, list):
+            if not symlink_paths:
+                logger.warning(
+                    "The function was expecting some symlink paths but the list is empty, skipping."
+                )
+                return False, False
+            elif len(symlink_paths) != len(filepaths):
+                logger.warning(
+                    "The number of symlink paths should be the same as the number of filepaths, skipping."
+                )
+                return False, False
+            # Make sure that the symlink is from the same project folder
+            symlink_path = pathlib.Path(symlink_paths[0])
+            filepath = pathlib.Path(filepaths[0])
+            # The second index should be the project code (i.e., /proj/<proj_code> -> ('/', 'proj', '<proj_code>'))
+            if symlink_path.parts[2] != filepath.parts[2]:
+                logger.warning(
+                    "The root of the symlink comes from a different project, ignoring"
+                )
+                return False, False
 
         collections, remainders = clique.assemble(filepaths)
         for collection in collections:
