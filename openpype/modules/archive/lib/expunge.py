@@ -464,7 +464,7 @@ class ArchiveProject:
 
             # Create a path of what we want to symlink the source path
             # to if we want to keep the source path but not the files
-            symlink_paths = None
+            symlink_paths = []
 
             # If source path is a Hiero workfile, we can infer that the publish
             # was a plate publish and a 'temp_transcode' folder was created next
@@ -842,7 +842,7 @@ class ArchiveProject:
         deleted = False
         marked = False
 
-        if symlink_paths and len(symlink_paths) != len(filepaths):
+        if isinstance(symlink_paths, list) and len(symlink_paths) != len(filepaths):
             logger.warning(
                 "The number of symlink paths should be the same as the number of filepaths, skipping."
             )
