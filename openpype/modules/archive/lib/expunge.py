@@ -529,7 +529,7 @@ class ArchiveProject:
                     source_path
                 )
                 if not source_files:
-                    logger.warning(
+                    logger.debug(
                         "Couldn't find files for file pattern '%s'.",
                         source_path
                     )
@@ -546,9 +546,14 @@ class ArchiveProject:
                     symlink_paths = glob.glob(os.path.join(version_path, "exr", "*"))
 
             if not source_files or not os.path.exists(source_files[0]):
-                logger.warning(
+                logger.debug(
                     "Couldn't find source files for published version with path '%s'.",
                     version_path
+                )
+                continue
+            elif os.path.islink(source_files[0]):
+                logger.debug(
+                    "Skipping removal of source files as it's already a symlink from publish path"
                 )
                 continue
 
@@ -749,11 +754,11 @@ class ArchiveProject:
             #asset_doc = op_cli.get_asset_by_name(project_name, shot)
 
             for version_id in version_ids:
-                version_doc = op_cli.get_version_by_id(
-                    self.project_name, version_id=version_id, fields=["parent"]
+                final_version_doc = op_cli.get_version_by_id(
+                    self.project_name, version_id=version_id, fields=["parent", "name"]
                 )
                 subset_doc = op_cli.get_subset_by_id(
-                    self.project_name, subset_id=version_doc["parent"], fields=["_id"]
+                    self.project_name, subset_id=final_version_doc["parent"], fields=["_id"]
                 )
                 version_docs = op_cli.get_versions(
                     self.project_name, subset_ids=[subset_doc["_id"]], fields=["_id"]
@@ -775,7 +780,7 @@ class ArchiveProject:
                         archive=archive,
                         extra_data={
                             "publish_id": other_version_id,
-                            "reason": "Old versions in final status"
+                            "reason": f"Old versions in final status (v{final_version_doc['name']})"
                         }
                     )
 
@@ -1050,7 +1055,7 @@ class ArchiveProject:
                     return path_entry, data_entry
                 return False, False
 
-            return False, True
+            return False, False
         # If file was modified after the creation time (publish), ignore removal to be safe
         elif create_time and filepath_stat.st_mtime > create_time.timestamp():
             logger.debug(
