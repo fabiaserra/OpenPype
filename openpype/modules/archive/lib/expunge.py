@@ -763,7 +763,9 @@ class ArchiveProject:
                     # Skip all the versions that were marked as final
                     other_version_id = str(version_doc["_id"])
                     if other_version_id in version_ids:
-                        continue
+                        # And break the loop as soon as the final version is found
+                        # so we don't delete any newer versions after that one
+                        break
 
                     # Add the directory where all the representations live
                     version_path = self.get_version_path(other_version_id)
