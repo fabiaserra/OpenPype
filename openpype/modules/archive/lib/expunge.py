@@ -2,13 +2,15 @@
 Main cleaner module. Includes functions for active project cleaning and archiving.
 """
 import clique
+import collections
 import glob
 import logging
 import os
+import pathlib
 import re
 import shutil
 import time
-import pathlib
+import pprint
 import pandas as pd
 
 from ast import literal_eval
@@ -20,15 +22,12 @@ from openpype.lib import Logger, run_subprocess
 from openpype.pipeline import Anatomy
 from openpype.tools.utils import paths as path_utils
 from openpype.client.operations import OperationsSession
+from openpype.modules.delivery.scripts import media
+
 if AYON_SERVER_ENABLED:
     from ayon_shotgrid.lib import credentials
 else:
     from openpype.modules.shotgrid.lib import credentials
-from openpype.modules.delivery.scripts.media import (
-    SG_FIELD_OP_INSTANCE_ID,
-    SG_FIELD_MEDIA_GENERATED,
-    SG_FIELD_MEDIA_PATH,
-)
 
 from . import utils
 from . import const
@@ -164,6 +163,7 @@ class ArchiveProject:
         self.clean_published_file_sources(archive=archive)
 
         if archive:
+            self.generate_archive_media()
             self.compress_workfiles()
 
         elapsed_time = time.time() - start_time
@@ -287,9 +287,9 @@ class ArchiveProject:
             "code",
             "entity",
             "sg_status_list",
-            SG_FIELD_MEDIA_GENERATED,
-            SG_FIELD_MEDIA_PATH,
-            SG_FIELD_OP_INSTANCE_ID,
+            media.SG_FIELD_MEDIA_GENERATED,
+            media.SG_FIELD_MEDIA_PATH,
+            media.SG_FIELD_OP_INSTANCE_ID,
         ]
         sg_versions = self.sg.find("Version", filters, fields)
 
@@ -306,7 +306,7 @@ class ArchiveProject:
                 shots_status[version_status][shot_name] = []
 
             shots_status[version_status][shot_name].append(
-                sg_version[SG_FIELD_OP_INSTANCE_ID]
+                sg_version[media.SG_FIELD_OP_INSTANCE_ID]
             )
 
         return shots_status
@@ -806,6 +806,50 @@ class ArchiveProject:
                 )
 
     # ------------// Archival Functions //------------
+    def generate_archive_media(self):
+        """Runs the archive template on all final versions"""
+        logger.info(" \n---- Generating media from all final versions before archive ----\n")
+
+        # Find all entities that have been finaled
+        filters = [
+            ["project.Project.sg_code", "is", self.proj_code],
+            ["sg_status_list", "in", ["fin"]],
+        ]
+        sg_versions = self.sg.find("Version", filters, media.SG_VERSION_IMPORTANT_FIELDS)
+
+        delivery_data = {
+            "output_names_ext": [("exr", "exr"), ("prores422", "mov")],
+            "force_delivery_media": True,
+            "force_override_files": False,
+            "package_name_override": "{yyyy}{mm}{dd}",
+            "filename_override": "{shot}_{task[short]}_v{version:0>4}",
+            # The delivery staging dir is "/proj/{project[code]}/io/delivery/ready_to_deliver/{yyyy}{mm}{dd}"
+            # so in order to write at /proj/{project[code]}/archive_qt_exr we prefix the path with ../../../../
+            "template_path": "../../../../archive_qt_exr/{output}/<{is_sequence}<{filename}/>>{filename}<.{frame:0>4}>.{ext}",
+            "nuke_template_script": "/pipe/nuke/templates/archive_template.nk"
+        }
+
+        report_items = collections.defaultdict(list)
+        success = True
+        for sg_version in sg_versions:
+            new_report_items, new_success = media.generate_delivery_media_version(
+                sg_version,
+                self.project_name,
+                delivery_data,
+                report_items,
+                update_sg_data=False,
+            )
+            if new_report_items:
+                report_items.update(new_report_items)
+
+            if not new_success:
+                success = False
+
+        if not success:
+            logger.error(pprint.pprint(report_items))
+        else:
+            logger.info(pprint.pprint(report_items))
+
     def compress_workfiles(self):
         """Compresses the work directories for a project."""
 
