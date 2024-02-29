@@ -824,8 +824,8 @@ class ArchiveProject:
             "package_name_override": "{yyyy}{mm}{dd}",
             "filename_override": "{shot}_{task[short]}_v{version:0>4}",
             # The delivery staging dir is "/proj/{project[code]}/io/delivery/ready_to_deliver/{yyyy}{mm}{dd}"
-            # so in order to write at /proj/{project[code]}/archive_qt_exr we prefix the path with ../../../../
-            "template_path": "../../../../archive_qt_exr/{output}/<{is_sequence}<{filename}/>>{filename}<.{frame:0>4}>.{ext}",
+            # so in order to write at /proj/{project[code]}/io/archive_qt_exr we prefix the path with ../../../
+            "template_path": "../../../archive_qt_exr/{output}/<{is_sequence}<{filename}/>>{filename}<.{frame:0>4}>.{ext}",
             "nuke_template_script": "/pipe/nuke/templates/archive_template.nk"
         }
 
