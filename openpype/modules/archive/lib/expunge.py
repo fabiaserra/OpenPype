@@ -163,7 +163,6 @@ class ArchiveProject:
         self.clean_published_file_sources(archive=archive)
 
         if archive:
-            self.generate_archive_media()
             self.compress_workfiles()
 
         elapsed_time = time.time() - start_time
