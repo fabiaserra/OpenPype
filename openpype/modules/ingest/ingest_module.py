@@ -4,7 +4,6 @@ from openpype.modules import (
     OpenPypeModule,
     ITrayModule
 )
-from openpype.modules.ingest.scripts import ingest
 
 
 class IngestModule(OpenPypeModule, ITrayModule):
@@ -44,6 +43,7 @@ def ingest_folder_path(
         path (str): Path to the folder we want to ingest.
 
     """
+    from openpype.modules.ingest.scripts import ingest
     return ingest.ingest_folder_path(
         folder_path
     )
