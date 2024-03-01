@@ -822,7 +822,7 @@ class ArchiveProject:
             "force_delivery_media": True,
             "force_override_files": False,
             "package_name_override": "{yyyy}{mm}{dd}",
-            "filename_override": "{shot}_{task[short]}_v{version:0>4}",
+            "filename_override": "{shot}_{task[short]}_v{version:0>3}",
             # The delivery staging dir is "/proj/{project[code]}/io/delivery/ready_to_deliver/{yyyy}{mm}{dd}"
             # so in order to write at /proj/{project[code]}/io/archive_qt_exr we prefix the path with ../../../
             "template_path": "../../../archive_qt_exr/{output}/<{is_sequence}<{filename}/>>{filename}<.{frame:0>4}>.{ext}",
@@ -871,9 +871,13 @@ class ArchiveProject:
                     shutil.rmtree(filepath)  # Remove the dir and all its contents
                 else:
                     logger.info(f"'{filepath}' is not a valid file or directory.")
+                    return False
 
             if not silent:
                 logger.info(f"Deleted path: '{filepath}'.")
+
+            if const._debug:
+                return False
 
             return True
         except Exception as e:
@@ -1031,18 +1035,25 @@ class ArchiveProject:
             bool: Whether the file was marked for deletion
             float: The size of the deleted file
         """
+        # Extract the directory path and the original name
+        dir_path, original_name = os.path.split(filepath)
+
         try:
             filepath_stat = os.stat(filepath)
         except FileNotFoundError:
             logger.warning(f"File not found: '{filepath}'")
-            return False, False
+            try:
+                filepath = glob.glob(os.path.join(dir_path, f"*{original_name}"))[0]
+                filepath_stat = os.stat(filepath)
+                logger.info(f"But found its marked for deletion equivalent: '{filepath}'")
+                dir_path, original_name = os.path.split(filepath)
+            except IndexError:
+                logger.warning(f"Marked for deletion file not found either")
+                return False, False
 
         if os.path.islink(filepath):
             logger.debug(f"Skipping symlink: '{filepath}'")
             return False, False
-
-        # Extract the directory path and the original name
-        dir_path, original_name = os.path.split(filepath)
 
         # Replace frame with token to save file ranges under the same entry
         path_entry = path_utils.replace_frame_number_with_token(filepath, "*")
@@ -1050,7 +1061,8 @@ class ArchiveProject:
         # If the file is already marked for deletion, we want to store it in the same
         # entry as the original file
         if DELETE_PREFIX in original_name:
-            path_entry = DELETE_PREFIX_RE.sub(filepath, "")
+            new_name = DELETE_PREFIX_RE.sub("", original_name)
+            path_entry = os.path.join(dir_path, new_name)
 
         # If the entry already exists, we want to add the file to the existing entry
         # if the path wasn't added to the set of paths

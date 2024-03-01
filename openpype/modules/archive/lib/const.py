@@ -1,4 +1,4 @@
-_debug = False
+_debug = True
 
 # Global Directories
 PROJECTS_DIR = "/proj"
