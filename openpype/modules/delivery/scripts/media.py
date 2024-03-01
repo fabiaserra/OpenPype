@@ -270,6 +270,7 @@ def generate_delivery_media_version(
     project_name,
     delivery_data,
     report_items,
+    update_sg_data=True,
 ):
     """
     Generate the corresponding delivery version given SG version by creating a new
@@ -532,15 +533,16 @@ def generate_delivery_media_version(
 
     # Update SG version with the path where it got delivered and
     # whether media got generated
-    data_to_update = {
-        SG_FIELD_MEDIA_GENERATED: True,
-        SG_FIELD_MEDIA_PATH: os.path.join(package_path, package_name),
-    }
-    sg = credentials.get_shotgrid_session()
-    sg.update("Version", sg_version["id"], data_to_update)
-    logger.debug(
-        "Updating version '%s' with '%s'", sg_version["code"], data_to_update
-    )
+    if update_sg_data:
+        data_to_update = {
+            SG_FIELD_MEDIA_GENERATED: True,
+            SG_FIELD_MEDIA_PATH: os.path.join(package_path, package_name),
+        }
+        sg = credentials.get_shotgrid_session()
+        sg.update("Version", sg_version["id"], data_to_update)
+        logger.debug(
+            "Updating version '%s' with '%s'", sg_version["code"], data_to_update
+        )
 
     # Write CSV data to file in package
     csv_path = os.path.join(
@@ -568,5 +570,4 @@ def generate_delivery_media_version(
 
     logger.debug("Added CSV data at '%s'", csv_path)
 
-    click.echo(report_items)
     return report_items, success

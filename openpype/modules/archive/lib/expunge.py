@@ -2,12 +2,15 @@
 Main cleaner module. Includes functions for active project cleaning and archiving.
 """
 import clique
+import collections
 import glob
 import logging
 import os
+import pathlib
 import re
 import shutil
 import time
+import pprint
 import pandas as pd
 
 from ast import literal_eval
@@ -19,15 +22,12 @@ from openpype.lib import Logger, run_subprocess
 from openpype.pipeline import Anatomy
 from openpype.tools.utils import paths as path_utils
 from openpype.client.operations import OperationsSession
+from openpype.modules.delivery.scripts import media
+
 if AYON_SERVER_ENABLED:
     from ayon_shotgrid.lib import credentials
 else:
     from openpype.modules.shotgrid.lib import credentials
-from openpype.modules.delivery.scripts.media import (
-    SG_FIELD_OP_INSTANCE_ID,
-    SG_FIELD_MEDIA_GENERATED,
-    SG_FIELD_MEDIA_PATH,
-)
 
 from . import utils
 from . import const
@@ -163,6 +163,7 @@ class ArchiveProject:
         self.clean_published_file_sources(archive=archive)
 
         if archive:
+            self.generate_archive_media()
             self.compress_workfiles()
 
         elapsed_time = time.time() - start_time
@@ -286,9 +287,9 @@ class ArchiveProject:
             "code",
             "entity",
             "sg_status_list",
-            SG_FIELD_MEDIA_GENERATED,
-            SG_FIELD_MEDIA_PATH,
-            SG_FIELD_OP_INSTANCE_ID,
+            media.SG_FIELD_MEDIA_GENERATED,
+            media.SG_FIELD_MEDIA_PATH,
+            media.SG_FIELD_OP_INSTANCE_ID,
         ]
         sg_versions = self.sg.find("Version", filters, fields)
 
@@ -305,7 +306,7 @@ class ArchiveProject:
                 shots_status[version_status][shot_name] = []
 
             shots_status[version_status][shot_name].append(
-                sg_version[SG_FIELD_OP_INSTANCE_ID]
+                sg_version[media.SG_FIELD_OP_INSTANCE_ID]
             )
 
         return shots_status
@@ -464,7 +465,7 @@ class ArchiveProject:
 
             # Create a path of what we want to symlink the source path
             # to if we want to keep the source path but not the files
-            symlink_paths = None
+            symlink_paths = []
 
             # If source path is a Hiero workfile, we can infer that the publish
             # was a plate publish and a 'temp_transcode' folder was created next
@@ -528,7 +529,7 @@ class ArchiveProject:
                     source_path
                 )
                 if not source_files:
-                    logger.warning(
+                    logger.debug(
                         "Couldn't find files for file pattern '%s'.",
                         source_path
                     )
@@ -543,6 +544,18 @@ class ArchiveProject:
                 # the original source to the publish path
                 if source_path.endswith(".exr"):
                     symlink_paths = glob.glob(os.path.join(version_path, "exr", "*"))
+
+            if not source_files or not os.path.exists(source_files[0]):
+                logger.debug(
+                    "Couldn't find source files for published version with path '%s'.",
+                    version_path
+                )
+                continue
+            elif os.path.islink(source_files[0]):
+                logger.debug(
+                    "Skipping removal of source files as it's already a symlink from publish path"
+                )
+                continue
 
             version_created = datetime.strptime(
                 version_doc["data"]["time"], "%Y%m%dT%H%M%SZ"
@@ -741,11 +754,11 @@ class ArchiveProject:
             #asset_doc = op_cli.get_asset_by_name(project_name, shot)
 
             for version_id in version_ids:
-                version_doc = op_cli.get_version_by_id(
-                    self.project_name, version_id=version_id, fields=["parent"]
+                final_version_doc = op_cli.get_version_by_id(
+                    self.project_name, version_id=version_id, fields=["parent", "name"]
                 )
                 subset_doc = op_cli.get_subset_by_id(
-                    self.project_name, subset_id=version_doc["parent"], fields=["_id"]
+                    self.project_name, subset_id=final_version_doc["parent"], fields=["_id"]
                 )
                 version_docs = op_cli.get_versions(
                     self.project_name, subset_ids=[subset_doc["_id"]], fields=["_id"]
@@ -755,7 +768,9 @@ class ArchiveProject:
                     # Skip all the versions that were marked as final
                     other_version_id = str(version_doc["_id"])
                     if other_version_id in version_ids:
-                        continue
+                        # And break the loop as soon as the final version is found
+                        # so we don't delete any newer versions after that one
+                        break
 
                     # Add the directory where all the representations live
                     version_path = self.get_version_path(other_version_id)
@@ -765,7 +780,7 @@ class ArchiveProject:
                         archive=archive,
                         extra_data={
                             "publish_id": other_version_id,
-                            "reason": "Old versions in final status"
+                            "reason": f"Old versions in final status (v{final_version_doc['name']})"
                         }
                     )
 
@@ -791,6 +806,50 @@ class ArchiveProject:
                 )
 
     # ------------// Archival Functions //------------
+    def generate_archive_media(self):
+        """Runs the archive template on all final versions"""
+        logger.info(" \n---- Generating media from all final versions before archive ----\n")
+
+        # Find all entities that have been finaled
+        filters = [
+            ["project.Project.sg_code", "is", self.proj_code],
+            ["sg_status_list", "in", ["fin"]],
+        ]
+        sg_versions = self.sg.find("Version", filters, media.SG_VERSION_IMPORTANT_FIELDS)
+
+        delivery_data = {
+            "output_names_ext": [("exr", "exr"), ("prores422", "mov")],
+            "force_delivery_media": True,
+            "force_override_files": False,
+            "package_name_override": "{yyyy}{mm}{dd}",
+            "filename_override": "{shot}_{task[short]}_v{version:0>3}",
+            # The delivery staging dir is "/proj/{project[code]}/io/delivery/ready_to_deliver/{yyyy}{mm}{dd}"
+            # so in order to write at /proj/{project[code]}/io/archive_qt_exr we prefix the path with ../../../
+            "template_path": "../../../archive_qt_exr/{output}/<{is_sequence}<{filename}/>>{filename}<.{frame:0>4}>.{ext}",
+            "nuke_template_script": "/pipe/nuke/templates/archive_template.nk"
+        }
+
+        report_items = collections.defaultdict(list)
+        success = True
+        for sg_version in sg_versions:
+            new_report_items, new_success = media.generate_delivery_media_version(
+                sg_version,
+                self.project_name,
+                delivery_data,
+                report_items,
+                update_sg_data=False,
+            )
+            if new_report_items:
+                report_items.update(new_report_items)
+
+            if not new_success:
+                success = False
+
+        if not success:
+            logger.error(pprint.pprint(report_items))
+        else:
+            logger.info(pprint.pprint(report_items))
+
     def compress_workfiles(self):
         """Compresses the work directories for a project."""
 
@@ -804,6 +863,10 @@ class ArchiveProject:
 
     def delete_filepath(self, filepath, silent=False):
         """Delete a file or directory"""
+        # Temporal bypass of file deletion
+        logger.debug("We would delete this file but we are temporarily skipping file deletions")
+        return False
+
         try:
             if not const._debug:
                 if os.path.isfile(filepath):
@@ -812,9 +875,13 @@ class ArchiveProject:
                     shutil.rmtree(filepath)  # Remove the dir and all its contents
                 else:
                     logger.info(f"'{filepath}' is not a valid file or directory.")
+                    return False
 
             if not silent:
                 logger.info(f"Deleted path: '{filepath}'.")
+
+            if const._debug:
+                return False
 
             return True
         except Exception as e:
@@ -842,11 +909,28 @@ class ArchiveProject:
         deleted = False
         marked = False
 
-        if symlink_paths and len(symlink_paths) != len(filepaths):
-            logger.warning(
-                "The number of symlink paths should be the same as the number of filepaths, skipping."
-            )
-            return False, False
+        # Check if the symlink paths argument is a list (at the moment only coming from the clean_published_source_files)
+        # and only try remove the filepaths if the symlink paths actually matches the list of paths
+        if isinstance(symlink_paths, list):
+            if not symlink_paths:
+                logger.warning(
+                    "The function was expecting some symlink paths but the list is empty, skipping."
+                )
+                return False, False
+            elif len(symlink_paths) != len(filepaths):
+                logger.warning(
+                    "The number of symlink paths should be the same as the number of filepaths, skipping."
+                )
+                return False, False
+            # Make sure that the symlink is from the same project folder
+            symlink_path = pathlib.Path(symlink_paths[0])
+            filepath = pathlib.Path(filepaths[0])
+            # The second index should be the project code (i.e., /proj/<proj_code> -> ('/', 'proj', '<proj_code>'))
+            if symlink_path.parts[2] != filepath.parts[2]:
+                logger.warning(
+                    "The root of the symlink comes from a different project, ignoring"
+                )
+                return False, False
 
         collections, remainders = clique.assemble(filepaths)
         for collection in collections:
@@ -955,18 +1039,25 @@ class ArchiveProject:
             bool: Whether the file was marked for deletion
             float: The size of the deleted file
         """
+        # Extract the directory path and the original name
+        dir_path, original_name = os.path.split(filepath)
+
         try:
             filepath_stat = os.stat(filepath)
         except FileNotFoundError:
             logger.warning(f"File not found: '{filepath}'")
-            return False, False
+            try:
+                filepath = glob.glob(os.path.join(dir_path, f"*{original_name}"))[0]
+                filepath_stat = os.stat(filepath)
+                logger.info(f"But found its marked for deletion equivalent: '{filepath}'")
+                dir_path, original_name = os.path.split(filepath)
+            except IndexError:
+                logger.warning(f"Marked for deletion file not found either")
+                return False, False
 
         if os.path.islink(filepath):
             logger.debug(f"Skipping symlink: '{filepath}'")
             return False, False
-
-        # Extract the directory path and the original name
-        dir_path, original_name = os.path.split(filepath)
 
         # Replace frame with token to save file ranges under the same entry
         path_entry = path_utils.replace_frame_number_with_token(filepath, "*")
@@ -974,7 +1065,8 @@ class ArchiveProject:
         # If the file is already marked for deletion, we want to store it in the same
         # entry as the original file
         if DELETE_PREFIX in original_name:
-            path_entry = DELETE_PREFIX_RE.sub(filepath, "")
+            new_name = DELETE_PREFIX_RE.sub("", original_name)
+            path_entry = os.path.join(dir_path, new_name)
 
         # If the entry already exists, we want to add the file to the existing entry
         # if the path wasn't added to the set of paths
@@ -1023,7 +1115,7 @@ class ArchiveProject:
                     return path_entry, data_entry
                 return False, False
 
-            return False, True
+            return False, False
         # If file was modified after the creation time (publish), ignore removal to be safe
         elif create_time and filepath_stat.st_mtime > create_time.timestamp():
             logger.debug(

@@ -1,4 +1,5 @@
 import sys
+import re
 import platform
 import pandas as pd
 
@@ -113,13 +114,22 @@ class ArchiveDialog(QtWidgets.QDialog):
         horizontal_layout.addWidget(show_deleted)
 
         # Checkbox to choose whether to show temp files or not
-        show_temp_files = QtWidgets.QCheckBox("Temp Files")
+        show_temp_files = QtWidgets.QCheckBox("Only temp")
         show_temp_files.setChecked(False)
         show_temp_files.setToolTip(
-            "Whether we want to show temp files like scene backups or autosaves."
+            "Whether we want to show temp files like scene backups, temp transcodes or autosaves."
         )
         show_temp_files.stateChanged.connect(self.on_filter_show_temp_files)
         horizontal_layout.addWidget(show_temp_files)
+
+        # Checkbox to choose whether to show IO files or not
+        show_io_files = QtWidgets.QCheckBox("Only IO")
+        show_io_files.setChecked(False)
+        show_io_files.setToolTip(
+            "Whether we want to show io files like scene backups or autosaves."
+        )
+        show_io_files.stateChanged.connect(self.on_filter_show_io_files)
+        horizontal_layout.addWidget(show_io_files)
 
         # Add stretch so filter toggles are aligned to the left
         horizontal_layout.addStretch()
@@ -270,7 +280,10 @@ class ArchiveDialog(QtWidgets.QDialog):
         self._proxy_model.set_show_only_deleted(state == QtCore.Qt.Checked)
 
     def on_filter_show_temp_files(self, state):
-        self._proxy_model.set_show_temp_files(state == QtCore.Qt.Checked)
+        self._proxy_model.set_show_only_temp_files(state == QtCore.Qt.Checked)
+
+    def on_filter_show_io_files(self, state):
+        self._proxy_model.set_show_only_io_files(state == QtCore.Qt.Checked)
 
     # -------------------------------
     # Delay calling blocking methods
@@ -282,6 +295,12 @@ class ArchiveDialog(QtWidgets.QDialog):
 
 class FilterProxyModel(QtCore.QSortFilterProxyModel):
 
+    TEMP_FILE_PATTERNS = expunge.TEMP_FILE_PATTERNS.copy()
+    # Add some extra files that we want to consider as temporary
+    TEMP_FILE_PATTERNS.add(
+        re.compile(".*/temp_transcode/.*")
+    )
+
     def __init__(self, parent=None):
         super(FilterProxyModel, self).__init__(parent)
         # 0 is the path index
@@ -291,14 +310,19 @@ class FilterProxyModel(QtCore.QSortFilterProxyModel):
         self._filter_columns = [self._path_idx, 5, 7]
         self._deleted_idx = 4
         self._show_only_deleted = False
-        self._show_temp_files = False
+        self._show_only_temp_files = False
+        self._show_only_io_files = False
 
     def set_show_only_deleted(self, state):
         self._show_only_deleted = state
         self.invalidateFilter()
 
-    def set_show_temp_files(self, state):
-        self._show_temp_files = state
+    def set_show_only_temp_files(self, state):
+        self._show_only_temp_files = state
+        self.invalidateFilter()
+
+    def set_show_only_io_files(self, state):
+        self._show_only_io_files = state
         self.invalidateFilter()
 
     def filterAcceptsRow(self, source_row, source_parent):
@@ -320,18 +344,31 @@ class FilterProxyModel(QtCore.QSortFilterProxyModel):
 
         # Then, check the toggle filters
 
-        # If we don't want to show temp files, check if the file path matches
-        # any of the patterns to reject the row
-        if not self._show_temp_files:
-            path_index = self.sourceModel().index(
-                source_row, self._path_idx, source_parent
-            )
-            filepath = self.sourceModel().data(path_index)
+        row_accepted = True
 
-            # Check if the file path matches any of the patterns
-            for pattern in expunge.TEMP_FILE_PATTERNS:
-                if pattern.match(filepath):
-                    return False
+        # Hide temp files, unless we are only showing them
+        path_index = self.sourceModel().index(
+            source_row, self._path_idx, source_parent
+        )
+        filepath = self.sourceModel().data(path_index)
+
+        # Check if the file path matches any of the patterns
+        is_temp_file = False
+        for pattern in self.TEMP_FILE_PATTERNS:
+            if pattern.match(filepath):
+                is_temp_file = True
+                break
+
+        if self._show_only_temp_files:
+            return is_temp_file
+        else:
+            row_accepted &= not is_temp_file
+
+        is_io_file = "/io/" in filepath
+        if self._show_only_io_files:
+            return is_io_file
+        else:
+            row_accepted &= not is_io_file
 
         # Hide deleted rows, unless we are only showing deleted
         deleted_index = self.sourceModel().index(
@@ -347,10 +384,10 @@ class FilterProxyModel(QtCore.QSortFilterProxyModel):
         if self._show_only_deleted:
             return is_deleted
         else:
-            return not is_deleted
+            row_accepted &= not is_deleted
 
         # If none of the above conditions block the row, accept it
-        return True
+        return row_accepted
 
 
 class ArchivePathsTableModel(QtCore.QAbstractTableModel):
