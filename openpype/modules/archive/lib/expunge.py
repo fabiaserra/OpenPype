@@ -149,9 +149,9 @@ class ArchiveProject:
         # runs daily and the archive is up to date
         # self.clean_existing_entries()
 
-        # Delete assets based on shot status in SG
-        shots_status = self.get_shotgrid_data()
-        if shots_status:
+        # On archive delete assets based on shot status in SG
+        if archive:
+            shots_status = self.get_shotgrid_data()
             self.clean_shots_by_status(shots_status, archive=archive)
 
         keep_versions = 5
