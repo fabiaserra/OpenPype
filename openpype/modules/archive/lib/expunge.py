@@ -611,7 +611,7 @@ class ArchiveProject:
         caution_level = 1
 
         if archive:
-            target_folders = ["incoming", "outgoing", "delivery", "outsource"]
+            target_folders = ["nyc-sync", "outgoing", "delivery", "outsource"]
         else:
             target_folders = ["outgoing", "delivery", "outsource"]
 
