@@ -332,6 +332,7 @@ def get_products_from_filepath(package_path, project_name, project_code):
 
     asset_names = [
         asset_doc["name"] for asset_doc in get_assets(project_name, fields=["name"])
+        if asset_doc["name"] not in {"assets", "shots"}
     ]
     # Reverse to give priority to the more specific asset names as the higher level ones
     # (i.e., episode, sequence) are pretty easy to match against
@@ -482,7 +483,10 @@ def get_product_from_filepath(
     else:
         logger.warning("Couldn't find asset in file '%s'", filepath)
 
-    # TODO: this is not enough for catching camera assets
+    # Make sure extension is in lower case
+    extension = extension.lower()
+
+    # Find family name based on file extension
     for family, extensions in FAMILY_EXTS_MAP.items():
         if extension in extensions:
             family_name = family
@@ -583,7 +587,7 @@ def get_product_from_filepath(
 
     # If no subset name found yet just use the filename
     if not publish_data["subset_name"]:
-        publish_data["subset_name"] = filename
+        publish_data["subset_name"] = os.path.splitext(filename)[0]
 
     logger.debug("Publish data for filepath %s: %s", filepath, publish_data)
 
