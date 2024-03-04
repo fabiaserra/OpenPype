@@ -62,6 +62,19 @@ def purge_project_command(
     return archive_proj.purge()
 
 
+@click.command("generate_archive_media")
+@click.argument("proj_code")
+def generate_archive_media(
+    proj_code,
+):
+    """Generate deliveries for all the final versions of the project.
+    """
+    sys.path.insert(0, "/sw/python/3.9.17/lib/python3.9/site-packages")
+    from openpype.modules.archive.lib import expunge
+    archive_proj = expunge.ArchiveProject(proj_code)
+    return archive_proj.generate_archive_media()
+
+
 @click.group(ArchiveModule.name, help="Archive CLI")
 def cli_main():
     pass

@@ -375,6 +375,10 @@ class ProcessSubmittedJobOnFarm(pyblish.api.InstancePlugin,
                 if not job.get("_id"):
                     continue
                 payload["JobInfo"][f"JobDependency{index}"] = job["_id"]
+                # Hack to allow publish job to continue even if review task fails
+                # because of this bug we have with monitored process in Nuke tasks
+                # where the task shows as failed even though it completed
+                payload["JobInfo"]["ResumeOnFailedDependencies"] = True
                 index +=1
         ### Ends Alkemy-X Override ###
 
@@ -545,9 +549,9 @@ class ProcessSubmittedJobOnFarm(pyblish.api.InstancePlugin,
                 render_job["Props"]["Batch"] = instance.data.get(
                     "jobBatchName")
             else:
-                batch = os.path.splitext(os.path.basename(
-                    instance.context.data.get("currentFile")))[0]
-                render_job["Props"]["Batch"] = batch
+                render_job["Props"]["Batch"] = os.path.basename(
+                    instance.context.data.get("currentFile")
+                )
             # User is deadline user
             render_job["Props"]["User"] = instance.context.data.get(
                 "deadlineUser", getpass.getuser())
