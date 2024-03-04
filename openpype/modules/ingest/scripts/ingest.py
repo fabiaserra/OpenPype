@@ -581,10 +581,6 @@ def get_product_from_filepath(
         variant_name = publish_data["variant_name"].rsplit("_", 1)[0]
         publish_data["subset_name"] = f"{publish_data['subset_name']}_{variant_name}"
 
-    # Append task name to subset name by default
-    if publish_data["task_name"] and publish_data["subset_name"]:
-        publish_data["subset_name"] = f"{publish_data['task_name']}_{publish_data['subset_name']}"
-
     # If no subset name found yet just use the filename
     if not publish_data["subset_name"]:
         publish_data["subset_name"] = filename
