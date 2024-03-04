@@ -270,7 +270,7 @@ class IngestDialog(QtWidgets.QDialog):
         for project in get_projects(fields=["name", "data.active", "data.library_project"]):
             is_active = project.get("data", {}).get("active", False)
             is_library = project.get("data", {}).get("library_project", False)
-            if is_active and not is_library:
+            if is_active or is_library:
                 projects.append(project["name"])
 
         return projects
@@ -307,8 +307,9 @@ class IngestDialog(QtWidgets.QDialog):
         self._message_label.show()
 
     def on_filepath_changed(self, filepath):
+        filepath = filepath.strip()
         if not os.path.exists(filepath):
-            msg = "Filepath '%s' does not exist!"
+            msg = f"Filepath '{filepath}' does not exist!"
             logger.error(msg)
             self.set_message(msg)
             return
