@@ -66,6 +66,10 @@ def payload_submit(
         "AuxFiles": [],
     }
 
+    # Add 'nuke' limit to control license count
+    if "Nuke" in plugin:
+        payload["JobInfo"]["LimitGroups"] = "nuke"
+
     # Set job dependencies if they exist
     for index, job in enumerate(job_dependencies):
         payload["JobInfo"][f"JobDependency{index}"] = job["_id"]
