@@ -149,9 +149,9 @@ class ArchiveProject:
         # runs daily and the archive is up to date
         # self.clean_existing_entries()
 
-        # Delete assets based on shot status in SG
-        shots_status = self.get_shotgrid_data()
-        if shots_status:
+        # On archive delete assets based on shot status in SG
+        if archive:
+            shots_status = self.get_shotgrid_data()
             self.clean_shots_by_status(shots_status, archive=archive)
 
         keep_versions = 5
@@ -163,7 +163,6 @@ class ArchiveProject:
         self.clean_published_file_sources(archive=archive)
 
         if archive:
-            self.generate_archive_media()
             self.compress_workfiles()
 
         elapsed_time = time.time() - start_time
@@ -535,10 +534,9 @@ class ArchiveProject:
                     )
                     continue
 
-                # Override caution file for I/O published files to be very low
-                # caution
+                # Override /io entries so we don't try remove them
                 if "/io/" in source_path:
-                    caution_level_ = 0
+                    continue
 
                 # For source paths ending with .exr we try create a symlink path from
                 # the original source to the publish path
@@ -612,7 +610,7 @@ class ArchiveProject:
         caution_level = 1
 
         if archive:
-            target_folders = ["incoming", "outgoing", "delivery", "outsource"]
+            target_folders = ["nyc-sync", "outgoing", "delivery", "outsource"]
         else:
             target_folders = ["outgoing", "delivery", "outsource"]
 
