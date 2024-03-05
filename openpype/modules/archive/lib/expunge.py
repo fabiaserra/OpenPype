@@ -1111,7 +1111,7 @@ class ArchiveProject:
                         data_entry["paths"] = {filepath}
                         data_entry["size"] = size_deleted
                     self.archive_entries[path_entry] = data_entry
-                    return path_entry, data_entry
+                    return True, False
                 return False, False
 
             return False, False
