@@ -119,7 +119,7 @@ def get_representations(
             "frameStart": frame_start,
             "frameEnd": frame_end,
             # If expectedFile are absolute, we need only filenames
-            "stagingDir": os.path.dirname(list(collection)[0]),
+            "stagingDir": staging,
             "fps": instance_data.get("fps"),
             "tags": tags,
         }
