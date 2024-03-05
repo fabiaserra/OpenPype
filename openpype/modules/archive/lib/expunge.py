@@ -1036,7 +1036,6 @@ class ArchiveProject:
         Returns:
             bool: Whether the file was deleted
             bool: Whether the file was marked for deletion
-            float: The size of the deleted file
         """
         # Extract the directory path and the original name
         dir_path, original_name = os.path.split(filepath)
