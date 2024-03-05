@@ -239,7 +239,7 @@ class ArchiveProject:
         if os.path.exists(self.delete_data_file):
             existing_df = pd.read_csv(self.delete_data_file)
             combined_df = pd.concat([existing_df, df])
-            df = combined_df.drop_duplicates(subset=["path"])
+            df = combined_df.drop_duplicates(subset=["path"], keep="last")
 
         # Write out data to CSV file
         df.to_csv(self.delete_data_file, index=False)
