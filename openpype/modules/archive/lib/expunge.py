@@ -149,10 +149,9 @@ class ArchiveProject:
         # runs daily and the archive is up to date
         # self.clean_existing_entries()
 
-        # On archive delete assets based on shot status in SG
-        if archive:
-            shots_status = self.get_shotgrid_data()
-            self.clean_shots_by_status(shots_status, archive=archive)
+        # Delete files based on shot status in SG
+        shots_status = self.get_shotgrid_data()
+        self.clean_shots_by_status(shots_status, archive=archive)
 
         keep_versions = 5
         if archive:
@@ -745,42 +744,44 @@ class ArchiveProject:
         # Level of caution for archive based on status
         caution_level = 0
 
-        # For final status, we add all versions but the ones listed
-        for shot_name, version_ids in shots_status.get("fin", {}).items():
+        # Only clear versions based on 'final' status when running archive
+        if archive:
+            # For final status, we add all versions but the ones listed
+            for shot_name, version_ids in shots_status.get("fin", {}).items():
 
-            # TODO: add more logic to delete other versions from shot
-            #asset_doc = op_cli.get_asset_by_name(project_name, shot)
+                # TODO: add more logic to delete other versions from shot
+                #asset_doc = op_cli.get_asset_by_name(project_name, shot)
 
-            for version_id in version_ids:
-                final_version_doc = op_cli.get_version_by_id(
-                    self.project_name, version_id=version_id, fields=["parent", "name"]
-                )
-                subset_doc = op_cli.get_subset_by_id(
-                    self.project_name, subset_id=final_version_doc["parent"], fields=["_id"]
-                )
-                version_docs = op_cli.get_versions(
-                    self.project_name, subset_ids=[subset_doc["_id"]], fields=["_id"]
-                )
-
-                for version_doc in version_docs:
-                    # Skip all the versions that were marked as final
-                    other_version_id = str(version_doc["_id"])
-                    if other_version_id in version_ids:
-                        # And break the loop as soon as the final version is found
-                        # so we don't delete any newer versions after that one
-                        break
-
-                    # Add the directory where all the representations live
-                    version_path = self.get_version_path(other_version_id)
-                    self.consider_file_for_deletion(
-                        version_path,
-                        caution_level=caution_level,
-                        archive=archive,
-                        extra_data={
-                            "publish_id": other_version_id,
-                            "reason": f"Old versions in final status (v{final_version_doc['name']})"
-                        }
+                for version_id in version_ids:
+                    final_version_doc = op_cli.get_version_by_id(
+                        self.project_name, version_id=version_id, fields=["parent", "name"]
                     )
+                    subset_doc = op_cli.get_subset_by_id(
+                        self.project_name, subset_id=final_version_doc["parent"], fields=["_id"]
+                    )
+                    version_docs = op_cli.get_versions(
+                        self.project_name, subset_ids=[subset_doc["_id"]], fields=["_id"]
+                    )
+
+                    for version_doc in version_docs:
+                        # Skip all the versions that were marked as final
+                        other_version_id = str(version_doc["_id"])
+                        if other_version_id in version_ids:
+                            # And break the loop as soon as the final version is found
+                            # so we don't delete any newer versions after that one
+                            break
+
+                        # Add the directory where all the representations live
+                        version_path = self.get_version_path(other_version_id)
+                        self.consider_file_for_deletion(
+                            version_path,
+                            caution_level=caution_level,
+                            archive=archive,
+                            extra_data={
+                                "publish_id": other_version_id,
+                                "reason": f"Old versions in final status (v{final_version_doc['name']})"
+                            }
+                        )
 
         # For omitted status, we add the versions listed directly
         for shot_name, version_ids in shots_status.get("omt", {}).items():
