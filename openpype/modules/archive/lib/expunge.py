@@ -534,10 +534,9 @@ class ArchiveProject:
                     )
                     continue
 
-                # Override caution file for I/O published files to be very low
-                # caution
+                # Override /io entries so we don't try remove them
                 if "/io/" in source_path:
-                    caution_level_ = 0
+                    continue
 
                 # For source paths ending with .exr we try create a symlink path from
                 # the original source to the publish path
