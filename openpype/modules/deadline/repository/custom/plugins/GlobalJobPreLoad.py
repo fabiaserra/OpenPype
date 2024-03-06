@@ -394,6 +394,12 @@ def inject_openpype_environment(deadlinePlugin):
                 continue
             deadlinePlugin.SetProcessEnvironmentVariable(key, value)
 
+        if "PATH" in contents:
+            # Set os.environ[PATH] so studio settings' path entries
+            # can be used to define search path for executables.
+            print(f">>> Setting 'PATH' Environment to: {contents['PATH']}")
+            os.environ["PATH"] = contents["PATH"]
+
         script_url = job.GetJobPluginInfoKeyValue("ScriptFilename")
         if script_url:
             script_url = script_url.format(**contents).replace("\\", "/")
@@ -524,6 +530,12 @@ def inject_ayon_environment(deadlinePlugin):
                 continue
             deadlinePlugin.SetProcessEnvironmentVariable(key, value)
 
+        if "PATH" in contents:
+            # Set os.environ[PATH] so studio settings' path entries
+            # can be used to define search path for executables.
+            print(f">>> Setting 'PATH' Environment to: {contents['PATH']}")
+            os.environ["PATH"] = contents["PATH"]
+
         script_url = job.GetJobPluginInfoKeyValue("ScriptFilename")
         if script_url:
             script_url = script_url.format(**contents).replace("\\", "/")
@@ -563,15 +575,14 @@ def get_ayon_executable():
     if platform.system().lower() == "darwin":
         exe_list = exe_list.replace("\\ ", " ")
 
-    # # Expand user paths
-    # expanded_paths = []
-    # for path in exe_list.split(";"):
-    #     if path.startswith("~"):
-    #         path = os.path.expanduser(path)
-    #     expanded_paths.append(path)
-    # return ";".join(expanded_paths)
+    # Expand user paths
+    expanded_paths = []
+    for path in exe_list.split(";"):
+        if path.startswith("~"):
+            path = os.path.expanduser(path)
+        expanded_paths.append(path)
+    return ";".join(expanded_paths)
 
-    return exe_list
 
 def inject_render_job_id(deadlinePlugin):
     """Inject dependency ids to publish process as env var for validation."""
