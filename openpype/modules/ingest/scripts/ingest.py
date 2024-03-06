@@ -53,6 +53,8 @@ FAMILY_EXTS_MAP = {
     "workfile": {".nk", ".ma", ".mb", ".hip", ".sfx", ".mocha", ".psd"},
     "distortion": {".nk", ".exr"},
     "color_grade": {".ccc", ".cc"},
+    "texture": {".png", ".rat", ".tx"},
+    "image": {".hdri", ".hdr"}
 }
 
 # Compatible file extensions for camera assets
@@ -64,12 +66,12 @@ FUZZY_NAME_OVERRIDES = {
     ("_cam", "camera"): {
         "family_name": "camera",
     },
-    ("_mm", "_trk", "matchmove", "tracking"): {
+    ("_mm", "_trk", "track", "matchmove", "tracking"): {
         "task_name": TRACK_3D_TASK
     },
     ("distortion", "distortion_node"): {
         "family_name": "distortion"
-    }
+    },
 }
 
 # List of fields that are required in the products in order to publish them
@@ -330,10 +332,11 @@ def get_products_from_filepath(package_path, project_name, project_code):
 
     asset_names = [
         asset_doc["name"] for asset_doc in get_assets(project_name, fields=["name"])
+        if asset_doc["name"] not in {"assets", "shots"}
     ]
-    # Remove asset names that don't contain underscores as those are very short and easy
-    # to get false positives
-    asset_names = [asset_name for asset_name in asset_names if "_" in asset_name]
+    # Reverse to give priority to the more specific asset names as the higher level ones
+    # (i.e., episode, sequence) are pretty easy to match against
+    asset_names.reverse()
     assets_re = "|".join(asset_names)
     strict_regex_str = STRICT_FILENAME_RE_STR.format(shot_codes=assets_re)
     strict_regex = re.compile(
@@ -480,7 +483,10 @@ def get_product_from_filepath(
     else:
         logger.warning("Couldn't find asset in file '%s'", filepath)
 
-    # TODO: this is not enough for catching camera assets
+    # Make sure extension is in lower case
+    extension = extension.lower()
+
+    # Find family name based on file extension
     for family, extensions in FAMILY_EXTS_MAP.items():
         if extension in extensions:
             family_name = family
@@ -559,11 +565,11 @@ def get_product_from_filepath(
             "Task name found '%s' in filepath '%s' is not one of the supported ones "
             "by this tool: %s.\nIf you think the task should be parsed by the tool "
             "please report it to @pipe",
-            task_name,
+            publish_data["task_name"],
             filepath,
             OUTSOURCE_TASKS
         )
-        publish_data["task_name"] = None
+        publish_data["task_name"] = EDIT_TASK
 
     # Remove tokens that can be ignored from subset name
     if publish_data["subset_name"]:
@@ -579,9 +585,9 @@ def get_product_from_filepath(
         variant_name = publish_data["variant_name"].rsplit("_", 1)[0]
         publish_data["subset_name"] = f"{publish_data['subset_name']}_{variant_name}"
 
-    # Append task name to subset name by default
-    if publish_data["task_name"] and publish_data["subset_name"]:
-        publish_data["subset_name"] = f"{publish_data['task_name']}_{publish_data['subset_name']}"
+    # If no subset name found yet just use the filename
+    if not publish_data["subset_name"]:
+        publish_data["subset_name"] = os.path.splitext(filename)[0]
 
     logger.debug("Publish data for filepath %s: %s", filepath, publish_data)
 
@@ -606,6 +612,7 @@ def get_asset_by_name_case_not_sensitive(project_name, asset_name):
 
 def parse_containing(project_name, project_code, filepath, asset_names):
     """Parse filepath to find asset name"""
+    logger.debug("Looking for any asset names '%s' in filepath '%s'", asset_names, filepath)
     for asset_name in asset_names:
         if asset_name.lower() in filepath.lower():
             return get_asset_by_name(
