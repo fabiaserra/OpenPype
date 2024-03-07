@@ -9,6 +9,8 @@ from openpype.pipeline import legacy_io
 from openpype.modules.deadline.lib import publish
 from openpype.client import get_assets, get_asset_by_name
 
+from ayon_api import slugify_string
+
 
 # Types of tasks that we support for outsource
 ROTO_TASK = "roto"
@@ -371,6 +373,11 @@ def get_products_from_filepath(package_path, project_name, project_code):
 
             filepath, frame_start, frame_end = filepath_frame_range
 
+            # Skip metadata files that we generate to ingest to the farm
+            if filepath.endswith(".json") or filepath.endswith(".txt") or \
+                filepath.endswith("exr_h264.mov") or "/nuke_review_script/" in filepath:
+                continue
+
             publish_data = get_product_from_filepath(
                 project_name,
                 project_code,
@@ -394,6 +401,7 @@ def get_products_from_filepath(package_path, project_name, project_code):
             if subset_name:
                 # Make sure subset name is always lower case and split by underscores
                 subset_name = _split_camel_case(subset_name)
+                subset_name = slugify_string(subset_name)
                 # Add `_vnd` to the subset name to show it comes from a vendor
                 if "/io/incoming" in filepath:
                     subset_name = f"{subset_name}_vnd"
@@ -463,13 +471,14 @@ def get_product_from_filepath(
                 simple_filename = filename.lower().replace(
                     found_name, ""
                 )
-                # Remove the first character after removing the asset name
-                # which is likely a "_" or "-"
-                simple_filename = simple_filename[1:]
                 logger.debug(
                     "Subset name not found yet, trying last resort with '%s' after removing prefix '%s'",
-                    simple_filename, "{}_".format(found_name)
+                    simple_filename, found_name
                 )
+                # Remove the first character after removing the asset name
+                # if it's a separator character
+                if simple_filename.startswith(("-", "_", ".")):
+                    simple_filename = simple_filename[1:]
                 fallback_re = FALLBACK_FILENAME_RE.match(simple_filename)
                 if fallback_re:
                     subset_name = fallback_re.group("subset")
@@ -477,6 +486,7 @@ def get_product_from_filepath(
                     extension = fallback_re.group("extension")
                 else:
                     logger.debug("Fallback filename regex didn't match")
+                    subset_name = simple_filename.split(".")[0]
 
             if not task_name:
                 task_name = TASK_NAME_FALLBACK
