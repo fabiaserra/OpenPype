@@ -394,6 +394,9 @@ def get_products_from_filepath(package_path, project_name, project_code):
             if subset_name:
                 # Make sure subset name is always lower case and split by underscores
                 subset_name = _split_camel_case(subset_name)
+                # Add `_vnd` to the subset name to show it comes from a vendor
+                if "/io/incoming" in filepath:
+                    subset_name = f"{subset_name}_vnd"
                 publish_data["subset_name"] = subset_name
 
             products[filepath] = publish_data
