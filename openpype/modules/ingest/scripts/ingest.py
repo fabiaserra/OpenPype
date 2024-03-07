@@ -373,6 +373,11 @@ def get_products_from_filepath(package_path, project_name, project_code):
 
             filepath, frame_start, frame_end = filepath_frame_range
 
+            # Skip metadata files that we generate to ingest to the farm
+            if filepath.endswith(".json") or filepath.endswith(".txt") or \
+                filepath.endswith("exr_h264.mov") or "/nuke_review_script/" in filepath:
+                continue
+
             publish_data = get_product_from_filepath(
                 project_name,
                 project_code,
@@ -397,6 +402,9 @@ def get_products_from_filepath(package_path, project_name, project_code):
                 # Make sure subset name is always lower case and split by underscores
                 subset_name = _split_camel_case(subset_name)
                 subset_name = slugify_string(subset_name)
+                # Add `_vnd` to the subset name to show it comes from a vendor
+                if "/io/incoming" in filepath:
+                    subset_name = f"{subset_name}_vnd"
                 publish_data["subset_name"] = subset_name
 
             products[filepath] = publish_data
@@ -478,6 +486,7 @@ def get_product_from_filepath(
                     extension = fallback_re.group("extension")
                 else:
                     logger.debug("Fallback filename regex didn't match")
+                    subset_name = simple_filename.split(".")[0]
 
             if not task_name:
                 task_name = TASK_NAME_FALLBACK
@@ -591,7 +600,7 @@ def get_product_from_filepath(
 
     # If no subset name found yet just use the filename
     if not publish_data["subset_name"]:
-        publish_data["subset_name"] = os.path.splitext(filename)[0]
+        publish_data["subset_name"] = filename.split(".")[0]
 
     logger.debug("Publish data for filepath %s: %s", filepath, publish_data)
 
