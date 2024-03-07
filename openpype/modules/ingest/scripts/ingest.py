@@ -590,7 +590,7 @@ def get_product_from_filepath(
 
     # If no subset name found yet just use the filename
     if not publish_data["subset_name"]:
-        publish_data["subset_name"] = os.path.splitext(filename)[0]
+        publish_data["subset_name"] = filename.split(".")[0]
 
     logger.debug("Publish data for filepath %s: %s", filepath, publish_data)
 
