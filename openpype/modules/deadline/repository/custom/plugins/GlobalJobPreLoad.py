@@ -575,15 +575,14 @@ def get_ayon_executable():
     if platform.system().lower() == "darwin":
         exe_list = exe_list.replace("\\ ", " ")
 
-    # # Expand user paths
-    # expanded_paths = []
-    # for path in exe_list.split(";"):
-    #     if path.startswith("~"):
-    #         path = os.path.expanduser(path)
-    #     expanded_paths.append(path)
-    # return ";".join(expanded_paths)
+    # Expand user paths
+    expanded_paths = []
+    for path in exe_list.split(";"):
+        if path.startswith("~"):
+            path = os.path.expanduser(path)
+        expanded_paths.append(path)
+    return ";".join(expanded_paths)
 
-    return exe_list
 
 def inject_render_job_id(deadlinePlugin):
     """Inject dependency ids to publish process as env var for validation."""

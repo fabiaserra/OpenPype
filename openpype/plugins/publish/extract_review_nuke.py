@@ -94,8 +94,9 @@ class ExtractReviewNuke(publish.Extractor):
         read_path = path_utils.replace_frame_number_with_token(base_path, "#", padding=True)
 
         # Name to use for batch grouping Deadline tasks
-        batch_name = instance.data.get("deadlineBatchName") or os.path.splitext(
-            os.path.basename(context.data.get("currentFile")))[0]
+        batch_name = instance.data.get("deadlineBatchName") or os.path.basename(
+            context.data.get("currentFile")
+        )
 
         # Create dictionary with other useful data required to submit
         # Nuke review job to the farm
