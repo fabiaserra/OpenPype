@@ -863,8 +863,8 @@ class ArchiveProject:
     def delete_filepath(self, filepath, silent=False):
         """Delete a file or directory"""
         # Temporal bypass of file deletion
-        logger.debug("We would delete this file but we are temporarily skipping file deletions")
-        return False
+        # logger.debug("We would delete this file but we are temporarily skipping file deletions")
+        # return False
 
         try:
             if not const._debug:
