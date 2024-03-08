@@ -126,9 +126,8 @@ class IngestDialog(QtWidgets.QDialog):
         table_view.setModel(model)
         table_view.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
 
-        # TODO: Enable if we want to support publishing only selected
-        # table_view.setSelectionMode(QtWidgets.QAbstractItemView.ExtendedSelection)
-        # table_view.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
+        table_view.setSelectionMode(QtWidgets.QAbstractItemView.ExtendedSelection)
+        table_view.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
 
         table_view.horizontalHeader().setSortIndicator(-1, QtCore.Qt.AscendingOrder)
         table_view.setAlternatingRowColors(True)
@@ -204,8 +203,18 @@ class IngestDialog(QtWidgets.QDialog):
         self._text_area = text_area
 
     def keyPressEvent(self, event: QtGui.QKeyEvent):
+        if event.key() == QtCore.Qt.Key_Delete or event.key() == QtCore.Qt.Key_Backspace:
+            # Get the selected rows
+            selected_indexes  = self._table_view.selectedIndexes()
+
+            # Get unique rows
+            unique_rows = set(index.row() for index in selected_indexes)
+
+            # Delete the selected rows
+            for row in sorted(unique_rows, reverse=True):
+                self._model.removeRow(row)
         # Ignore enter key
-        if event.key() == QtCore.Qt.Key_Enter or event.key() == QtCore.Qt.Key_Return:
+        elif event.key() == QtCore.Qt.Key_Enter or event.key() == QtCore.Qt.Key_Return:
             event.ignore()
         else:
             super().keyPressEvent(event)
@@ -546,6 +555,12 @@ class ProductsTableModel(QtCore.QAbstractTableModel):
             return True
 
         return False
+
+    def removeRow(self, row, parent=QtCore.QModelIndex()):
+        self.beginRemoveRows(parent, row, row)
+        success = self._data.pop(row)  # Assuming self._data is the list storing your data
+        self.endRemoveRows()
+        return success
 
     def data(self, index, role=QtCore.Qt.DisplayRole):
         """Return data depending on index, Qt::ItemDataRole and data type of the column.
