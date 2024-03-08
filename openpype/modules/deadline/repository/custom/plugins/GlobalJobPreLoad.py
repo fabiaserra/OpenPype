@@ -336,6 +336,7 @@ def inject_openpype_environment(deadlinePlugin):
         print(">>> Temporary path: {}".format(export_url))
 
         args = [
+            "--debug",
             "--headless",
             "extractenvironments",
             export_url
@@ -473,6 +474,7 @@ def inject_ayon_environment(deadlinePlugin):
         print(">>> Temporary path: {}".format(export_url))
 
         args = [
+            "--debug",
             "--headless",
             "extractenvironments",
             export_url
