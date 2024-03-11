@@ -223,12 +223,12 @@ class ArchiveProject:
             logger.info(f"CSV file '{self.protected_data_file}' does not exist yet")
             # Make sure we add the starting protected paths if the file was never created
             for path in PROTECTED_PATHS:
-                self.protected_entries.add(path.format(self.proj_code))
+                self.protected_entries.add(path.format(proj_code=self.proj_code))
             return
 
         data_frame = pd.read_csv(self.protected_data_file)
-        data_dict = data_frame.to_dict(orient="records")
-        self.protected_entries = set(data_dict["path"])
+        data_dict = data_frame.to_dict()
+        self.protected_entries = set(data_dict["path"].values())
 
     def write_archive_data(self):
         """Stores the archive data dictionary as a CSV file in the project.
@@ -286,25 +286,25 @@ class ArchiveProject:
 
         # Create final dictionary to store in csv
         data_dict = {
-            "path": self.protected_entries,
+            "path": list(self.protected_entries),
         }
 
         # Create a pandas data frame from current protected data dictionary
         df = pd.DataFrame(data_dict)
 
         # Make sure we don't overwrite existing entries from the main CSV file
-        if os.path.exists(self.delete_data_file):
-            existing_df = pd.read_csv(self.delete_data_file)
+        if os.path.exists(self.protected_data_file):
+            existing_df = pd.read_csv(self.protected_data_file)
             combined_df = pd.concat([existing_df, df])
             df = combined_df.drop_duplicates(subset=["path"], keep="last")
 
         # Write out data to CSV file
-        df.to_csv(self.delete_data_file, index=False)
+        df.to_csv(self.protected_data_file, index=False)
 
         elapsed_time = time.time() - start_time
         logger.info(
             "Saved CSV data in '%s', it took %s",
-            self.delete_data_file,
+            self.protected_data_file,
             utils.time_elapsed(elapsed_time)
         )
 
@@ -372,8 +372,7 @@ class ArchiveProject:
                 version_path = os.path.dirname(
                     os.path.dirname(sg_version["sg_path_to_frames"])
                 )
-                if version_path not in self.protected_entries:
-                    self.protected_entries[version_path] = {}
+                self.protected_entries.add(version_path)
 
         return shots_status
 
@@ -843,6 +842,9 @@ class ArchiveProject:
 
                         # Add the directory where all the representations live
                         version_path = self.get_version_path(other_version_id)
+                        if version_path in self.protected_entries:
+                            logger.debug(f"Skipping '{version_path}' as it's one of the protected entries")
+                            continue
                         self.consider_file_for_deletion(
                             version_path,
                             caution_level=caution_level,
