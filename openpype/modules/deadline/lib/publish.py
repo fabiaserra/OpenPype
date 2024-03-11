@@ -353,7 +353,7 @@ def publish_version(
                     "frameEnd": repre["frameEnd"],
                     "stagingDir": staging_dir,
                     "fps": instance_data.get("fps"),
-                    "tags": ["shotgridreview"],
+                    "tags": ["shotgridreview"] + publish_data.get("tags", []),
                 }
             )
 
