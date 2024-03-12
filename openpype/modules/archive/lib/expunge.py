@@ -110,7 +110,11 @@ class ArchiveProject:
             raise ValueError(msg)
 
         self.project_name = sg_project["name"]
-        self.anatomy = Anatomy(self.project_name)
+        try:
+            self.anatomy = Anatomy(self.project_name)
+        except TypeError:
+            self.anatomy = None
+            pass
 
         self.target_root = os.path.join(const.PROJECTS_DIR, proj_code)
 
@@ -172,7 +176,9 @@ class ArchiveProject:
         self.clean_old_versions(keep_versions, archive=archive)
         self.clean_work_files(archive=archive)
         self.clean_io_files(archive=archive)
-        self.clean_published_file_sources(archive=archive)
+        # Only try to clean published OP files if the project exists
+        if self.anatomy:
+            self.clean_published_file_sources(archive=archive)
 
         if archive:
             self.compress_workfiles()
@@ -369,8 +375,15 @@ class ArchiveProject:
             if version_status == "snt":
                 # From a path such as "/proj/<proj_code>/shots/<asset>/publish/render/<task>/<version>/exr/<name>.exr"
                 # we want to store the path up to <version> as protected
+                path_to_frames = sg_version.get("sg_path_to_frames")
+                if not path_to_frames:
+                    logger.warning(
+                        "Path to frames for version '%s' not found.",
+                        sg_version["code"]
+                    )
+                    continue
                 version_path = os.path.dirname(
-                    os.path.dirname(sg_version["sg_path_to_frames"])
+                    os.path.dirname(path_to_frames)
                 )
                 self.protected_entries.add(version_path)
 
