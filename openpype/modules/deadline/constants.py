@@ -1,6 +1,6 @@
 
 # URL for REST API of Deadline
-DEADLINE_URL = "http://webserver-deadline-10-2-1-1:8082"
+DEADLINE_URL = "http://webserver-deadline-10-3-1-3:8082"
 
 # Name of AlkemyX Deadline group used for Nuke CPU tasks
 NUKE_CPU_GROUP = "nuke-cpu-{}-{}"
