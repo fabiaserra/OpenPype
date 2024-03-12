@@ -84,6 +84,13 @@ PROTECTED_OLD_VERSIONS = {
     "paint"
 }
 
+# Protected directories we never want to delete
+PROTECTED_PATHS = {
+    "/proj/{proj_code}/shots/_2d_shot",
+    "/proj/{proj_code}/shots/_3d_shot",
+    "/proj/{proj_code}/shots/_edit_shot",
+}
+
 logger = Logger.get_logger(__name__)
 
 
@@ -103,7 +110,11 @@ class ArchiveProject:
             raise ValueError(msg)
 
         self.project_name = sg_project["name"]
-        self.anatomy = Anatomy(self.project_name)
+        try:
+            self.anatomy = Anatomy(self.project_name)
+        except TypeError:
+            self.anatomy = None
+            pass
 
         self.target_root = os.path.join(const.PROJECTS_DIR, proj_code)
 
@@ -121,6 +132,12 @@ class ArchiveProject:
         # Populate the self.archive_entries with the existing CSV document
         # in the project if it exists
         self.read_archive_data()
+
+        # File to store entries that we want to protect and never delete
+        self.protected_data_file = os.path.join(
+            self.summary_dir, f"protected_data{'_debug' if const._debug else ''}.csv"
+        )
+        self.read_protected_data()
 
         self.total_size_deleted = 0
 
@@ -159,7 +176,9 @@ class ArchiveProject:
         self.clean_old_versions(keep_versions, archive=archive)
         self.clean_work_files(archive=archive)
         self.clean_io_files(archive=archive)
-        self.clean_published_file_sources(archive=archive)
+        # Only try to clean published OP files if the project exists
+        if self.anatomy:
+            self.clean_published_file_sources(archive=archive)
 
         if archive:
             self.compress_workfiles()
@@ -172,6 +191,7 @@ class ArchiveProject:
         )
 
         self.write_archive_data()
+        self.write_protected_data()
 
         logger.removeHandler(file_handler)
 
@@ -200,6 +220,21 @@ class ArchiveProject:
             data_entry["delete_time"] = pd.to_datetime(data_entry["delete_time"])
             data_entry["paths"] = literal_eval(data_entry["paths"])
             self.archive_entries[data_entry.pop("path")] = data_entry
+
+    def read_protected_data(self):
+        """Read the protected data from the CSV file in the project as a dictionary"""
+        self.protected_entries = set()
+
+        if not os.path.exists(self.protected_data_file):
+            logger.info(f"CSV file '{self.protected_data_file}' does not exist yet")
+            # Make sure we add the starting protected paths if the file was never created
+            for path in PROTECTED_PATHS:
+                self.protected_entries.add(path.format(proj_code=self.proj_code))
+            return
+
+        data_frame = pd.read_csv(self.protected_data_file)
+        data_dict = data_frame.to_dict()
+        self.protected_entries = set(data_dict["path"].values())
 
     def write_archive_data(self):
         """Stores the archive data dictionary as a CSV file in the project.
@@ -251,6 +286,34 @@ class ArchiveProject:
             utils.time_elapsed(elapsed_time)
         )
 
+    def write_protected_data(self):
+        """Stores the protected data dictionary as a CSV file in the project."""
+        start_time = time.time()
+
+        # Create final dictionary to store in csv
+        data_dict = {
+            "path": list(self.protected_entries),
+        }
+
+        # Create a pandas data frame from current protected data dictionary
+        df = pd.DataFrame(data_dict)
+
+        # Make sure we don't overwrite existing entries from the main CSV file
+        if os.path.exists(self.protected_data_file):
+            existing_df = pd.read_csv(self.protected_data_file)
+            combined_df = pd.concat([existing_df, df])
+            df = combined_df.drop_duplicates(subset=["path"], keep="last")
+
+        # Write out data to CSV file
+        df.to_csv(self.protected_data_file, index=False)
+
+        elapsed_time = time.time() - start_time
+        logger.info(
+            "Saved CSV data in '%s', it took %s",
+            self.protected_data_file,
+            utils.time_elapsed(elapsed_time)
+        )
+
     def get_archive_data(self):
         """Retrieves the data stored in the project as a pd.DataFrame object
         """
@@ -285,6 +348,7 @@ class ArchiveProject:
             "code",
             "entity",
             "sg_status_list",
+            "sg_path_to_frames",
             media.SG_FIELD_MEDIA_GENERATED,
             media.SG_FIELD_MEDIA_PATH,
             media.SG_FIELD_OP_INSTANCE_ID,
@@ -306,6 +370,22 @@ class ArchiveProject:
             shots_status[version_status][shot_name].append(
                 sg_version[media.SG_FIELD_OP_INSTANCE_ID]
             )
+
+            # If the version is sent, we append it to the global protected entries
+            if version_status == "snt":
+                # From a path such as "/proj/<proj_code>/shots/<asset>/publish/render/<task>/<version>/exr/<name>.exr"
+                # we want to store the path up to <version> as protected
+                path_to_frames = sg_version.get("sg_path_to_frames")
+                if not path_to_frames:
+                    logger.warning(
+                        "Path to frames for version '%s' not found.",
+                        sg_version["code"]
+                    )
+                    continue
+                version_path = os.path.dirname(
+                    os.path.dirname(path_to_frames)
+                )
+                self.protected_entries.add(version_path)
 
         return shots_status
 
@@ -344,14 +424,16 @@ class ArchiveProject:
 
         caution_level = 1
 
-
         for folder in ["assets", "shots"]:
             target = os.path.join(self.target_root, folder)
 
             for dirpath, dirnames, _ in os.walk(target, topdown=True):
-
                 # If we are not running an archive, skip the 'publish' folders
                 if not archive and "/publish" in dirpath:
+                    continue
+                # Skip protected path entries
+                elif dirpath in self.protected_entries:
+                    logger.debug(f"Skipping '{dirpath}' as it's protected")
                     continue
 
                 keep_versions_offset = 0
@@ -773,6 +855,9 @@ class ArchiveProject:
 
                         # Add the directory where all the representations live
                         version_path = self.get_version_path(other_version_id)
+                        if version_path in self.protected_entries:
+                            logger.debug(f"Skipping '{version_path}' as it's one of the protected entries")
+                            continue
                         self.consider_file_for_deletion(
                             version_path,
                             caution_level=caution_level,
@@ -863,9 +948,6 @@ class ArchiveProject:
     def delete_filepath(self, filepath, silent=False):
         """Delete a file or directory"""
         # Temporal bypass of file deletion
-        # logger.debug("We would delete this file but we are temporarily skipping file deletions")
-        # return False
-
         try:
             if not const._debug:
                 if os.path.isfile(filepath):
@@ -1036,6 +1118,7 @@ class ArchiveProject:
         Returns:
             bool: Whether the file was deleted
             bool: Whether the file was marked for deletion
+            float: The size of the deleted file
         """
         # Extract the directory path and the original name
         dir_path, original_name = os.path.split(filepath)
