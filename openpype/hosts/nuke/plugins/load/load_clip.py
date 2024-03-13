@@ -29,7 +29,6 @@ from openpype.lib.transcoding import (
     IMAGE_EXTENSIONS
 )
 from openpype.hosts.nuke.api import plugin
-from openpype.hosts.nuke.api.constants import VIDEO_FILE_EXTENSIONS
 
 
 class LoadClip(plugin.NukeLoader):
@@ -52,7 +51,10 @@ class LoadClip(plugin.NukeLoader):
         ext.lstrip(".") for ext in IMAGE_EXTENSIONS.union(VIDEO_EXTENSIONS)
     )
 
-    label = "Load Clip"
+    ### Starts Alkemy-X Override ###
+    # Change label so it's more user friendly
+    label = "Load Sequence"
+    ### Ends Alkemy-X Override ###
     order = -20
     icon = "file-video-o"
     color = "white"

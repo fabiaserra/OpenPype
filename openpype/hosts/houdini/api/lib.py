@@ -228,6 +228,8 @@ def get_output_parameter(node):
             return get_output_parameter(driver_node)
     elif node_type == "Arnold":
         return node.parm("ar_picture")
+    elif node_type == "Arnold Denoiser":
+        return node.parm("output")
     elif node_type == "HQueue Simulation":
         inner_node = node.node(node.parm("hq_driver").eval())
         if inner_node:
