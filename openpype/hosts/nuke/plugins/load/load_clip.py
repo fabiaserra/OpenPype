@@ -51,7 +51,10 @@ class LoadClip(plugin.NukeLoader):
         ext.lstrip(".") for ext in IMAGE_EXTENSIONS.union(VIDEO_EXTENSIONS)
     )
 
-    label = "Load Clip"
+    ### Starts Alkemy-X Override ###
+    # Change label so it's more user friendly
+    label = "Load Sequence"
+    ### Ends Alkemy-X Override ###
     order = -20
     icon = "file-video-o"
     color = "white"
