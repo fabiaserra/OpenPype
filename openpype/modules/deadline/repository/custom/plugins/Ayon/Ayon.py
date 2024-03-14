@@ -87,7 +87,7 @@ class AyonDeadlinePlugin(DeadlinePlugin):
         for env, val in environment.items():
             self.SetEnvironmentVariable(env, val)
 
-        exe_list = self.GetConfigEntry("AyonExecutable")
+        exe_list = self.GetConfigEntryWithDefault("AyonExecutable", "")
         # clean '\ ' for MacOS pasting
         if platform.system().lower() == "darwin":
             exe_list = exe_list.replace("\\ ", " ")
