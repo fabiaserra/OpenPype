@@ -11,10 +11,7 @@ import json
 import six
 
 from openpype.lib import StringTemplate, env_value_to_bool
-
 from openpype.client import get_project, get_asset_by_name
-from openpype.widgets import popup
-from openpype.tools.utils import host_tools
 from openpype.settings import get_current_project_settings
 from openpype.pipeline import (
     Anatomy,
@@ -24,12 +21,11 @@ from openpype.pipeline import (
     get_current_context,
     get_current_host_name,
 )
-from openpype.pipeline.context_tools import (
-    get_current_context_template_data,
-    get_current_project_asset
-)
-from openpype.widgets import popup
 from openpype.pipeline.create import CreateContext
+from openpype.pipeline.template_data import get_template_data
+from openpype.pipeline.context_tools import get_current_project_asset
+from openpype.widgets import popup
+from openpype.tools.utils.host_tools import get_tool_by_name, show_workfiles
 
 import hou
 
@@ -728,10 +724,6 @@ def get_frame_data(node, log=None):
         data["frameEndHandle"] = int(node.evalParm("f2"))
         data["byFrameStep"] = node.evalParm("f3")
 
-    # Alkemy-X Override. I think this is still required.
-    data["handleStart"] = 0
-    data["handleEnd"] = 0
-
     return data
 
 
@@ -1055,7 +1047,7 @@ def publisher_show_and_publish(comment=None):
     """
 
     main_window = get_main_window()
-    publisher_window = host_tools.get_tool_by_name(
+    publisher_window = get_tool_by_name(
         tool_name="publisher",
         parent=main_window,
     )
@@ -1170,4 +1162,4 @@ def launch_workfiles_app():
     #   does not exist yet.
     parent = get_main_window()
     on_top = not parent
-    host_tools.show_workfiles(parent=parent, on_top=on_top)
+    show_workfiles(parent=parent, on_top=on_top)
