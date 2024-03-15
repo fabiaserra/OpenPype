@@ -67,6 +67,10 @@ def get_representations(
             representations that should be created. Key is name of
             representation and value is a file path to one of the files
             from the representation (i.e., "exr": "/path/to/beauty.1001.exr").
+        add_review (bool, optional): If True, add "review" tag to the
+            representation. Defaults to True.
+        publish_to_sg (bool, optional): If True, add "shotgridreview" tag to
+            the representation. Defaults to False.
 
     Returns:
         list of representations

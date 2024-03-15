@@ -255,6 +255,7 @@ def publish_version(
         "colorspace": publish_data.get("src_colorspace", "scene_linear"),
         "version": publish_data.get("version"),
         "outputDir": os.path.dirname(source_path),
+        "convertToScanline": publish_data.get("convertToScanline", False),
     }
 
     logger.debug("Getting representations...")
@@ -366,7 +367,7 @@ def publish_version(
                     "frameEnd": repre["frameEnd"],
                     "stagingDir": staging_dir,
                     "fps": instance_data.get("fps"),
-                    "tags": ["shotgridreview"] + publish_data.get("tags", []),
+                    "tags": ["shotgridreview"],
                 }
             )
 
