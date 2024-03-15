@@ -90,6 +90,8 @@ def launch():
 
 cli_main.add_command(clean_project_command)
 cli_main.add_command(purge_project_command)
+cli_main.add_command(generate_archive_media)
+
 
 if __name__ == "__main__":
     cli_main()
