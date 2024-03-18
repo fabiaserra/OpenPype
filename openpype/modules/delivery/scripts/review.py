@@ -66,7 +66,7 @@ def generate_review(
         "AVALON_ASSET": asset_name,
         "AVALON_PROJECT": project_name,
         "AVALON_APP": "nuke",
-        "AVALON_APP_NAME": "nuke/14-03",
+        "AVALON_APP_NAME": "nuke/15-03",
         "OPENPYPE_RENDER_JOB": "1",
     }
 
@@ -75,7 +75,7 @@ def generate_review(
         "ScriptJob": True,
         "SceneFile": NUKE_REVIEW_PY,
         "ScriptFilename": NUKE_REVIEW_PY,
-        "Version": "14.0",
+        "Version": "15.0",
         "UseGpu": False,
         "OutputFilePath": output_dir,
     }
@@ -95,7 +95,7 @@ def generate_review(
         task_name=task_name,
         frame_range=(frame_start, frame_end),
         department="",
-        group=dl_constants.NUKE_CPU_GROUP.format("14", "0"),
+        group=dl_constants.NUKE_CPU_GROUP.format("15", "0"),
         comment=review_data.get("comment", ""),
         extra_env=task_env,
         job_dependencies=job_dependencies
