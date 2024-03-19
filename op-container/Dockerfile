@@ -32,10 +32,12 @@ RUN chmod +x /init
 # Install OpenPype
 RUN curl "https://bin:${CW_GROUP_CI_TOKEN}@gitlab.alkemy-x.com/api/v4/projects/58/packages/generic/openpype/$OPENPYPE_VERSION/openpype-$OPENPYPE_VERSION-ubuntu22.04.tar.gz" --output openpype-exe.linux-x86_64-3.9.tar.gz \
     && tar -xvzf openpype-exe.linux-x86_64-3.9.tar.gz \
-    && rm openpype-exe.linux-x86_64-3.9.tar.gz  \
-    && mkdir -p /usr/openpype  \
-    && mv ./build/exe.linux-x86_64-3.9/ /usr/openpype/$OPENPYPE_VERSION
+    && mkdir -p /opt/openpype/ \
+    && mv ./build/exe.linux-x86_64-3.9/ /opt/openpype/${OPENPYPE_VERSION} \
+    && rm openpype-exe.linux-x86_64-3.9.tar.gz
 
-WORKDIR /usr/openpype/$OPENPYPE_VERSION
+ENV PATH="${PATH}:/opt/openpype/${OPENPYPE_VERSION}"
+
+WORKDIR /opt/openpype/${OPENPYPE_VERSION}
 
 ENTRYPOINT ["/init"]
