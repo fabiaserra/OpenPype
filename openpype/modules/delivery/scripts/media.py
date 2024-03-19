@@ -395,7 +395,7 @@ def generate_delivery_media_version(
         "AVALON_TASK": anatomy_data["task"]["name"],
         "AVALON_PROJECT": project_name,
         "AVALON_APP": "nuke",
-        "AVALON_APP_NAME": "nuke/15-03",
+        "AVALON_APP_NAME": "nuke/15-0",
         "OPENPYPE_RENDER_JOB": "1",
     }
     if thumbnail_repre_doc:
