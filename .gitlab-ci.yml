@@ -21,6 +21,8 @@ build-ubuntu22:
     - apk add --no-cache curl
     - ./tools/docker_build.sh $BUILD_OS
     - VERSION=$(sed -n 's/__version__ = \"\(.*\)\"/\1/p' openpype/version.py)
+    - "tar -czvf ./build/openpype-${VERSION}-${BUILD_OS}.tar.gz ./build"
+    - 'curl --header "JOB-TOKEN: $CI_JOB_TOKEN" --upload-file ./build/openpype-${VERSION}-${BUILD_OS}.tar.gz "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/openpype/${VERSION}/openpype-${VERSION}-${BUILD_OS}.tar.gz"'
     - rsync -avh --chmod=777 --chown=995:776523089 .build /pipe/openpype/bin/${VERSION}
   rules:
     - if: $CI_COMMIT_TAG
