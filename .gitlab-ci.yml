@@ -23,7 +23,9 @@ build-ubuntu22:
     - VERSION=$(sed -n 's/__version__ = \"\(.*\)\"/\1/p' openpype/version.py)
     - "tar -czvf ./build/openpype-${VERSION}-${BUILD_OS}.tar.gz ./build"
     - 'curl --header "JOB-TOKEN: $CI_JOB_TOKEN" --upload-file ./build/openpype-${VERSION}-${BUILD_OS}.tar.gz "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/openpype/${VERSION}/openpype-${VERSION}-${BUILD_OS}.tar.gz"'
-    - rsync -avh --chmod=777 --chown=995:776523089 .build /pipe/openpype/bin/${VERSION}
+  artifacts:
+    paths:
+      - ./build
   rules:
     - if: $CI_COMMIT_TAG
       when: never
@@ -90,6 +92,38 @@ deploy-patch:
     - if: $CI_COMMIT_TAG
       when: never
     - when: always
+
+deploy-binary:
+  image: alpine:latest
+  tags:
+    - mnt-pipe
+  stage: deploy
+  before_script:
+    - apk update && apk add --no-cache rsync
+  script:
+    - CURRENT_VERSION_DIR="/pipe/openpype/release/current"
+    - BACKUP_DIR="/pipe/openpype/release/versions"
+    - > 
+      mkdir -p ${CURRENT_VERSION_DIR}
+      mkdir -p ${BACKUP_DIR}
+    - >
+      DATE=$(date "+%Y-%m-%d_%H-%M-%S")
+      cd ${CURRENT_VERSION_DIR}
+      tar -czvf "BACKUP_DIR/openpype-${DATE}" .
+    - rsync -av --delete ./build/ ${CURRENT_VERSION_DIR}
+    - chown -R 1000:776523089 ${CURRENT_VERSION_DIR}
+    - chmod -R 755 ${CURRENT_VERSION_DIR}
+  dependencies:
+    - build-ubuntu22
+  needs:
+    - build-ubuntu22
+  rules:
+    - if: $CI_COMMIT_TAG
+      when: never
+    - if: $CI_COMMIT_BRANCH == "release/alkemyx"
+      when: manual
+    - if: $CI_COMMIT_BRANCH == "release/alkemyx-develop"
+      when: manual
 
 release-patch:
   stage: release
