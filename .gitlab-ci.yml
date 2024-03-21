@@ -1,6 +1,7 @@
 variables:
   # Use TLS https://docs.gitlab.com/ee/ci/docker/using_docker_build.html#tls-enabled
   DOCKER_TLS_CERTDIR: "/certs"
+  IMAGE_NAME: op-worker
 
 stages:
   - build
@@ -45,13 +46,14 @@ build-op-container:
     name: gcr.io/kaniko-project/executor:v1.14.0-debug
     entrypoint: [""]
   script:
-    - VERSION=$(sed -n 's/__version__ = \"\(.*\)\"/\1/p' openpype/version.py)
-    - CI_COMMIT_BRANCH_SAFE="${CI_COMMIT_BRANCH////-}" && echo "$CI_COMMIT_BRANCH_SAFE"
+    - mkdir -p /kaniko/.docker
+    - echo "{\"auths\":{\"$CI_REGISTRY\":{\"auth\":\"$(echo -n ci:$CW_GROUP_CI_TOKEN | base64)\"}}}" > /kaniko/.docker/config.json
     - /kaniko/executor
       --context "${CI_PROJECT_DIR}/op-container"
       --dockerfile "${CI_PROJECT_DIR}/op-container/Dockerfile"
-      --destination "${CI_REGISTRY_IMAGE}/openpype:jammy-${VERSION}-${CI_COMMIT_SHORT_SHA}"
+      --destination "${CI_REGISTRY_IMAGE}/${IMAGE_NAME}-${CI_COMMIT_SHORT_SHA}"
       --build-arg "CW_GROUP_CI_TOKEN=${CW_GROUP_CI_TOKEN}"
+      --cache=true --cache-copy-layers=true --cache-repo "${CI_REGISTRY_IMAGE}/cache/${IMAGE_NAME}" --cache-dir=/cache
   rules:
     - if: $CI_COMMIT_TAG
       when: never
