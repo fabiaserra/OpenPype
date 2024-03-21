@@ -1,6 +1,7 @@
-FROM aswf/ci-ocio:2023
+FROM aswf/ci-ocio:2024
 
-# Add OP binary to PATH so it's easier to launch
+# Add Ayon and OP binaries to PATH so it's easier to launch
+ENV PATH="${PATH}:/pipe/ayon/release/current"
 ENV PATH="${PATH}:/pipe/openpype/release/current"
 
 # Set up Init & Permissions
