@@ -419,7 +419,7 @@ def get_products_from_filepath(package_path, project_name, project_code):
                     # Patch to suffix family name to workaround OP limitation of
                     # subsets needing to be unique
                     family_name = publish_data["family_name"]
-                    if family_name == "workfile":
+                    if family_name == "workfile" and family_name not in subset_name:
                         subset_name = f"{subset_name}_{family_name}"
                     subset_name = f"{subset_name}_vnd"
                 publish_data["subset_name"] = subset_name
