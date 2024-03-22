@@ -10,7 +10,7 @@ from openpype.pipeline import legacy_io
 
 from openpype.modules.deadline.lib import publish
 from openpype.modules.ingest.lib import textures
-from openpype.client import get_assets, get_asset_by_name, get_asset_name_identifier
+from openpype.client import get_assets, get_asset_by_name
 
 from ayon_api import slugify_string
 
@@ -509,7 +509,7 @@ def get_product_from_filepath(
                 task_name = TASK_NAME_FALLBACK
 
     if asset_doc:
-        asset_name = get_asset_name_identifier(asset_doc)
+        asset_name = asset_doc["name"]
     else:
         logger.warning("Couldn't find asset in file '%s'", filepath)
 

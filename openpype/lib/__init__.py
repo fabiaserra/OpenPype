@@ -112,6 +112,7 @@ from .transcoding import (
     get_ffmpeg_format_args,
     convert_ffprobe_fps_value,
     convert_ffprobe_fps_to_float,
+    get_oiio_info_for_input
 )
 
 from .local_settings import (
