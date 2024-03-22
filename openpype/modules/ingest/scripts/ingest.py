@@ -3,11 +3,14 @@ import re
 import clique
 from collections import defaultdict
 
+from openpype import AYON_SERVER_ENABLED
 from openpype.lib import Logger
+from openpype.lib.transcoding import IMAGE_EXTENSIONS
 from openpype.pipeline import legacy_io
 
 from openpype.modules.deadline.lib import publish
-from openpype.client import get_assets, get_asset_by_name
+from openpype.modules.ingest.lib import textures
+from openpype.client import get_assets, get_asset_by_name, get_asset_name_identifier
 
 from ayon_api import slugify_string
 
@@ -55,7 +58,7 @@ FAMILY_EXTS_MAP = {
     "workfile": {".nk", ".ma", ".mb", ".hip", ".sfx", ".mocha", ".psd"},
     "distortion": {".nk", ".exr"},
     "color_grade": {".ccc", ".cc"},
-    "texture": {".png", ".rat", ".tx"},
+    "textures": {".png", ".rat", ".tx", ".exr", ".jpg", ".jpeg"},
     "image": {".hdri", ".hdr"}
 }
 
@@ -146,6 +149,8 @@ SHOW_MATCH_RE = re.compile(r"/proj/(?P<show>\w+)")
 
 # Fields we want to query from OP Assets
 ASSET_FIELDS = ["name", "data.tasks"]
+if AYON_SERVER_ENABLED:
+    ASSET_FIELDS.append("data.parents")
 
 # Regular expression to match package name to extract vendor code
 VENDOR_PACKAGE_RE = r"From_(\w+)"
@@ -188,10 +193,9 @@ def validate_products(
         key = (
             product_item.asset,
             product_item.task,
-            product_item.family,
             product_item.subset
         )
-        if not all(key):
+        if not all(key) and product_item.family:
             logger.debug(
                 "Skipping product as it doesn't have all required fields to publish"
             )
@@ -202,6 +206,7 @@ def validate_products(
                     product_item.rep_name: product_item.path,
                 },
                 "version": product_item.version,
+                "family": product_item.family,
             }
         else:
             if product_item.rep_name in products[key]["expected_representations"]:
@@ -209,16 +214,20 @@ def validate_products(
                     item_str + f" : {product_item.rep_name}"
                 )
                 continue
-
+            if product_item.family != products[key]["family"]:
+                report_items["Duplicated product/subset names in different families, they must be unique"].append(
+                    item_str + f" : {product_item.rep_name}"
+                )
+                continue
             products[key]["expected_representations"][product_item.rep_name] = product_item.path
 
     for product_fields, product_data in products.items():
-        asset, task, family, subset = product_fields
+        asset, task, subset = product_fields
         msg, success = publish.validate_version(
             project_name,
             asset,
             task,
-            family,
+            product_data["family"],
             subset,
             product_data["expected_representations"],
             {"version": product_data.get("version")},
@@ -336,6 +345,7 @@ def get_products_from_filepath(package_path, project_name, project_code):
         asset_doc["name"] for asset_doc in get_assets(project_name, fields=["name"])
         if asset_doc["name"] not in {"assets", "shots"}
     ]
+
     # Reverse to give priority to the more specific asset names as the higher level ones
     # (i.e., episode, sequence) are pretty easy to match against
     asset_names.reverse()
@@ -385,6 +395,8 @@ def get_products_from_filepath(package_path, project_name, project_code):
                 strict_regex,
                 asset_names,
             )
+            if not publish_data:
+                continue
 
             # Add frame range to publish data
             if frame_start:
@@ -404,6 +416,11 @@ def get_products_from_filepath(package_path, project_name, project_code):
                 subset_name = slugify_string(subset_name)
                 # Add `_vnd` to the subset name to show it comes from a vendor
                 if "/io/incoming" in filepath:
+                    # Patch to suffix family name to workaround OP limitation of
+                    # subsets needing to be unique
+                    family_name = publish_data["family_name"]
+                    if family_name == "workfile":
+                        subset_name = f"{subset_name}_{family_name}"
                     subset_name = f"{subset_name}_vnd"
                 publish_data["subset_name"] = subset_name
 
@@ -492,7 +509,7 @@ def get_product_from_filepath(
                 task_name = TASK_NAME_FALLBACK
 
     if asset_doc:
-        asset_name = asset_doc["name"]
+        asset_name = get_asset_name_identifier(asset_doc)
     else:
         logger.warning("Couldn't find asset in file '%s'", filepath)
 
@@ -601,6 +618,14 @@ def get_product_from_filepath(
     # If no subset name found yet just use the filename
     if not publish_data["subset_name"]:
         publish_data["subset_name"] = filename.split(".")[0]
+
+    # If extension is an image, guess input colorspace
+    if extension in IMAGE_EXTENSIONS:
+        in_colorspace = textures.guess_colorspace(filepath)
+        if in_colorspace is None:
+            return
+
+        publish_data["in_colorspace"] = in_colorspace
 
     logger.debug("Publish data for filepath %s: %s", filepath, publish_data)
 
