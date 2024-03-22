@@ -9,24 +9,29 @@ import qtawesome
 
 from openpype import style
 from openpype import resources
+from openpype import AYON_SERVER_ENABLED
 from openpype.lib import Logger
 from openpype.client import get_projects
 from openpype.pipeline import AvalonMongoDB
 from openpype.tools.utils import lib as tools_lib
-from openpype.modules.shotgrid.lib import credentials
 from openpype.modules.ingest.scripts import ingest
 from openpype.tools.utils.constants import (
     HEADER_NAME_ROLE,
     EDIT_ICON_ROLE,
 )
+if AYON_SERVER_ENABLED:
+    from ayon_shotgrid.lib import credentials
+else:
+    from openpype.modules.shotgrid.lib import credentials
+
 
 logger = Logger.get_logger(__name__)
 
 
-class IngestDialog(QtWidgets.QDialog):
-    """Interface to control SG deliveries"""
+class BatchIngester(QtWidgets.QDialog):
+    """Interface to batch ingest products into the pipeline"""
 
-    tool_title = "Ingest Products"
+    tool_title = "Batch ingester"
     tool_name = "batch_ingester"
 
     SIZE_W = 1800
@@ -43,7 +48,7 @@ class IngestDialog(QtWidgets.QDialog):
     )
 
     def __init__(self, module, parent=None):
-        super(IngestDialog, self).__init__(parent)
+        super(BatchIngester, self).__init__(parent)
 
         self.setWindowTitle(self.tool_title)
 
@@ -61,8 +66,6 @@ class IngestDialog(QtWidgets.QDialog):
         )
 
         self.setMinimumSize(QtCore.QSize(self.SIZE_W, self.SIZE_H))
-
-        self.sg = credentials.get_shotgrid_session()
 
         self._first_show = True
         self._initial_refresh = False
@@ -158,7 +161,7 @@ class IngestDialog(QtWidgets.QDialog):
 
         main_layout.addWidget(table_view)
 
-        # Add button to generate delivery media
+        # Add button to validate products
         validate_btn = QtWidgets.QPushButton(
             "Validate Products"
         )
@@ -169,7 +172,7 @@ class IngestDialog(QtWidgets.QDialog):
 
         main_layout.addWidget(validate_btn)
 
-        # Add button to generate delivery media
+        # Add button to ingest products
         publish_btn = QtWidgets.QPushButton(
             "Publish Products"
         )
@@ -220,7 +223,7 @@ class IngestDialog(QtWidgets.QDialog):
             super().keyPressEvent(event)
 
     def showEvent(self, event):
-        super(IngestDialog, self).showEvent(event)
+        super(BatchIngester, self).showEvent(event)
         if self._first_show:
             self._first_show = False
             self.setStyleSheet(style.load_stylesheet())
@@ -294,7 +297,8 @@ class IngestDialog(QtWidgets.QDialog):
 
         self.dbcon.Session["AVALON_PROJECT"] = project_name
 
-        sg_project = self.sg.find_one(
+        sg = credentials.get_shotgrid_session()
+        sg_project = sg.find_one(
             "Project",
             [["name", "is", project_name]],
             fields=["sg_code"]
@@ -542,7 +546,7 @@ class ProductsTableModel(QtCore.QAbstractTableModel):
         elif column_index == 5:
             self._data[row_index].rep_name = value
         elif column_index == 6:
-            self._data[row_index].version = value
+            self._data[row_index].version = int(value)
 
     def setData(self, index, value, role=QtCore.Qt.EditRole):
         if not index.isValid():
@@ -708,7 +712,7 @@ def main():
 
         ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("batch_ingester")
 
-    window = IngestDialog()
+    window = BatchIngester()
     window.show()
 
     # Trigger on project change every time the tool loads
