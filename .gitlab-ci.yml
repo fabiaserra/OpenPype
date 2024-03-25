@@ -51,7 +51,7 @@ build-op-container:
     - /kaniko/executor
       --context "${CI_PROJECT_DIR}/op-container"
       --dockerfile "${CI_PROJECT_DIR}/op-container/Dockerfile"
-      --destination "${CI_REGISTRY_IMAGE}/${IMAGE_NAME}-${CI_COMMIT_SHORT_SHA}"
+      --destination "${CI_REGISTRY_IMAGE}/${IMAGE_NAME}:${CI_COMMIT_SHORT_SHA}"
       --build-arg "CW_GROUP_CI_TOKEN=${CW_GROUP_CI_TOKEN}"
       --cache=true --cache-copy-layers=true --cache-repo "${CI_REGISTRY_IMAGE}/cache/${IMAGE_NAME}" --cache-dir=/cache
   rules:
