@@ -5,9 +5,8 @@ import nuke
 import pyblish.api
 import re
 from openpype.hosts.nuke import api as napi
-from openpype.tools.utils import paths as path_utils
 from openpype.pipeline import publish, PublishXmlValidationError
-from openpype.lib import get_ffprobe_streams, convert_ffprobe_fps_value
+from openpype.lib import path_tools, get_ffprobe_streams, convert_ffprobe_fps_value
 
 
 class CollectNukeWrites(pyblish.api.InstancePlugin,
@@ -421,7 +420,7 @@ class CollectNukeWrites(pyblish.api.InstancePlugin,
                 first_frame = 1
                 last_frame = duration
             else:
-                match = path_utils.RE_FRAME_NUMBER.match(
+                match = path_tools.RE_FRAME_NUMBER.match(
                     os.path.basename(remainders[0])
                 )
                 if match:

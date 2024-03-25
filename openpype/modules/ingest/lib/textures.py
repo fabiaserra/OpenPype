@@ -1,10 +1,10 @@
 import os
 
-from openpype.lib import Logger
 from openpype.lib import (
+    Logger,
     get_oiio_info_for_input,
+    path_tools
 )
-from openpype.tools.utils import paths as path_utils
 
 
 IN_COLORSPACES = [
@@ -42,7 +42,7 @@ def guess_colorspace(filepath):
         return "linear"
 
     # In case the filepath given is a sequence
-    source_files, _, _, _ = path_utils.convert_to_sequence(
+    source_files, _, _, _ = path_tools.convert_to_sequence(
         filepath
     )
     single_file = source_files[0]

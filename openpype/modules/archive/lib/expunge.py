@@ -18,9 +18,8 @@ from datetime import datetime, timedelta
 
 from openpype import AYON_SERVER_ENABLED
 from openpype import client as op_cli
-from openpype.lib import Logger, run_subprocess
+from openpype.lib import Logger, run_subprocess, path_tools
 from openpype.pipeline import Anatomy
-from openpype.tools.utils import paths as path_utils
 from openpype.client.operations import OperationsSession
 from openpype.modules.delivery.scripts import media
 
@@ -605,7 +604,7 @@ class ArchiveProject:
             # Otherwise, we just check the 'source' directly assuming that's
             # directly the source of the publish
             else:
-                source_files, _, _, _ = path_utils.convert_to_sequence(
+                source_files, _, _, _ = path_tools.convert_to_sequence(
                     source_path
                 )
                 if not source_files:
@@ -1141,7 +1140,7 @@ class ArchiveProject:
             return False, False
 
         # Replace frame with token to save file ranges under the same entry
-        path_entry = path_utils.replace_frame_number_with_token(filepath, "*")
+        path_entry = path_tools.replace_frame_number_with_token(filepath, "*")
 
         # If the file is already marked for deletion, we want to store it in the same
         # entry as the original file

@@ -13,8 +13,7 @@ import getpass
 import os
 import requests
 
-from openpype.lib import Logger, is_running_from_build
-from openpype.tools.utils import paths as path_utils
+from openpype.lib import Logger, is_running_from_build, path_tools
 from openpype.pipeline import Anatomy
 from openpype.pipeline.colorspace import get_imageio_config
 
@@ -80,7 +79,7 @@ def get_representations(
     representations = []
     for rep_name, file_path in exp_representations.items():
 
-        files, ext, frame_start, frame_end = path_utils.convert_to_sequence(
+        files, ext, frame_start, frame_end = path_tools.convert_to_sequence(
             file_path
         )
         if not files:

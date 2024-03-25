@@ -1,8 +1,8 @@
 import os
 import pyblish.api
 
+from openpype.lib import path_tools
 from openpype.pipeline import publish
-from openpype.tools.utils import paths as path_utils
 from openpype.modules.delivery.scripts import review
 
 
@@ -76,7 +76,7 @@ class ExtractReviewNuke(publish.Extractor):
             )
             return
 
-        read_path = path_utils.replace_frame_number_with_token(base_path, "#", padding=True)
+        read_path = path_tools.replace_frame_number_with_token(base_path, "#", padding=True)
 
         # Name to use for batch grouping Deadline tasks
         batch_name = instance.data.get("deadlineBatchName") or os.path.basename(
