@@ -4,6 +4,11 @@ FROM ubuntu:jammy-20230816
 ENV PATH="${PATH}:/pipe/ayon/release/current"
 ENV PATH="${PATH}:/pipe/openpype/release/current"
 
+# Install dependencies
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        zip
+
 # Copy certificates
 COPY ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 
