@@ -64,7 +64,7 @@ class TextureLoader(load.LoaderPlugin):
         file_path = self.filepath_from_context(context)
         file_path = os.path.normpath(file_path)
         file_path = file_path.replace("\\", "/")
-        file_path = self._get_file_sequence(file_path)
+        # TODO: add support for UDIMs replacing the udim token with "<UDIM>"
 
         # Get the root node
         parent = get_textures_avalon_container()
@@ -100,7 +100,7 @@ class TextureLoader(load.LoaderPlugin):
         # Update the file path
         file_path = get_representation_path(representation)
         file_path = file_path.replace("\\", "/")
-        file_path = self._get_file_sequence(file_path)
+        # TODO: add support for UDIMs replacing the udim token with "<UDIM>"
 
         # Update attributes
         node.setParms(
@@ -124,15 +124,6 @@ class TextureLoader(load.LoaderPlugin):
 
         if not parent.children():
             parent.destroy()
-
-    def _get_file_sequence(self, file_path):
-        root = os.path.dirname(file_path)
-        files = sorted(os.listdir(root))
-
-        first_fname = files[0]
-        prefix, padding, suffix = first_fname.rsplit(".", 2)
-        fname = ".".join([prefix, "$F{}".format(len(padding)), suffix])
-        return os.path.join(root, fname).replace("\\", "/")
 
     def switch(self, container, representation):
         self.update(container, representation)
