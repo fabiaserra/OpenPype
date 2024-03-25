@@ -30,7 +30,7 @@ from .lib import launch_workfiles_app
 
 log = logging.getLogger("openpype.hosts.houdini")
 
-AVALON_CONTAINERS = "/obj/AVALON_CONTAINERS"
+PRODUCTS = "/obj/PRODUCTS"
 CONTEXT_CONTAINER = "/obj/OpenPypeContext"
 IS_HEADLESS = not hasattr(hou, "ui")
 
@@ -259,12 +259,12 @@ def containerise(name,
 
     """
 
-    # Ensure AVALON_CONTAINERS subnet exists
-    subnet = hou.node(AVALON_CONTAINERS)
+    # Ensure PRODUCTS subnet exists
+    subnet = hou.node(PRODUCTS)
     if subnet is None:
         obj_network = hou.node("/obj")
         subnet = obj_network.createNode("subnet",
-                                        node_name="AVALON_CONTAINERS")
+                                        node_name="PRODUCTS")
 
     # Create proper container name
     container_name = "{}_{}".format(name, suffix or "CON")

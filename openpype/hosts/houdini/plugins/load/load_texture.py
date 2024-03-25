@@ -10,7 +10,7 @@ from openpype.hosts.houdini.api import lib, pipeline
 import hou
 
 
-def get_image_avalon_container():
+def get_textures_avalon_container():
     """The COP2 files must be in a COP2 network.
 
     So we maintain a single entry point within PRODUCTS,
@@ -31,21 +31,24 @@ def get_image_avalon_container():
             "subnet", node_name="PRODUCTS"
         )
 
-    image_container = hou.node(path + "/IMAGES")
-    if not image_container:
-        image_container = avalon_container.createNode(
-            "cop2net", node_name="IMAGES"
+    matnet_node = hou.node(path + "/TEXTURES")
+    if not matnet_node:
+        matnet_node = avalon_container.createNode(
+            "matnet", node_name="TEXTURES"
         )
-        image_container.moveToGoodPosition()
+        matnet_node.moveToGoodPosition()
+        textures_container = matnet_node.createNode(
+            "arnold_materialbuilder", node_name="TEXTURES"
+        )
 
-    return image_container
+    return textures_container
 
 
-class ImageLoader(load.LoaderPlugin):
-    """Load images into COP2"""
+class TextureLoader(load.LoaderPlugin):
+    """Load textures into COP2"""
 
-    families = ["imagesequence"]
-    label = "Load Image (COP2)"
+    families = ["textures"]
+    label = "Load Textures"
     representations = ["*"]
     order = -10
 
@@ -61,16 +64,16 @@ class ImageLoader(load.LoaderPlugin):
         file_path = self._get_file_sequence(file_path)
 
         # Get the root node
-        parent = get_image_avalon_container()
+        parent = get_textures_avalon_container()
 
         # Define node name
         namespace = namespace if namespace else context["asset"]["name"]
         node_name = "{}_{}".format(namespace, name) if namespace else name
 
-        node = parent.createNode("file", node_name=node_name)
+        node = parent.createNode("arnold::image", node_name=node_name)
         node.moveToGoodPosition()
 
-        node.setParms({"filename1": file_path})
+        node.setParms({"filename": file_path})
 
         # Imprint it manually
         data = {
@@ -99,7 +102,7 @@ class ImageLoader(load.LoaderPlugin):
         # Update attributes
         node.setParms(
             {
-                "filename1": file_path,
+                "filename": file_path,
                 "representation": str(representation["_id"]),
             }
         )
