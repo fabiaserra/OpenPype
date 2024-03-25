@@ -7,7 +7,8 @@ ENV PATH="${PATH}:/pipe/openpype/release/current"
 # Install dependencies
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
-        zip
+        zip \
+        file
 
 # Copy certificates
 COPY ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
