@@ -11,7 +11,7 @@ import hou
 
 
 def get_textures_avalon_container():
-    """The COP2 files must be in a COP2 network.
+    """The Arnold Image nodes must be in a matnet network.
 
     So we maintain a single entry point within PRODUCTS,
     just for ease of use.
@@ -45,7 +45,10 @@ def get_textures_avalon_container():
 
 
 class TextureLoader(load.LoaderPlugin):
-    """Load textures into COP2"""
+    """Load textures through an Arnold Material Builder Image node
+
+    TODO: Add support for other renderers and contexts
+    """
 
     families = ["textures"]
     label = "Load Textures"
