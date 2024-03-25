@@ -66,13 +66,13 @@ build-patch:
   stage: build
   tags:
     - kube
-  image: dm.tenant-alkemyx.lga1.ingress.coreweave.cloud/coreweave/pipeline/openpype/openpype:jammy-3.16.11-ax-dev.1-817df4df
+  image: dm.tenant-alkemyx.lga1.ingress.coreweave.cloud/coreweave/pipeline/openpype/op-worker:afe8defa
   variables:
     DNS_SERVER: "10.20.53.229"
     SEARCH_DOMAIN: "tenant-alkemyx.svc.tenant.chi.local"
   script:
     - mkdir -p $CI_PROJECT_DIR/artifact/build
-    - /usr/openpype/3.16/openpype_console --debug run $CI_PROJECT_DIR/tools/create_zip.py --path $CI_PROJECT_DIR/artifact/build --repo-dir $CI_PROJECT_DIR
+    - openpype_console --debug run $CI_PROJECT_DIR/tools/create_zip.py --path $CI_PROJECT_DIR/artifact/build --repo-dir $CI_PROJECT_DIR
   artifacts:
     paths:
       - artifact
