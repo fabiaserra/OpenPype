@@ -179,10 +179,10 @@ class ArchiveProject:
         if self.anatomy:
             self.clean_published_file_sources(archive=archive)
 
-        # Commented out compression as it takes a long time to run and doesn't
-        # have any proven benefits
-        # if archive:
-        #     self.compress_workfiles()
+        # Compress the work directories so I/O is faster when treating a lot
+        # of files as a single one
+        if archive:
+            self.compress_workfiles()
 
         elapsed_time = time.time() - start_time
         logger.info("\n\nMore logging details at '%s'", self.summary_file)
