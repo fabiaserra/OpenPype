@@ -5,6 +5,7 @@ ENV PATH="${PATH}:/pipe/ayon/release/current"
 ENV PATH="${PATH}:/pipe/openpype/release/current"
 
 # Install dependencies
+ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         zip \
