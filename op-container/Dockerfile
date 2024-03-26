@@ -9,7 +9,25 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         zip \
         file \
-        qt5-default
+        curl \
+        git \
+        dnsutils \
+        ca-certificates \
+        build-essential \
+        libssl-dev \
+        libffi-dev \
+        zlib1g-dev \
+        libncurses5-dev \
+        libncursesw5-dev \
+        libreadline-dev \
+        libsqlite3-dev \
+        libgdbm-dev \
+        libdb5.3-dev \
+        libbz2-dev \
+        libexpat1-dev \
+        liblzma-dev \
+        libgl1-mesa-glx \
+        tk-dev
 
 # Copy certificates
 COPY ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
