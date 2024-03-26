@@ -66,7 +66,7 @@ build-patch:
   stage: build
   tags:
     - kube
-  image: dm.tenant-alkemyx.lga1.ingress.coreweave.cloud/coreweave/pipeline/openpype/op-worker:afe8defa
+  image: dm.tenant-alkemyx.lga1.ingress.coreweave.cloud/coreweave/pipeline/openpype/op-worker:d1e35ad8
   variables:
     DNS_SERVER: "10.20.53.229"
     SEARCH_DOMAIN: "tenant-alkemyx.svc.tenant.chi.local"
