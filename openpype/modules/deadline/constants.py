@@ -15,7 +15,7 @@ HOUDINI_CPU_GROUP = "houdini-cpu-{}-{}"
 HOUDINI_GPU_GROUP = "houdini-gpu-{}-{}"
 
 # Name of AlkemyX Deadline group for OpenPype tasks
-OP_GROUP = "openpype"
+OP_GROUP = "openpype-3-16"
 
 # Name of AlkemyX Deadline group for Ayon tasks
 AYON_GROUP = "ayon"
