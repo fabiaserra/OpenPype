@@ -979,7 +979,6 @@ class ArchiveProject:
 
     def delete_filepath(self, filepath, silent=False):
         """Delete a file or directory"""
-        # Temporal bypass of file deletion
         try:
             if not const._debug:
                 if os.path.isfile(filepath):
