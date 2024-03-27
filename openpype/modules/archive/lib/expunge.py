@@ -71,7 +71,7 @@ DELETE_PREFIX_RE = re.compile(rf"{DELETE_PREFIX}\(.*\)")
 # older than a certain time
 TEMP_FILE_PATTERNS = {
     re.compile(r".*\.nk~$"),
-    re.compile(r".*\.nk\.autosave\d+$"),
+    re.compile(r".*\.nk\.autosave\d*$"),
     re.compile(r".*_auto\d+\.hip$"),
     re.compile(r".*_bak\d+\.hip$"),
     re.compile(r".*\.hrox\.autosave$"),
@@ -181,8 +181,8 @@ class ArchiveProject:
 
         # Compress the work directories so I/O is faster when treating a lot
         # of files as a single one
-        if archive:
-            self.compress_workfiles()
+        # if archive:
+            # self.compress_workfiles()
 
         elapsed_time = time.time() - start_time
         logger.info("\n\nMore logging details at '%s'", self.summary_file)
@@ -441,11 +441,16 @@ class ArchiveProject:
 
                 # Filter out version folders in the current directory
                 version_folders = []
+                marked_deletion_folders = []
                 for dirname in list(dirnames):
-
                     if version_pattern.match(dirname):
                         version_folders.append(dirname)
                         # Remove version folder from dirname to not walk into it
+                        dirnames.remove(dirname)
+                    # Also match any version folders marked for deletion
+                    # and add them to a secondary list
+                    elif DELETE_PREFIX_RE.match(dirname):
+                        marked_deletion_folders.append(dirname)
                         dirnames.remove(dirname)
 
                 # Sort the version folders by name so we can remove the oldest ones
@@ -464,6 +469,18 @@ class ArchiveProject:
                 # If there are more than 5 versions, remove the oldest ones
                 while len(version_folders) > keep_versions + keep_versions_offset:
                     folder_to_delete = os.path.join(dirpath, version_folders.pop(0))
+                    self.consider_file_for_deletion(
+                        folder_to_delete,
+                        caution_level=caution_level,
+                        archive=archive,
+                        extra_data={
+                            "reason": "Old version folder"
+                        }
+                    )
+
+                # All the marked deletion folders are considered for deletion
+                for folder in marked_deletion_folders:
+                    folder_to_delete = os.path.join(dirpath, folder)
                     self.consider_file_for_deletion(
                         folder_to_delete,
                         caution_level=caution_level,
@@ -565,7 +582,7 @@ class ArchiveProject:
                 source_files = glob.glob(os.path.join(
                     os.path.dirname(source_path),
                     "temp_transcode",
-                    f"{subset_doc['name']}*",
+                    f"*{subset_doc['name']}*",
                 ))
                 # Override caution file for temp_transcode files to be very low caution
                 caution_level_ = 0
@@ -606,20 +623,13 @@ class ArchiveProject:
             # Otherwise, we just check the 'source' directly assuming that's
             # directly the source of the publish
             else:
+                # Override /io entries and .hip sources so we don't try remove them
+                if "/io/" in source_path or source_path.endswith(".hip"):
+                    continue
+
                 source_files, _, _, _ = path_tools.convert_to_sequence(
                     source_path
                 )
-                if not source_files:
-                    logger.debug(
-                        "Couldn't find files for file pattern '%s'.",
-                        source_path
-                    )
-                    continue
-
-                # Override /io entries so we don't try remove them
-                if "/io/" in source_path:
-                    continue
-
                 # For source paths ending with .exr we try create a symlink path from
                 # the original source to the publish path
                 if source_path.endswith(".exr"):
@@ -627,15 +637,43 @@ class ArchiveProject:
 
             if not source_files or not os.path.exists(source_files[0]):
                 logger.debug(
-                    "Couldn't find source files for published version with path '%s'.",
-                    version_path
+                    "Couldn't find files for file pattern '%s' from published path '%s'"
+                    " checking if the files were marked for deletion.",
+                    source_path, version_path
                 )
-                continue
+                dir_path, original_name = os.path.split(source_path)
+                delete_path = os.path.join(dir_path, f"{DELETE_PREFIX}*{original_name}")
+                source_files, _, _, _ = path_tools.convert_to_sequence(
+                    delete_path
+                )
+                if not source_files:
+                    logger.debug(
+                        "Couldn't find files marked for deletion at '%s' either.",
+                        delete_path
+                    )
+                    continue
+                # Override symlink paths to None so we ignore the symlinking
+                # warning and delete files that were marked for deletion already
+                symlink_paths = None
+
             elif os.path.islink(source_files[0]):
                 logger.debug(
-                    "Skipping removal of source files as it's already a symlink from publish path"
+                    "Source files are already a symlink from publish path "
+                    "but checking if there's some marked for deletion we should delete"
                 )
-                continue
+                dir_path, original_name = os.path.split(source_files[0])
+                delete_path = os.path.join(dir_path, f"{DELETE_PREFIX}*{original_name}")
+                source_files = glob.glob(delete_path)
+                if not source_files:
+                    source_files, _, _, _ = path_tools.convert_to_sequence(
+                        delete_path
+                    )
+                    if not source_files:
+                        logger.debug(
+                            "Couldn't find files for delete path '%s'.",
+                            delete_path
+                        )
+                        continue
 
             version_created = datetime.strptime(
                 version_doc["data"]["time"], "%Y%m%dT%H%M%SZ"
@@ -1133,7 +1171,7 @@ class ArchiveProject:
                 filepath_stat = os.stat(filepath)
                 logger.info(f"But found its marked for deletion equivalent: '{filepath}'")
                 dir_path, original_name = os.path.split(filepath)
-            except IndexError:
+            except (IndexError, FileNotFoundError):
                 logger.warning(f"Marked for deletion file not found either")
                 return False, False
 
@@ -1149,6 +1187,10 @@ class ArchiveProject:
         if DELETE_PREFIX in original_name:
             new_name = DELETE_PREFIX_RE.sub("", original_name)
             path_entry = os.path.join(dir_path, new_name)
+
+        if path_entry in self.protected_entries:
+            logger.debug(f"Skipping '{path_entry}' as it's protected")
+            return
 
         # If the entry already exists, we want to add the file to the existing entry
         # if the path wasn't added to the set of paths
