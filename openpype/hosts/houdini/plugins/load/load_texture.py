@@ -5,6 +5,7 @@ from openpype.pipeline import (
     get_representation_path,
     AVALON_CONTAINER_ID,
 )
+from openpype.lib import path_tools
 from openpype.hosts.houdini.api import lib, pipeline
 
 import hou
@@ -64,7 +65,9 @@ class TextureLoader(load.LoaderPlugin):
         file_path = self.filepath_from_context(context)
         file_path = os.path.normpath(file_path)
         file_path = file_path.replace("\\", "/")
-        # TODO: add support for UDIMs replacing the udim token with "<UDIM>"
+        file_path = path_tools.replace_frame_number_with_token(
+            file_path, "<UDIM>"
+        )
 
         # Get the root node
         parent = get_textures_avalon_container()
