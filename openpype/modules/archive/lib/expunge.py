@@ -417,8 +417,6 @@ class ArchiveProject:
         logger.info(" \n---- Cleaning old versions ---- \n")
         logger.info("Keeping only '%s' versions in total", keep_versions)
 
-        version_pattern = re.compile(r"^v\d+$", re.IGNORECASE)
-
         # Function to extract the numerical part from the version string
         def _extract_number(v):
             return int(v[1:])  # Assuming each version string starts with 'v' followed by the number
@@ -437,58 +435,53 @@ class ArchiveProject:
                     logger.debug(f"Skipping '{dirpath}' as it's protected")
                     continue
 
-                keep_versions_offset = 0
+                version_collections, _ = clique.assemble(
+                    dirnames, patterns=[clique.PATTERNS["versions"]]
+                )
+                if not version_collections:
+                    continue
 
-                # Filter out version folders in the current directory
-                version_folders = []
-                marked_deletion_folders = []
-                for dirname in list(dirnames):
-                    if version_pattern.match(dirname):
-                        version_folders.append(dirname)
-                        # Remove version folder from dirname to not walk into it
-                        dirnames.remove(dirname)
-                    # Also match any version folders marked for deletion
-                    # and add them to a secondary list
-                    elif DELETE_PREFIX_RE.match(dirname):
-                        marked_deletion_folders.append(dirname)
-                        dirnames.remove(dirname)
+                for version_collection in version_collections:
+                    keep_versions_offset = 0
 
-                # Sort the version folders by name so we can remove the oldest ones
-                version_folders = sorted(version_folders, key=_extract_number)
-
-                # For certain keywords, we are a bit more careful and keep some extra versions
-                for name in PROTECTED_OLD_VERSIONS:
-                    if name in dirpath.lower():
-                        keep_versions_offset = 2
-                        if len(version_folders) > keep_versions + keep_versions_offset:
-                            logger.debug(
-                                "Keeping '%s' extra versions due to extra caution.", keep_versions_offset
+                    # All the marked deletion folders are considered for deletion
+                    if DELETE_PREFIX in version_collection.head:
+                        for folder in version_collection:
+                            folder_to_delete = os.path.join(dirpath, folder)
+                            self.consider_file_for_deletion(
+                                folder_to_delete,
+                                caution_level=caution_level,
+                                archive=archive,
+                                extra_data={
+                                    "reason": "Old version folder"
+                                }
                             )
-                        break
+                    # Otherwise, we simply try remove the oldest versions if
+                    # there's more than 'keep_versions + keep_versions_offset'
+                    else:
+                        # For certain keywords, we are a bit more careful and keep some extra versions
+                        for protected_name in PROTECTED_OLD_VERSIONS:
+                            if protected_name in dirpath.lower():
+                                keep_versions_offset = 2
+                                if len(version_collection) > keep_versions + keep_versions_offset:
+                                    logger.debug(
+                                        "Keeping '%s' extra versions due to extra caution.", keep_versions_offset
+                                    )
+                                break
 
-                # If there are more than 5 versions, remove the oldest ones
-                while len(version_folders) > keep_versions + keep_versions_offset:
-                    folder_to_delete = os.path.join(dirpath, version_folders.pop(0))
-                    self.consider_file_for_deletion(
-                        folder_to_delete,
-                        caution_level=caution_level,
-                        archive=archive,
-                        extra_data={
-                            "reason": "Old version folder"
-                        }
-                    )
-
-                # All the marked deletion folders are considered for deletion
-                for folder in marked_deletion_folders:
-                    folder_to_delete = os.path.join(dirpath, folder)
-                    self.consider_file_for_deletion(
-                        folder_to_delete,
-                        caution_level=caution_level,
-                        archive=archive,
-                        extra_data={
-                            "reason": "Old version folder"
-                        }
-                    )
+                        version_folders = list(version_collection)
+                        while len(version_folders) > keep_versions + keep_versions_offset:
+                            folder_to_delete = os.path.join(
+                                dirpath, version_folders.pop(0)
+                            )
+                            self.consider_file_for_deletion(
+                                folder_to_delete,
+                                caution_level=caution_level,
+                                archive=archive,
+                                extra_data={
+                                    "reason": "Old version folder"
+                                }
+                            )
 
     def get_version_path(self, version_id):
         """Get the path on disk of the version id by checking the path of the
