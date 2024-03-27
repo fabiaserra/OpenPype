@@ -181,8 +181,8 @@ class ArchiveProject:
 
         # Compress the work directories so I/O is faster when treating a lot
         # of files as a single one
-        # if archive:
-            # self.compress_workfiles()
+        if archive:
+            self.compress_workfiles()
 
         elapsed_time = time.time() - start_time
         logger.info("\n\nMore logging details at '%s'", self.summary_file)
@@ -417,10 +417,6 @@ class ArchiveProject:
         logger.info(" \n---- Cleaning old versions ---- \n")
         logger.info("Keeping only '%s' versions in total", keep_versions)
 
-        # Function to extract the numerical part from the version string
-        def _extract_number(v):
-            return int(v[1:])  # Assuming each version string starts with 'v' followed by the number
-
         caution_level = 1
 
         for folder in ["assets", "shots"]:
@@ -441,6 +437,9 @@ class ArchiveProject:
                 if not version_collections:
                     continue
 
+                # Clear dirnames to not continue exploring the directories
+                dirnames.clear()
+
                 for version_collection in version_collections:
                     keep_versions_offset = 0
 
@@ -456,6 +455,7 @@ class ArchiveProject:
                                     "reason": "Old version folder"
                                 }
                             )
+
                     # Otherwise, we simply try remove the oldest versions if
                     # there's more than 'keep_versions + keep_versions_offset'
                     else:
