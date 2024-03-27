@@ -459,17 +459,19 @@ class ArchiveProject:
                     # Otherwise, we simply try remove the oldest versions if
                     # there's more than 'keep_versions + keep_versions_offset'
                     else:
+                        version_folders = list(version_collection)
+
                         # For certain keywords, we are a bit more careful and keep some extra versions
                         for protected_name in PROTECTED_OLD_VERSIONS:
                             if protected_name in dirpath.lower():
                                 keep_versions_offset = 2
-                                if len(version_collection) > keep_versions + keep_versions_offset:
+                                if len(version_folders) > keep_versions + keep_versions_offset:
                                     logger.debug(
-                                        "Keeping '%s' extra versions due to extra caution.", keep_versions_offset
+                                        "Keeping '%s' extra versions due to extra caution.",
+                                        keep_versions_offset
                                     )
                                 break
 
-                        version_folders = list(version_collection)
                         while len(version_folders) > keep_versions + keep_versions_offset:
                             folder_to_delete = os.path.join(
                                 dirpath, version_folders.pop(0)
