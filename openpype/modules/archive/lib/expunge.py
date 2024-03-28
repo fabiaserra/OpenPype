@@ -972,12 +972,28 @@ class ArchiveProject:
         """Compresses the work directories for a project."""
 
         logger.info(" \n---- Compressing work files ----\n")
-        for dirpath, dirnames, _ in os.walk(self.target_root):
-            if "work" in dirnames:
-                work_dir = os.path.join(dirpath, "work")
-                logger.info(f"Compressing {work_dir}")
-                if not const._debug:
-                    os.system(f"cd {os.path.dirname(work_dir)} && zip -rmT work work")
+
+        for folder in ["assets", "shots"]:
+            target = os.path.join(self.target_root, folder)
+            if os.path.exists(target):
+                logger.debug(f" - Scanning {target} folder")
+            else:
+                logger.warning(f" - {target} folder does not exist")
+                continue
+
+            # Compress every child folder under 'work'
+            for dirpath, dirnames, _ in os.walk(target, topdown=True):            # Skip all folders that aren't within a 'work' directory
+                if "/work" not in dirpath:
+                    continue
+
+                for dirname in list(dirnames):
+                    child_dir = os.path.join(dirpath, dirname)
+                    logger.info(f"Compressing {child_dir}")
+                    if not const._debug:
+                        os.system(f"cd {os.path.dirname(child_dir)} && zip -rmT {dirname}.zip {dirname}")
+
+                    # Remove directory from dirnames to prevent further exploration
+                    dirnames.remove(dirname)
 
     def delete_filepath(self, filepath, silent=False):
         """Delete a file or directory"""
