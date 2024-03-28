@@ -77,6 +77,9 @@ FUZZY_NAME_OVERRIDES = {
     ("distortion", "distortion_node"): {
         "family_name": "distortion"
     },
+    ("_geo_"): {
+        "family_name": "pointcache",
+    },
 }
 
 # List of fields that are required in the products in order to publish them
