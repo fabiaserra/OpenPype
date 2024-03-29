@@ -982,16 +982,28 @@ class ArchiveProject:
                 continue
 
             # Compress every child folder under 'work'
-            for dirpath, dirnames, _ in os.walk(target, topdown=True):            # Skip all folders that aren't within a 'work' directory
+            for dirpath, dirnames, _ in os.walk(target, topdown=True):
+                # Skip all folders that aren't within a 'work' directory
                 if "/work" not in dirpath:
                     continue
 
-                logger.info(f"Compressing '{dirnames}'")
-                if not const._debug:
-                    os.system(f"cd {dirpath} && pigz -r --fast {' '.join(dirnames)}")
+                for dirname in list(dirnames):
+                    child_dir = os.path.join(dirpath, dirname)
+                    logger.info(f"Compressing {child_dir}")
+                    if not const._debug:
+                        # Create a single .tar entry with all the symlinks and files
+                        run_subprocess(
+                            ["tar", "-cf", f"{dirname}.tar", dirname, "--remove-files"],
+                            cwd=os.path.dirname(child_dir)
+                        )
+                        # And compress the .tar so it's lighter
+                        run_subprocess(
+                            ["pigz", "--fast", "{dirname}.tar"],
+                            cwd=os.path.dirname(child_dir)
+                        )
 
-                # Clear dirnames to prevent further exploration
-                dirnames.clear()
+                    # Remove directory from dirnames to prevent further exploration
+                    dirnames.remove(dirname)
 
     def delete_filepath(self, filepath, silent=False):
         """Delete a file or directory"""
