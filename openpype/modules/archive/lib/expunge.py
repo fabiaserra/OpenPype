@@ -998,7 +998,7 @@ class ArchiveProject:
                         )
                         # And compress the .tar so it's lighter
                         run_subprocess(
-                            ["pigz", "--fast", "{dirname}.tar"],
+                            ["pigz", "--fast", f"{dirname}.tar"],
                             cwd=os.path.dirname(child_dir)
                         )
 
