@@ -988,7 +988,7 @@ class ArchiveProject:
 
                 logger.info(f"Compressing '{dirnames}'")
                 if not const._debug:
-                    os.system(f"cd {dirpath} && pigz --fast {' '.join(dirnames)}")
+                    os.system(f"cd {dirpath} && pigz -r --fast {' '.join(dirnames)}")
 
                 # Clear dirnames to prevent further exploration
                 dirnames.clear()
