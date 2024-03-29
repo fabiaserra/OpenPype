@@ -11,6 +11,7 @@ RUN apt-get update \
         zip \
         unzip \
         pigz \
+        tar \
         file \
         curl \
         git \
