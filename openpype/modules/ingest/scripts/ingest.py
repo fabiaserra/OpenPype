@@ -77,7 +77,7 @@ FUZZY_NAME_OVERRIDES = {
     ("distortion", "distortion_node"): {
         "family_name": "distortion"
     },
-    ("_geo_"): {
+    ("_geo_", ): {
         "family_name": "pointcache",
     },
 }
