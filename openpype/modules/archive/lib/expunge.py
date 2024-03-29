@@ -986,14 +986,12 @@ class ArchiveProject:
                 if "/work" not in dirpath:
                     continue
 
-                for dirname in list(dirnames):
-                    child_dir = os.path.join(dirpath, dirname)
-                    logger.info(f"Compressing {child_dir}")
-                    if not const._debug:
-                        os.system(f"cd {os.path.dirname(child_dir)} && zip -rmT {dirname}.zip {dirname}")
+                logger.info(f"Compressing '{dirnames}'")
+                if not const._debug:
+                    os.system(f"cd {dirpath} && pigz --fast {' '.join(dirnames)}")
 
-                    # Remove directory from dirnames to prevent further exploration
-                    dirnames.remove(dirname)
+                # Clear dirnames to prevent further exploration
+                dirnames.clear()
 
     def delete_filepath(self, filepath, silent=False):
         """Delete a file or directory"""
