@@ -552,6 +552,8 @@ class ArchiveProject:
                 continue
 
             version_path = self.get_version_path(version_id)
+            if not version_path:
+                continue
 
             rootless_source_path = version_doc["data"].get("source")
             source_path = self.anatomy.fill_root(rootless_source_path)
@@ -619,7 +621,9 @@ class ArchiveProject:
             # directly the source of the publish
             else:
                 # Override /io entries and .hip sources so we don't try remove them
-                if "/io/" in source_path or source_path.endswith(".hip"):
+                if "/io/" in source_path or \
+                        source_path.endswith(".hip") or \
+                        not source_path.startswith(f"/proj/{self.proj_code}"):
                     continue
 
                 source_files, _, _, _ = path_tools.convert_to_sequence(
@@ -628,7 +632,9 @@ class ArchiveProject:
                 # For source paths ending with .exr we try create a symlink path from
                 # the original source to the publish path
                 if source_path.endswith(".exr"):
-                    symlink_paths = glob.glob(os.path.join(version_path, "exr", "*"))
+                    symlink_paths = glob.glob(
+                        os.path.join(version_path, "exr", "*")
+                    )
 
             if not source_files or not os.path.exists(source_files[0]):
                 logger.debug(
