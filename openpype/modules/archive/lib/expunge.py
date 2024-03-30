@@ -996,16 +996,21 @@ class ArchiveProject:
                 for dirname in list(dirnames):
                     child_dir = os.path.join(dirpath, dirname)
                     logger.info(f"Compressing {child_dir}")
+                    if child_dir.endswith(".tar.gz") or child_dir.endswith(".zip"):
+                        logger.info("Skipping {child_dir} as it's already compressed")
+                        continue
+
                     if not const._debug:
                         # Create a single .tar entry with all the symlinks and files
-                        run_subprocess(
-                            ["tar", "-cf", f"{dirname}.tar", dirname, "--remove-files"],
-                            cwd=os.path.dirname(child_dir)
-                        )
+                        if not child_dir.endswith(".tar"):
+                            run_subprocess(
+                                ["tar", "-cf", f"{dirname}.tar", dirname, "--remove-files"],
+                                cwd=dirpath
+                            )
                         # And compress the .tar so it's lighter
                         run_subprocess(
                             ["pigz", "--fast", f"{dirname}.tar"],
-                            cwd=os.path.dirname(child_dir)
+                            cwd=dirpath
                         )
 
                     # Remove directory from dirnames to prevent further exploration
