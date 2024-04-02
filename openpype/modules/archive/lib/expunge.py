@@ -179,10 +179,10 @@ class ArchiveProject:
         if self.anatomy:
             self.clean_published_file_sources(archive=archive)
 
-        # Compress the work directories so I/O is faster when treating a lot
+        # Package the work directories so I/O is faster when treating a lot
         # of files as a single one
         if archive:
-            self.compress_workfiles()
+            self.package_workfiles()
 
         elapsed_time = time.time() - start_time
         logger.info("\n\nMore logging details at '%s'", self.summary_file)
@@ -974,10 +974,10 @@ class ArchiveProject:
         else:
             logger.info(pprint.pprint(report_items))
 
-    def compress_workfiles(self):
-        """Compresses the work directories for a project."""
+    def package_workfiles(self):
+        """Package the work directories into .tar files."""
 
-        logger.info(" \n---- Compressing work files ----\n")
+        logger.info(" \n---- Packaging work files ----\n")
 
         for folder in ["assets", "shots"]:
             target = os.path.join(self.target_root, folder)
@@ -995,8 +995,10 @@ class ArchiveProject:
 
                 for dirname in list(dirnames):
                     child_dir = os.path.join(dirpath, dirname)
-                    logger.info(f"Compressing {child_dir}")
-                    if child_dir.endswith(".tar.gz") or child_dir.endswith(".zip"):
+                    logger.info(f"Packaging {child_dir}")
+                    # The .zip and .tar.gz are added just for backwards compatibility
+                    # but only .tar's should be created from now on
+                    if child_dir.endswith(".tar") or child_dir.endswith(".zip") or child_dir.endswith(".tar.gz"):
                         logger.info("Skipping {child_dir} as it's already compressed")
                         continue
 
@@ -1007,11 +1009,6 @@ class ArchiveProject:
                                 ["tar", "-cf", f"{dirname}.tar", dirname, "--remove-files"],
                                 cwd=dirpath
                             )
-                        # And compress the .tar so it's lighter
-                        run_subprocess(
-                            ["pigz", "--fast", f"{dirname}.tar"],
-                            cwd=dirpath
-                        )
 
                     # Remove directory from dirnames to prevent further exploration
                     dirnames.remove(dirname)
