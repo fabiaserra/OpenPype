@@ -181,8 +181,10 @@ class ArchiveProject:
 
         # Package the work directories so I/O is faster when treating a lot
         # of files as a single one
-        if archive:
-            self.package_workfiles()
+        # NOTE: removed for now as we aren't sure if the benefits are worth
+        # the time it takes to package (and potentially unpackage) the files
+        # if archive:
+        #     self.package_workfiles()
 
         elapsed_time = time.time() - start_time
         logger.info("\n\nMore logging details at '%s'", self.summary_file)
@@ -987,7 +989,7 @@ class ArchiveProject:
                 logger.warning(f" - {target} folder does not exist")
                 continue
 
-            # Compress every child folder under 'work'
+            # Package every child folder under 'work'
             for dirpath, dirnames, _ in os.walk(target, topdown=True):
                 # Skip all folders that aren't within a 'work' directory
                 if "/work" not in dirpath:
