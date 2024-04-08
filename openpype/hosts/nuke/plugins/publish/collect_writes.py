@@ -391,7 +391,7 @@ class CollectNukeWrites(pyblish.api.InstancePlugin,
 
         # Extension may not match write node file type
         extension = os.path.splitext(write_file_path)[-1]
-        output_path_pattern = re.sub(fr"(.*\.)(#+)(\{extension})", r"\1*\3",  write_file_path)
+        output_path_pattern = path_tools.replace_frame_number_with_token(write_file_path, "*")
         output_files = glob.glob(output_path_pattern)
         if not output_files:
             raise PublishXmlValidationError(
