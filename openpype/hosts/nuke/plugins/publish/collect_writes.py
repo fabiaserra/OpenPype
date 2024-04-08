@@ -396,7 +396,7 @@ class CollectNukeWrites(pyblish.api.InstancePlugin,
         if not output_files:
             raise PublishXmlValidationError(
                 self,
-                "No frames found on disk to publish matching write node output path",
+                f"No frames found on disk to publish matching write node output path: {output_path_pattern}" ,
                 formatting_data={
                     "output_path": write_file_path,
                     "write_node_name": write_node.fullName(),
