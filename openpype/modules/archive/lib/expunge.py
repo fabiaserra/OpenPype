@@ -558,6 +558,8 @@ class ArchiveProject:
                 continue
 
             rootless_source_path = version_doc["data"].get("source")
+            if not rootless_source_path:
+                continue
             source_path = self.anatomy.fill_root(rootless_source_path)
 
             # Create a path of what we want to symlink the source path
