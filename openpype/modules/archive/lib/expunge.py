@@ -75,6 +75,8 @@ TEMP_FILE_PATTERNS = {
     re.compile(r".*_auto\d+\.hip$"),
     re.compile(r".*_bak\d+\.hip$"),
     re.compile(r".*\.hrox\.autosave$"),
+    re.compile(r".*_metadata.json"),
+    re.compile("exr_h264.mov"),
 }
 
 # Keywords to ignore when walking into directories to avoid deleting its versions
@@ -800,6 +802,7 @@ class ArchiveProject:
             "ifd": 0,
             "ifds": 0,
             "temp_transcode": 0,
+            "nuke_review_script": 0,
         }
 
         # If archiving, we also want to clear some extra folders
