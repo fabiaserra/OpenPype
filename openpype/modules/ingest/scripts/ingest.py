@@ -52,6 +52,7 @@ EXT_TO_REP_NAME = {
 # for example have .abc as extension too)
 FAMILY_EXTS_MAP = {
     "render": {".exr", ".dpx", ".tif", ".tiff", ".jpg", ".jpeg"},
+    "plate": {".exr"},
     "pointcache": {".abc"},
     "camera": {".abc", ".fbx"},
     "reference": {".mov", ".mp4", ".mxf", ".avi", ".wmv"},
@@ -349,9 +350,6 @@ def get_products_from_filepath(package_path, project_name, project_code):
         if asset_doc["name"] not in {"assets", "shots"}
     ]
 
-    # Reverse to give priority to the more specific asset names as the higher level ones
-    # (i.e., episode, sequence) are pretty easy to match against
-    asset_names.reverse()
     assets_re = "|".join(asset_names)
     strict_regex_str = STRICT_FILENAME_RE_STR.format(shot_codes=assets_re)
     strict_regex = re.compile(
@@ -364,7 +362,7 @@ def get_products_from_filepath(package_path, project_name, project_code):
     for root, _, files in os.walk(package_path):
         # Create a list of all the collections of files and single files that
         # we find that could potentially be an ingestable product
-        collections, remainders = clique.assemble(files)
+        collections, remainders = clique.assemble(files, patterns=[clique.PATTERNS["frames"]])
         filepaths_frame_range = [
             (
                 os.path.join(root, collection.format("{head}{padding}{tail}")),
