@@ -173,7 +173,8 @@ class HostsEnumEntity(BaseEnumEntity):
         "substancepainter",
         "traypublisher",
         "webpublisher",
-        "rv"
+        "rv",
+        "mari",
     ]
 
     def _item_initialization(self):

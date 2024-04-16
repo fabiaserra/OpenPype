@@ -1,5 +1,7 @@
 import os
+
 from openpype.modules import OpenPypeModule, IHostAddon
+
 
 MARI_HOST_DIR = os.path.dirname(os.path.abspath(__file__))
 

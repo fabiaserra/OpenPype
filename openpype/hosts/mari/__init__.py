@@ -1,10 +1,10 @@
 from .addon import (
-    MARI_ROOT_DIR,
+    MARI_HOST_DIR,
     MariAddon,
 )
 
 
 __all__ = (
-    "MARI_ROOT_DIR",
+    "MARI_HOST_DIR",
     "MariAddon",
 )

@@ -110,6 +110,10 @@
       "name": "schema_rv"
     },
     {
+      "type": "schema",
+      "name": "schema_mari"
+    },
+    {
       "type": "dict-modifiable",
       "key": "additional_apps",
       "label": "Additional",
