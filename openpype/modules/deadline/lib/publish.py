@@ -116,6 +116,13 @@ def validate_version(
         return msg, False
 
     asset_doc = get_asset_by_name(project_name, asset_name, fields=["_id", "data", "name"])
+    if not asset_doc:
+        msg = (
+            f"{item_str} -> Couldn't find asset in project with name {asset_name}, make sure it exists."
+        )
+        logger.error(msg)
+        return msg, False
+
     context_data = asset_doc["data"]
 
     # Validate that the version doesn't exist if we choose to not overwrite
@@ -207,6 +214,13 @@ def publish_version(
     asset_doc = get_asset_by_name(
         project_name, asset_name, fields=["_id", "data", "name"]
     )
+    if not asset_doc:
+        msg = (
+            f"{item_str} -> Couldn't find asset in project with name {asset_name}, make sure it exists."
+        )
+        logger.error(msg)
+        return msg, False
+
     context_data = asset_doc["data"]
 
     # Validate that the version doesn't exist if we choose to not overwrite
