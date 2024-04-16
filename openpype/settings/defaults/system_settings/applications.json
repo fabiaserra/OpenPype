@@ -1611,8 +1611,7 @@
         "icon": "{}/app_icons/mari.png",
         "host_name": "mari",
         "environment": {
-            "foundry_LICENSE": "5059@render-license-haproxy.tenant-alkemyx.svc.tenant.chi.local",
-            "MARI_CACHE": "{AX_PROJ_TOOLS}/mari/MariCache/"
+            "foundry_LICENSE": "5059@render-license-haproxy.tenant-alkemyx.svc.tenant.chi.local"
         },
         "variants": {
             "6-01": {
