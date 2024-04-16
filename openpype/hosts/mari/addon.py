@@ -14,7 +14,6 @@ class MariAddon(OpenPypeModule, IHostAddon):
         self.enabled = True
 
     def add_implementation_envs(self, env, _app):
-        # Add requirements to MARI_SCRIPT_PATH
         startup_path = os.path.join(MARI_HOST_DIR, "startup")
         env["MARI_SCRIPT_PATH"] = os.pathsep.join(startup_path)
 
