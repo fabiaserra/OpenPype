@@ -21,10 +21,12 @@ class IntegrateShotgridShotData(pyblish.api.InstancePlugin):
 
     optional = True
     sg_tags = {
-        "retime": {"id": 245, "name": "retime", "type": "Tag"},
-        "repo": {"id": 424, "name": "Pushin/Repo", "type": "Tag"},
-        "insert": {"id": 244, "name": "Screen Insert", "type": "Tag"},
-        "split": {"id": 423, "name": "Split Screen", "type": "Tag"},
+        "screen insert": {"id": 244, "name": "screen insert", "type": "Tag"},
+        "re-time": {"id": 6553, "name": "retime", "type": "Tag"},
+        "repo": {"id": 6556, "name": "repo", "type": "Tag"},
+        "split screen": {"id": 6557, "name": "split screen", "type": "Tag"},
+        "flip/flop": {"id": 6558, "name": "flip/flop", "type": "Tag"},
+        "insert element": {"id": 6674, "name": "insert element", "type": "Tag"}
     }
     sg_batch = []
 
