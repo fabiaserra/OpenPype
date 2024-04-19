@@ -16,13 +16,13 @@ return label
 
             <separatorItem/>
 
-            <scriptItem id="openpype_create">
-                <label>Create...</label>
+            <scriptItem id="workfiles">
+                <label>Work Files...</label>
                 <scriptCode><![CDATA[
 import hou
 from openpype.tools.utils import host_tools
 parent = hou.qt.mainWindow()
-host_tools.show_publisher(parent, tab="create")
+host_tools.show_workfiles(parent)
 ]]></scriptCode>
             </scriptItem>
 
@@ -36,16 +36,6 @@ host_tools.show_loader(parent=parent, use_context=True)
 ]]> </scriptCode>
             </scriptItem>
 
-            <scriptItem id="publish">
-                <label>Publish...</label>
-                <scriptCode><![CDATA[
-import hou
-from openpype.tools.utils import host_tools
-parent = hou.qt.mainWindow()
-host_tools.show_publisher(parent, tab="publish")
-]]></scriptCode>
-            </scriptItem>
-
             <scriptItem id="openpype_manage">
                 <label>Manage...</label>
                 <scriptCode><![CDATA[
@@ -53,28 +43,6 @@ import hou
 from openpype.tools.utils import host_tools
 parent = hou.qt.mainWindow()
 host_tools.show_scene_inventory(parent)
-]]></scriptCode>
-            </scriptItem>
-
-            <scriptItem id="library_load">
-                <label>Library...</label>
-                <scriptCode><![CDATA[
-import hou
-from openpype.tools.utils import host_tools
-parent = hou.qt.mainWindow()
-host_tools.show_library_loader(parent=parent)
-]]></scriptCode>
-            </scriptItem>
-
-            <separatorItem/>
-
-            <scriptItem id="workfiles">
-                <label>Work Files...</label>
-                <scriptCode><![CDATA[
-import hou
-from openpype.tools.utils import host_tools
-parent = hou.qt.mainWindow()
-host_tools.show_workfiles(parent)
 ]]></scriptCode>
             </scriptItem>
 
@@ -91,6 +59,38 @@ openpype.hosts.houdini.api.lib.reset_framerange()
                 <scriptCode><![CDATA[
 import openpype.hosts.houdini.api.lib
 openpype.hosts.houdini.api.lib.update_houdini_vars_context_dialog()
+]]></scriptCode>
+            </scriptItem>
+
+            <scriptItem id="library_load">
+                <label>Library...</label>
+                <scriptCode><![CDATA[
+import hou
+from openpype.tools.utils import host_tools
+parent = hou.qt.mainWindow()
+host_tools.show_library_loader(parent=parent)
+]]></scriptCode>
+            </scriptItem>
+
+            <separatorItem/>
+
+            <scriptItem id="openpype_create">
+                <label>Create...</label>
+                <scriptCode><![CDATA[
+import hou
+from openpype.tools.utils import host_tools
+parent = hou.qt.mainWindow()
+host_tools.show_publisher(parent, tab="create")
+]]></scriptCode>
+            </scriptItem>
+
+<scriptItem id="publish">
+                <label>Publish...</label>
+                <scriptCode><![CDATA[
+import hou
+from openpype.tools.utils import host_tools
+parent = hou.qt.mainWindow()
+host_tools.show_publisher(parent, tab="publish")
 ]]></scriptCode>
             </scriptItem>
 
