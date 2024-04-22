@@ -14,6 +14,8 @@ REVIEW_REPRESENTATION_NAME = "h264"
 
 GENERATE_REVIEW_EXTENSIONS = {"exr", "jpg", "jpeg", "png", "dpx", "tif", "tiff"}
 
+REVIEW_EXTENSIONS = {"mov", "mp4", "mxf", "avi"}
+
 logger = Logger.get_logger(__name__)
 
 
