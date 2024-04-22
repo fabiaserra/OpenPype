@@ -304,12 +304,19 @@ def publish_version(
     if add_review:
         anatomy = Anatomy(project_name)
 
+        review_repre = None
         for repre in representations:
-            if repre["ext"] not in review.GENERATE_REVIEW_EXTENSIONS:
-                continue
+            # Skip generating review if one of the repres is already
+            # a supported review extension
+            if repre["ext"] in review.REVIEW_EXTENSIONS:
+                review_repre = None
+                break
+            elif repre["ext"] in review.GENERATE_REVIEW_EXTENSIONS:
+                review_repre = repre
 
+        if review_repre:
             staging_dir = anatomy.fill_root(
-                repre["stagingDir"]
+                review_repre["stagingDir"]
             )
 
             # Set output colorspace default to 'shot_lut' unless it's a review/reference family
@@ -329,13 +336,13 @@ def publish_version(
             }
 
             # Create read path to pass to Nuke task
-            basename = repre["files"][0] if isinstance(repre["files"], list) else repre["files"]
+            basename = review_repre["files"][0] if isinstance(review_repre["files"], list) else review_repre["files"]
             read_path = os.path.join(staging_dir, basename)
             read_path = path_tools.replace_frame_number_with_token(read_path, "#", padding=True)
             logger.debug("Review read path: %s", read_path)
 
             # Create review output path
-            file_name = f"{repre['name']}_h264.mov"
+            file_name = f"{review_repre['name']}_h264.mov"
             output_path = os.path.join(
                 staging_dir,
                 file_name
@@ -349,8 +356,8 @@ def publish_version(
                 task_name,
                 read_path,
                 output_path,
-                repre["frameStart"],
-                repre["frameEnd"],
+                review_repre["frameStart"],
+                review_repre["frameEnd"],
                 review_data
             )
             job_submissions.append(response)
@@ -361,19 +368,13 @@ def publish_version(
                     "name": "h264",
                     "ext": "mov",
                     "files": file_name,
-                    "frameStart": repre["frameStart"],
-                    "frameEnd": repre["frameEnd"],
+                    "frameStart": review_repre["frameStart"],
+                    "frameEnd": review_repre["frameEnd"],
                     "stagingDir": staging_dir,
                     "fps": instance_data.get("fps"),
                     "tags": ["shotgridreview"],
                 }
             )
-
-            # We force it to only generate a review for the first representation
-            # that supports it
-            # TODO: in the future we might want to improve this if it's common
-            # that we ingest multiple image representations
-            break
 
     instance_data["frameStart"] = int(representations[0]["frameStart"])
     instance_data["frameEnd"] = int(representations[0]["frameEnd"])
