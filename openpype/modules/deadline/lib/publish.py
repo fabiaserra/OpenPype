@@ -38,9 +38,7 @@ IGNORE_LUT_FAMILIES = {
     "review",
 }
 
-TASKS_TO_IGNORE_REVIEW = {
-    "3dtrack"
-}
+TASKS_TO_IGNORE_REVIEW = {}
 
 
 def check_version_exists(project_name, asset_doc, subset_name, version):
