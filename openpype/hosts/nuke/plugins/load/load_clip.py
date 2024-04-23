@@ -136,17 +136,12 @@ class LoadClip(plugin.NukeLoader):
         # Make sure first and last are integers
         first = int(first)
         last = int(last)
-
-        slate_frame = "slate" in version_data.get("families", [])
+        ### Ends Alkemy-x override ###
 
         if not is_sequence:
             duration = last - first
             first = 1
             last = first + duration
-        else:
-            if slate_frame:
-                first -= 1
-        ### Ends Alkemy-x override ###
 
         # Fallback to asset name when namespace is None
         if namespace is None:
@@ -204,14 +199,14 @@ class LoadClip(plugin.NukeLoader):
             used_colorspace = self._set_colorspace(
                 read_node, version_data, representation["data"], filepath)
 
-            if not is_sequence:
+            if representation["context"].get("family") == "reference":
                 load_first_frame = version_data.get("frameStart", None)
                 load_handle_start = version_data.get("handleStart", None)
                 if load_first_frame and load_handle_start:
                     start_frame = load_first_frame - load_handle_start
                 else:
                     start_frame = self.script_start
-                self._loader_shift(read_node, int(slate_frame), int(start_frame), start_at_workfile)
+                self._loader_shift(read_node, int(start_frame), start_at_workfile)
             ### Ends Alkemy-x override ###
 
             # add additional metadata from the version to imprint Avalon knob
@@ -342,17 +337,11 @@ class LoadClip(plugin.NukeLoader):
         last = version_data.get("frameEnd", None)
         first -= self.handle_start
         last += self.handle_end
-        ### Starts Alkemy-x override ###
-        slate_frame = "slate" in version_data.get("families", [])
 
         if not is_sequence:
             duration = last - first
             first = 1
             last = first + duration
-        else:
-            if slate_frame:
-                first -= 1
-        ### Ends Alkemy-x override ###
 
         if not filepath:
             self.log.warning(
@@ -371,7 +360,7 @@ class LoadClip(plugin.NukeLoader):
                 read_node, version_data, representation["data"], filepath)
 
             ### Starts Alkemy-x override ###
-            if not is_sequence:
+            if representation["context"].get("family") == "reference":
                 load_first_frame = version_data.get("frameStart", None)
                 load_handle_start = version_data.get("handleStart", None)
                 if load_first_frame and load_handle_start:
@@ -379,7 +368,7 @@ class LoadClip(plugin.NukeLoader):
                 else:
                     start_frame = self.script_start
 
-                self._loader_shift(read_node, slate_frame, start_frame, start_at_workfile)
+                self._loader_shift(read_node, start_frame, start_at_workfile)
             ### Ends Alkemy-x override ###
 
             updated_dict = {
@@ -502,7 +491,7 @@ class LoadClip(plugin.NukeLoader):
                     last_node.setInput(i, n)
 
     ### Starts Alkemy-x override ###
-    def _loader_shift(self, read_node, slate, start_frame, workfile_start=False):
+    def _loader_shift(self, read_node, start_frame, workfile_start=False):
         """ Set start frame of read node to a workfile start
 
         Args:
@@ -519,6 +508,7 @@ class LoadClip(plugin.NukeLoader):
             time_offset = None
             reformat = None
             read_name = read_node.name()
+
             # Creates time_offset instead of read in-node operations
             if workfile_start:
                 dependent_nodes = get_all_dependent_nodes(read_node)
@@ -537,8 +527,6 @@ class LoadClip(plugin.NukeLoader):
                 # Account for video type starting at 1 instead of 0
                 start_frame -= 1
 
-                if slate:
-                    start_frame -= 1
                 if time_offset:
                     if time_offset["time_offset"].value() != start_frame:
                         time_offset.setValue(start_frame)
@@ -570,8 +558,8 @@ class LoadClip(plugin.NukeLoader):
                         if tmp_node:
                             nuke.delete(tmp_node)
     ### Ends Alkemy-x override ###
-    def _get_node_name(self, representation):
 
+    def _get_node_name(self, representation):
         repre_cont = representation["context"]
         name_data = {
             "asset": repre_cont["asset"],
