@@ -7,7 +7,6 @@ from Deadline.Plugins import PluginType, DeadlinePlugin
 from Deadline.Scripting import (
     StringUtils,
     FileUtils,
-    DirectoryUtils,
     RepositoryUtils
 )
 
@@ -15,6 +14,7 @@ import re
 import os
 import platform
 
+__version__ = "1.0.0"
 
 ######################################################################
 # This is the function that Deadline calls to get an instance of the
@@ -52,6 +52,9 @@ class AyonDeadlinePlugin(DeadlinePlugin):
         del self.RenderArgumentCallback
 
     def InitializeProcess(self):
+        self.LogInfo(
+            "Initializing process with AYON plugin {}".format(__version__)
+        )
         self.PluginType = PluginType.Simple
         self.StdoutHandling = True
 
@@ -85,27 +88,27 @@ class AyonDeadlinePlugin(DeadlinePlugin):
         }
 
         for env, val in environment.items():
-            self.SetProcessEnvironmentVariable(env, val)
+            self.SetEnvironmentVariable(env, val)
 
         exe_list = self.GetConfigEntry("AyonExecutable")
         # clean '\ ' for MacOS pasting
         if platform.system().lower() == "darwin":
             exe_list = exe_list.replace("\\ ", " ")
 
-        expanded_paths = []
-        for path in exe_list.split(";"):
-            if path.startswith("~"):
-                path = os.path.expanduser(path)
-                expanded_paths.append(path)
-        exe = FileUtils.SearchFileList(";".join(expanded_paths))
+        # expanded_paths = []
+        # for path in exe_list.split(";"):
+        #     if path.startswith("~"):
+        #         path = os.path.expanduser(path)
+        #     expanded_paths.append(path)
+        exe = FileUtils.SearchFileList(exe_list)
 
         if exe == "":
             self.FailRender(
-                "Ayon executable was not found " +
-                "in the semicolon separated list " +
-                "\"" + ";".join(exe_list) + "\". " +
-                "The path to the render executable can be configured " +
-                "from the Plugin Configuration in the Deadline Monitor.")
+                "Ayon executable was not found in the semicolon separated "
+                "list: \"{}\". The path to the render executable can be "
+                "configured from the Plugin Configuration in the Deadline "
+                "Monitor.".format(exe_list)
+            )
         return exe
 
     def RenderArgument(self):
