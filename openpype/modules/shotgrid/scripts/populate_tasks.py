@@ -1,9 +1,5 @@
-import copy
-
 from openpype.lib import Logger
 from openpype.modules.shotgrid.lib import credentials
-from openpype.client import get_asset_by_name
-from openpype.client.operations import OperationsSession
 
 
 logger = Logger.get_logger(__name__)
@@ -12,8 +8,8 @@ logger = Logger.get_logger(__name__)
 # Dictionary that maps task names that we use with the SG step code
 # corresponding to that task
 TASK_NAME_TO_STEP_MAP = {
-    "2dtrack": "2dTrk",
-    "3dtrack": "3dTrk"
+    "2dtrack": "2dtrk",
+    "3dtrack": "3dtrk"
 }
 
 
@@ -43,7 +39,7 @@ def add_tasks_to_sg_entities(project, sg_entities, entity_type, tasks):
 
         step = sg.find_one(
             "Step",
-            [["code", "is", step_name], ["entity_type", "is", entity_type]],
+            [["short_name", "is", step_name], ["entity_type", "is", entity_type]],
             ["code"]
         )
         # There may not be a task step for this entity_type or task_name
