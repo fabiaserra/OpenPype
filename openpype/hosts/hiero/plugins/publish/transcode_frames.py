@@ -222,6 +222,7 @@ class TranscodeFrames(publish.Extractor):
                     "Version": hiero_version,
                     "UseGpu": False,
                     "OutputFilePath": staging_dir,
+                    "BatchMode": False,
                 }
 
                 response = submit.payload_submit(

@@ -80,6 +80,7 @@ def generate_review(
         "Version": "15.0",
         "UseGpu": False,
         "OutputFilePath": output_dir,
+        "BatchMode": False,
     }
 
     logger.info("Submitting Nuke review generation")
