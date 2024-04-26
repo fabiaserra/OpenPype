@@ -165,7 +165,7 @@ def validate_mongo_connection(mongo_uri):
     """
 
     client = OpenPypeMongoConnection.create_connection(
-        mongo_uri, retry_attempts=1
+        mongo_uri
     )
     client.close()
 
@@ -217,8 +217,11 @@ class OpenPypeMongoConnection:
                 " URI must begin with 'mongodb://' or 'mongodb+srv://'"
             ))
 
+        ### Starts Alkemy-X Override ###
+        # Increase default timeouts and retries to be a bit less rigid erroring
+        # out in the farm
         if timeout is None:
-            timeout = int(os.environ.get("AVALON_TIMEOUT") or 1000)
+            timeout = int(os.environ.get("AVALON_TIMEOUT") or 5000)
 
         kwargs = {
             "serverSelectionTimeoutMS": timeout
@@ -229,10 +232,11 @@ class OpenPypeMongoConnection:
         mongo_client = pymongo.MongoClient(mongo_url, **kwargs)
 
         if retry_attempts is None:
-            retry_attempts = 3
+            retry_attempts = 5
 
         elif not retry_attempts:
             retry_attempts = 1
+        ### Ends Alkemy-X Override ###
 
         last_exc = None
         valid = False
