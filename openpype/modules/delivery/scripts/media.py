@@ -500,7 +500,6 @@ def generate_delivery_media_version(
             "Version": "15.0",
             "UseGpu": False,
             "OutputFilePath": dest_path,
-            "BatchMode": False,
         }
 
         # Submit job to Deadline
