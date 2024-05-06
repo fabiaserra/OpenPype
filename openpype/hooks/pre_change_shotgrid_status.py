@@ -60,7 +60,7 @@ class ShotgridStatusHook(PreLaunchHook):
         # Add SG type, name and id to the env so it's easier to find it later
         self.data["env"]["SG_ENTITY_TYPE"] = current_entity_type
         self.data["env"]["SG_ENTITY_NAME"] = current_entity_name
-        self.data["env"]["SG_ENTITY_ID"] = current_sg_entity["id"]
+        self.data["env"]["SG_ENTITY_ID"] = str(current_sg_entity["id"])
 
         task_name = self.data["task_name"]
         sg_task = sg.find_one(
