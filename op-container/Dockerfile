@@ -6,6 +6,8 @@ ENV PATH="${PATH}:/pipe/openpype/release/current"
 
 # Install dependencies
 ENV DEBIAN_FRONTEND=noninteractive
+ENV QT_QPA_PLATFORM=offscreen
+
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         zip \
@@ -15,6 +17,7 @@ RUN apt-get update \
         file \
         curl \
         git \
+        ffmpeg \
         dnsutils \
         ca-certificates \
         build-essential \
