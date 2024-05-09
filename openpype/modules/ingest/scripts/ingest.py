@@ -250,13 +250,21 @@ def validate_products(
 
 
 def publish_products(
-    project_name, products_data, overwrite_version=False, force_task_creation=False
+    project_name,
+    products_data,
+    overwrite_version=False,
+    force_task_creation=False,
+    create_groups=False,
 ):
     """Given a list of ProductRepresentation objects, publish them to OP and SG
 
     Args:
         project_name (str): Name of the project to publish to
         products_data (list): List of ProductRepresentation objects
+        overwrite_version (bool): Whether to overwrite the version if it exists
+        force_task_creation (bool): Whether to force the creation of the task
+        create_groups (bool): Whether to create groups for the subsets
+            that match all the name but the last delimiter token
 
     Returns:
         tuple: Tuple containing:
@@ -277,9 +285,13 @@ def publish_products(
     legacy_io.Session["AVALON_PROJECT"] = project_name
     legacy_io.Session["AVALON_APP"] = "traypublisher"
 
+    products = {}
+
+    # Initialize dictionary that will hold possible product groups
+    product_groups = {}
+
     # Go through list of products data from ingest dialog table and combine the
     # representations dictionary for the products that target the same subset
-    products = {}
     for product_item in products_data:
         item_str = f"{product_item.asset} - {product_item.task} - {product_item.family} - {product_item.subset}"
         logger.debug(item_str)
@@ -312,6 +324,26 @@ def publish_products(
 
             products[key]["expected_representations"][product_item.rep_name] = product_item.path
 
+        if create_groups:
+            group_name = product_item.subset.rsplit("_", 1)[0]
+            group_key = (
+                product_item.asset,
+                group_name
+            )
+            if group_key not in product_groups:
+                product_groups[group_key] = set()
+
+            product_groups[group_key].add(key)
+
+    # If product groups dictionary exists, assign it to the products dictionary
+    # if there's more than one item under that group
+    for group_key, product_keys in product_groups.items():
+        if len(product_keys) == 1:
+            continue
+
+        for product_key in product_keys:
+            products[product_key]["productGroup"] = group_key[-1]
+
     logger.debug("Flattened products: %s", products)
 
     for product_fields, product_data in products.items():
@@ -326,6 +358,7 @@ def publish_products(
             {"version": product_data.get("version")},
             overwrite_version,
             force_task_creation,
+            product_data.get("productGroup"),
         )
         if success:
             report_items["Successfully submitted products to publish"].append(msg)

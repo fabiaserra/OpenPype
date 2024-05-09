@@ -188,6 +188,7 @@ def publish_version(
     publish_data,
     overwrite_version=False,
     force_task_creation=False,
+    product_group=None,
 ):
     # String representation of product being published
     item_str = f"Asset: {asset_name} - Task: {task_name} - Family: {family_name} - Subset: {subset_name}"
@@ -261,6 +262,9 @@ def publish_version(
         "outputDir": os.path.dirname(source_path),
         "convertToScanline": publish_data.get("convertToScanline", False),
     }
+
+    if product_group:
+        instance_data["subsetGroup"] = product_group
 
     logger.debug("Getting representations...")
 
