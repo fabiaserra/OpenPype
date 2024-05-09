@@ -348,10 +348,21 @@ def get_products_from_filepath(package_path, project_name, project_code):
             result += c.lower()
         return result
 
-    asset_names = [
-        asset_doc["name"] for asset_doc in get_assets(project_name, fields=["name"])
-        if asset_doc["name"] not in {"assets", "shots"}
-    ]
+    # Get all assets in project and sort them in priority that we want to
+    # detect the name on the path (i.e., shots before sequences...)
+    asset_docs = get_assets(project_name, fields=["name", "data.sgEntityType"])
+    asset_names_dict = {}
+    for asset_doc in asset_docs:
+        asset_type = asset_doc["data"]["sgEntityType"]
+        if asset_type not in asset_names_dict:
+            asset_names_dict[asset_type] = []
+
+        asset_names_dict[asset_type].append(asset_doc["name"])
+
+    asset_names = []
+    for asset_type in ["Shot", "Asset", "Sequence", "Episode", "Group", "Season"]:
+        if asset_type in asset_names_dict:
+            asset_names.extend(asset_names_dict[asset_type])
 
     assets_re = "|".join(asset_names)
     strict_regex_str = STRICT_FILENAME_RE_STR.format(shot_codes=assets_re)
