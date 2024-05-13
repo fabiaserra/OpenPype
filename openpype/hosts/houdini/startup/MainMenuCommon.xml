@@ -95,6 +95,19 @@ host_tools.show_publisher(parent, tab="publish")
             </scriptItem>
 
             <separatorItem/>
+
+            <scriptItem id="create_flipbook">
+                <label>Create Flipbook...</label>
+                <scriptCode><![CDATA[
+import hou
+from openpype.hosts.houdini.api import flipbook
+parent = hou.qt.mainWindow()
+flipbook.show_dialog(parent)
+]]></scriptCode>
+            </scriptItem>
+
+            <separatorItem/>
+
             <scriptItem id="experimental_tools">
                 <label>Experimental tools...</label>
                 <scriptCode><![CDATA[
