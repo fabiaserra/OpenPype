@@ -38,12 +38,6 @@ class IntegrateShotgridVersion(pyblish.api.InstancePlugin):
             return
         context = instance.context
 
-        if instance.data.get("family") == "workfile":
-            self.log.info(
-                "Ignoring 'workfile' family."
-            )
-            return
-
         data_to_update = {}
         for representation in instance.data.get("representations", []):
             local_path = get_publish_repre_path(

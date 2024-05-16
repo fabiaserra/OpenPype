@@ -25,12 +25,6 @@ class IntegrateShotgridPublish(pyblish.api.InstancePlugin):
             self.log.info(
                 "Instance is marked to be processed on farm. Skipping")
             return
-
-        if instance.data.get("family") == "workfile":
-            self.log.info(
-                "Ignoring 'workfile' family."
-            )
-            return
         ### Ends Alkemy-X Override ###
 
         context = instance.context
