@@ -81,7 +81,7 @@ FUZZY_NAME_OVERRIDES = {
     ("render", ): {
         "family_name": "render",
     },
-    ("_geo_", ): {
+    ("_geo_", "_matchmove_", "_layout_"): {
         "family_name": "pointcache",
     },
 }
