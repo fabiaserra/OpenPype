@@ -25,6 +25,12 @@ class IntegrateShotgridPublish(pyblish.api.InstancePlugin):
             self.log.info(
                 "Instance is marked to be processed on farm. Skipping")
             return
+
+        if instance.data.get("family") == "workfile":
+            self.log.info(
+                "Ignoring 'workfile' family."
+            )
+            return
         ### Ends Alkemy-X Override ###
 
         context = instance.context
@@ -42,13 +48,6 @@ class IntegrateShotgridPublish(pyblish.api.InstancePlugin):
             )
 
             ### Starts Alkemy-X Override ###
-            if "shotgridreview" not in representation.get("tags", []):
-                self.log.debug(
-                    "No 'shotgridreview' tag on representation '%s', skipping.",
-                    representation.get("name")
-                )
-                continue
-
             code = os.path.basename(local_path)
             # Extract and remove version number from code so Publishedfile versions are
             # grouped together. More info about this on:

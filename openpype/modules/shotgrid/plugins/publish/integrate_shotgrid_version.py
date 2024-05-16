@@ -38,6 +38,12 @@ class IntegrateShotgridVersion(pyblish.api.InstancePlugin):
             return
         context = instance.context
 
+        if instance.data.get("family") == "workfile":
+            self.log.info(
+                "Ignoring 'workfile' family."
+            )
+            return
+
         data_to_update = {}
         for representation in instance.data.get("representations", []):
             local_path = get_publish_repre_path(
@@ -46,29 +52,29 @@ class IntegrateShotgridVersion(pyblish.api.InstancePlugin):
             self.log.debug(
                 "Checking whether to integrate representation '%s'.", representation
             )
-            if "shotgridreview" in representation.get("tags", []):
-                self.log.debug("Integrating representation")
-                if representation["ext"] in VIDEO_EXTENSIONS:
-                    data_to_update["sg_path_to_movie"] = local_path
-                    ### Starts Alkemy-X Override ###
-                    if (
-                        "slate" in instance.data["families"]
-                        and "slate-frame" in representation["tags"]
-                    ):
-                        data_to_update["sg_movie_has_slate"] = True
-                    ### Ends Alkemy-X Override ###
 
-                elif representation["ext"] in IMAGE_EXTENSIONS:
-                    # Define the pattern to match the frame number
-                    padding_pattern = r"\.\d+\."
-                    # Replace the frame number with '%04d'
-                    path_to_frame = re.sub(padding_pattern, ".%04d.", local_path)
+            self.log.debug("Integrating representation")
+            if representation["ext"] in VIDEO_EXTENSIONS:
+                data_to_update["sg_path_to_movie"] = local_path
+                ### Starts Alkemy-X Override ###
+                if (
+                    "slate" in instance.data["families"]
+                    and "slate-frame" in representation["tags"]
+                ):
+                    data_to_update["sg_movie_has_slate"] = True
+                ### Ends Alkemy-X Override ###
 
-                    data_to_update["sg_path_to_frames"] = path_to_frame
-                    ### Starts Alkemy-X Override ###
-                    if "slate" in instance.data["families"]:
-                        data_to_update["sg_frames_have_slate"] = True
-                    ### Ends Alkemy-X Override ###
+            elif representation["ext"] in IMAGE_EXTENSIONS:
+                # Define the pattern to match the frame number
+                padding_pattern = r"\.\d+\."
+                # Replace the frame number with '%04d'
+                path_to_frame = re.sub(padding_pattern, ".%04d.", local_path)
+
+                data_to_update["sg_path_to_frames"] = path_to_frame
+                ### Starts Alkemy-X Override ###
+                if "slate" in instance.data["families"]:
+                    data_to_update["sg_frames_have_slate"] = True
+                ### Ends Alkemy-X Override ###
 
         if not data_to_update:
             self.log.info("No data to integrate to SG, skipping version creation.")
