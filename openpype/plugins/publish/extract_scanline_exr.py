@@ -60,11 +60,15 @@ class ExtractScanlineExr(pyblish.api.InstancePlugin):
 
                 original_name = os.path.join(stagingdir, file)
                 temp_name = os.path.join(stagingdir, "__{}".format(file))
-                # move original render to temp location
-                shutil.move(original_name, temp_name)
+                # We check if it already exists as perhaps the publish failed
+                # after this step and on a second retry it will fail otherwise
+                if not os.path.exists(temp_name):
+                    # move original render to temp location
+                    shutil.move(original_name, temp_name)
+                    self.log.info("Renamed original file to '%s' before converting", temp_name)
                 oiio_cmd = oiio_tool_args + [
-                    os.path.join(stagingdir, temp_name), "--scanline", "-o",
-                    os.path.join(stagingdir, original_name)
+                    f'"{temp_name}"', "--scanline", "-o",
+                    f'"{original_name}"'
                 ]
 
                 subprocess_exr = " ".join(oiio_cmd)
