@@ -75,6 +75,12 @@ FUZZY_NAME_OVERRIDES = {
     ("_mm", "_trk", "track", "matchmove", "tracking"): {
         "task_name": TRACK_3D_TASK
     },
+    ("_paint_",): {
+        "task_name": PAINT_TASK
+    },
+    ("_roto_",): {
+        "task_name": ROTO_TASK
+    },
     ("distortion", "distortion_node"): {
         "family_name": "distortion"
     },
