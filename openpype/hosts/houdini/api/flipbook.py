@@ -238,9 +238,16 @@ class FlipbookDialog(QtWidgets.QDialog):
                 open_interrupt_dialog=True,
             ) as operation:
                 operation.updateLongProgress(0.25, "Starting Flipbook")
+                # Hide ortho grid before running flipbook
+                reference_plane = self.scene_viewer.referencePlane()
+                is_visible = reference_plane.isVisible()
+                if is_visible:
+                    reference_plane.setIsVisible(False)
                 hou.SceneViewer.flipbook(self.scene_viewer, settings=settings)
                 operation.updateLongProgress(1, "Flipbook successful")
-                # self.close_window()
+                # Revert back to what it was
+                if is_visible:
+                    reference_plane.setIsVisible(True)
 
         except Exception as e:
             log.error("Oops, something went wrong!")
