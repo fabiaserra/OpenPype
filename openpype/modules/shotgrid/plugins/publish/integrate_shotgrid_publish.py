@@ -97,7 +97,7 @@ class IntegrateShotgridPublish(pyblish.api.InstancePlugin):
                         "Update Shotgrid PublishedFile: {}".format(published_file)
                     )
 
-                if instance.data["family"] == "image":
+                if representation["name"] == "thumbnail":
                     self.sg.upload_thumbnail(
                         published_file["type"], published_file["id"], local_path
                     )

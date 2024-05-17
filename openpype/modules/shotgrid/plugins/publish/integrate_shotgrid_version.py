@@ -47,6 +47,10 @@ class IntegrateShotgridVersion(pyblish.api.InstancePlugin):
                 "Checking whether to integrate representation '%s'.", representation
             )
 
+            # Skip thumbnail representation
+            if representation["name"] == "thumbnail":
+                continue
+
             self.log.debug("Integrating representation")
             if representation["ext"] in VIDEO_EXTENSIONS:
                 data_to_update["sg_path_to_movie"] = local_path
@@ -64,8 +68,11 @@ class IntegrateShotgridVersion(pyblish.api.InstancePlugin):
                 # Replace the frame number with '%04d'
                 path_to_frame = re.sub(padding_pattern, ".%04d.", local_path)
 
-                data_to_update["sg_path_to_frames"] = path_to_frame
                 ### Starts Alkemy-X Override ###
+                if path_to_frame.startswith("/tmp"):
+                    continue
+
+                data_to_update["sg_path_to_frames"] = path_to_frame
                 if "slate" in instance.data["families"]:
                     data_to_update["sg_frames_have_slate"] = True
                 ### Ends Alkemy-X Override ###
