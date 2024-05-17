@@ -29,6 +29,7 @@ class FlipbookDialog(QtWidgets.QDialog):
 
         self.beautyPassOnly = QtWidgets.QCheckBox("Beauty Pass", self)
         self.useMotionblur = QtWidgets.QCheckBox("Motion Blur", self)
+        self.showGrid = QtWidgets.QCheckBox("Show Grid", self)
 
         # description widget
         self.descriptionLabel = QtWidgets.QLabel("Description")
@@ -114,6 +115,7 @@ class FlipbookDialog(QtWidgets.QDialog):
         groupLayout.addWidget(self.outputToMplay)
         groupLayout.addWidget(self.beautyPassOnly)
         groupLayout.addWidget(self.useMotionblur)
+        groupLayout.addWidget(self.showGrid)
         groupLayout.addWidget(self.copyPathButton)
         self.optionsGroup.setLayout(groupLayout)
 
@@ -238,16 +240,14 @@ class FlipbookDialog(QtWidgets.QDialog):
                 open_interrupt_dialog=True,
             ) as operation:
                 operation.updateLongProgress(0.25, "Starting Flipbook")
-                # Hide ortho grid before running flipbook
+                # Show/Hide ortho grid before running flipbook
                 reference_plane = self.scene_viewer.referencePlane()
-                is_visible = reference_plane.isVisible()
-                if is_visible:
-                    reference_plane.setIsVisible(False)
+                old_state = reference_plane.isVisible()
+                reference_plane.setIsVisible(self.showGrid.isChecked())
                 hou.SceneViewer.flipbook(self.scene_viewer, settings=settings)
                 operation.updateLongProgress(1, "Flipbook successful")
                 # Revert back to what it was
-                if is_visible:
-                    reference_plane.setIsVisible(True)
+                reference_plane.setIsVisible(old_state)
 
         except Exception as e:
             log.error("Oops, something went wrong!")
