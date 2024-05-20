@@ -339,6 +339,7 @@ def publish_version(
                 "out_colorspace": publish_data.get("out_colorspace", out_colorspace),
                 "product_name": subset_name,
                 "contact_sheet": True if subset_name.endswith("_util") else False,
+                "frame_range": review_repre["frameRange"],
             }
 
             # Create read path to pass to Nuke task
