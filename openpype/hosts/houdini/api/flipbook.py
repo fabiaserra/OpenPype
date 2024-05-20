@@ -4,6 +4,7 @@ import logging
 from qtpy import QtWidgets, QtGui
 import hou
 
+from openpype.lib import path_tools
 from openpype.modules.deadline.lib import publish
 
 
@@ -275,6 +276,10 @@ class FlipbookDialog(QtWidgets.QDialog):
             buttons=("Submit", "Cancel"),
             default_choice=0,
             close_choice=1,
+            initial_contents=(
+                "",
+                path_tools.get_version_from_path(hou.hipFile.basename())
+            )
         )
 
         if button_idx:
