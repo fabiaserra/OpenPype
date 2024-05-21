@@ -262,6 +262,8 @@ class FlipbookDialog(QtWidgets.QDialog):
     def submit_to_publish(self):
         output_path = self.get_output_path(expand=True)
         product_name = os.path.basename(output_path).split(".")[0]
+        # Add task name suffix to product name
+        product_name = f"{product_name}_{os.getenv('AVALON_TASK')}"
 
         if not os.path.exists(output_path):
             hou.ui.displayMessage(
