@@ -4,9 +4,9 @@ no longer add sandwiches on the overrides.
 We have changed the logic so if there's no "data_to_update" at all we don't integrate
 the version to SG at all.
 """
-import re
 import pyblish.api
 
+from openpype.lib import path_tools
 from openpype.pipeline.publish import get_publish_repre_path
 from openpype.lib.transcoding import (
     VIDEO_EXTENSIONS,
@@ -14,7 +14,15 @@ from openpype.lib.transcoding import (
 )
 VIDEO_EXTENSIONS = set(ext.lstrip(".") for ext in VIDEO_EXTENSIONS)
 IMAGE_EXTENSIONS = set(ext.lstrip(".") for ext in IMAGE_EXTENSIONS)
-
+GEO_EXTENSIONS = {
+    "bgeo.sc",
+    "bgeo.gz",
+    "bgeo",
+    "usd",
+    "abc",
+    "fbx",
+    "obj",
+}
 
 class IntegrateShotgridVersion(pyblish.api.InstancePlugin):
     """Integrate Shotgrid Version"""
@@ -51,31 +59,39 @@ class IntegrateShotgridVersion(pyblish.api.InstancePlugin):
             if representation["name"] == "thumbnail":
                 continue
 
+            # Skip temp locations
+            if local_path.startswith("/tmp"):
+                continue
+
+            # Replace the frame number with '%04d'
+            local_path = path_tools.replace_frame_number_with_token(local_path, "%04d")
+
             self.log.debug("Integrating representation")
             if representation["ext"] in VIDEO_EXTENSIONS:
                 data_to_update["sg_path_to_movie"] = local_path
-                ### Starts Alkemy-X Override ###
                 if (
                     "slate" in instance.data["families"]
                     and "slate-frame" in representation["tags"]
                 ):
                     data_to_update["sg_movie_has_slate"] = True
-                ### Ends Alkemy-X Override ###
 
             elif representation["ext"] in IMAGE_EXTENSIONS:
-                # Define the pattern to match the frame number
-                padding_pattern = r"\.\d+\."
-                # Replace the frame number with '%04d'
-                path_to_frame = re.sub(padding_pattern, ".%04d.", local_path)
-
-                ### Starts Alkemy-X Override ###
-                if path_to_frame.startswith("/tmp"):
-                    continue
-
-                data_to_update["sg_path_to_frames"] = path_to_frame
+                data_to_update["sg_path_to_frames"] = local_path
                 if "slate" in instance.data["families"]:
                     data_to_update["sg_frames_have_slate"] = True
-                ### Ends Alkemy-X Override ###
+
+            elif representation["ext"] in GEO_EXTENSIONS:
+                data_to_update["sg_path_to_geometry"] = local_path
+
+            #TODO: add some logic to figure out what the main representation
+            # if there's more than one
+            else:
+                data_to_update["sg_path_to_main_representation"] = local_path
+
+        # Fill up source path field
+        source_path = instance.data.get("source")
+        if source_path:
+            data_to_update["sg_path_to_source"] = source_path
 
         if not data_to_update:
             self.log.info("No data to integrate to SG, skipping version creation.")
