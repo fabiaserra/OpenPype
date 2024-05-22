@@ -338,7 +338,7 @@ def publish_version(
                 # explicitly set on the publish_data dictionary
                 "out_colorspace": publish_data.get("out_colorspace", out_colorspace),
                 "product_name": subset_name,
-                "contact_sheet": True if subset_name.endswith("_util") else False,
+                "contact_sheet": True if "_util_" in subset_name else False,
                 "frame_range": review_repre["frameRange"],
             }
 
