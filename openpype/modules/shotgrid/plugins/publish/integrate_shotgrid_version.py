@@ -87,6 +87,7 @@ class IntegrateShotgridVersion(pyblish.api.InstancePlugin):
             # if there's more than one
             else:
                 data_to_update["sg_path_to_main_representation"] = local_path
+                data_to_update["sg_status_list"] = "na"
 
         # Fill up source path field
         source_path = instance.data.get("source")
