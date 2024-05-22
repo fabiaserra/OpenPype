@@ -229,7 +229,7 @@ class TranscodeFrames(publish.Extractor):
                     plugin_data=plugin_data,
                     batch_name=batch_name,
                     task_name=task_name,
-                    frame_range=(out_frame_start, out_frame_end),
+                    frame_range="{0}-{1}".format(out_frame_start, out_frame_end),
                     department="Editorial",
                     group=dl_constants.NUKE_CPU_GROUP.format(
                         hiero.core.env["VersionMajor"], hiero.core.env["VersionMinor"]
@@ -302,7 +302,7 @@ class TranscodeFrames(publish.Extractor):
                     batch_name=batch_name,
                     task_name=task_name,
                     department="Editorial",
-                    frame_range=(src_frame_start, src_frame_end),
+                    frame_range="{0}-{1}".format(src_frame_start, src_frame_end),
                     group=dl_constants.OP_GROUP,
                     comment=context.data.get("comment", ""),
                 )
