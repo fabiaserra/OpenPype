@@ -57,7 +57,7 @@ class ExtractReviewNuke(publish.Extractor):
                 # Create review output path
                 output_path = os.path.join(
                     staging_dir,
-                    f"{repre['name']}_h264.mov"
+                    f"{instance.data['subset']}_{repre['name']}_h264.mov"
                 )
 
                 # Get source colorspace from representation
