@@ -69,15 +69,12 @@ class IntegrateShotgridVersion(pyblish.api.InstancePlugin):
             self.log.debug("Integrating representation")
             if representation["ext"] in VIDEO_EXTENSIONS:
                 data_to_update["sg_path_to_movie"] = local_path
-                if (
-                    "slate" in instance.data["families"]
-                    and "slate-frame" in representation["tags"]
-                ):
+                if instance.data.get("slate_frame"):
                     data_to_update["sg_movie_has_slate"] = True
 
             elif representation["ext"] in IMAGE_EXTENSIONS:
                 data_to_update["sg_path_to_frames"] = local_path
-                if "slate" in instance.data["families"]:
+                if instance.data.get("slate_frame"):
                     data_to_update["sg_frames_have_slate"] = True
 
             elif representation["ext"] in GEO_EXTENSIONS:
@@ -88,6 +85,10 @@ class IntegrateShotgridVersion(pyblish.api.InstancePlugin):
             else:
                 data_to_update["sg_path_to_main_representation"] = local_path
                 data_to_update["sg_status_list"] = "na"
+
+        sg_status = instance.data.get("sg_status")
+        if sg_status:
+            data_to_update["sg_status_list"] = sg_status
 
         # Fill up source path field
         source_path = instance.data.get("source")

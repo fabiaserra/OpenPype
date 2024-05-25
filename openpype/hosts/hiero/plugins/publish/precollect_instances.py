@@ -94,6 +94,13 @@ class PrecollectInstances(pyblish.api.ContextPlugin):
                 family = "{}.farm".format(tag_data["family"])
             else:
                 family = tag_data["family"]
+
+            # Add sg status to data so we integrate it later to SG
+            if tag_data["family"] == "plate":
+                data["sg_status"] = "plt"
+            elif tag_data["family"] == "reference":
+                data["sg_status"] = "cqt"
+
             ### Ends Alkemy-X Override ###
             families = [str(f) for f in tag_data["families"]]
             families.insert(0, str(family))
