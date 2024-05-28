@@ -28,9 +28,10 @@ class ExtractReviewNuke(publish.Extractor):
 
         instance.data["toBeRenderedOn"] = "deadline"
 
-        # Hard-code the addition of 'slate_frame'
+        # Hard-code the addition of 'slateFrame'
         # TODO: make it dynamic based on whether it's activated on the .nk template
-        instance.data["slate_frame"] = True
+        self.log.info("Adding slateFrame to instance")
+        instance.data["slateFrame"] = True
 
         context = instance.context
 

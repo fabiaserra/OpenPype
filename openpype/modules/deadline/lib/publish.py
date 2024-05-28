@@ -368,7 +368,7 @@ def publish_version(
                 review_data
             )
             job_submissions.append(response)
-            instance_data["slate_frame"] = True
+            instance_data["slateFrame"] = True
 
             # Add review as a new representation to publish
             representations.append(
