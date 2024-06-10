@@ -120,7 +120,7 @@ class IntegrateShotgridShotData(pyblish.api.InstancePlugin):
         tag_updates = []
         for key, tag in self.sg_tags.items():
             # Need to make sure the icons are sorted for easy readability
-            if sg_tag_data[key] == "True":
+            if sg_tag_data.get(key) == "True":
                 tag_updates.append(tag)
 
         # Compare tag_updates to current tags
