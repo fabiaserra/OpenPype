@@ -32,6 +32,8 @@ from openpype.client import (
     get_subsets,
     get_last_versions
 )
+from openpype.pipeline import context_tools
+from openpype.pipeline.template_data import prepare_template_data
 from openpype.pipeline.version_start import get_versioning_start
 
 
@@ -212,6 +214,22 @@ class CollectAnatomyInstanceData(pyblish.api.ContextPlugin):
                     parent_name = parents[-1]
                 anatomy_updates["hierarchy"] = "/".join(parents)
                 anatomy_updates["parent"] = parent_name
+
+            ### Starts Alkemy-X Override ###
+            # Set hierarchy context data to anatomy so we can use it on templates
+            hierarchy_env = context_tools.get_hierarchy_env(
+                project_doc, asset_doc
+            )
+            hierarchy_pairs = {}
+            # Only add to hierarchy_pairs if the env does exist
+            for env_key in {"EPISODE", "SEQ", "SHOT", "SHOTNUM", "ASSET_TYPE"}:
+                env_value = hierarchy_env.get(env_key)
+                if not env_value:
+                    continue
+                hierarchy_pairs[env_key.lower()] = env_value
+            hierarchy_data = prepare_template_data(hierarchy_pairs)
+            anatomy_updates.update(hierarchy_data)
+            ### Ends Alkemy-X Override ###
 
             # Task
             task_type = None
